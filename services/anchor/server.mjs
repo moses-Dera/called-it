@@ -23,6 +23,13 @@ const wallet = await openWallet();
 const { account, signer, binding } = await unlock(wallet).catch(async (e) => { await wallet.close(); console.error(describe(e)); process.exit(1); });
 const ADDRESS = env.ANCHOR_ADDRESS || (await addressOf(wallet, account.id));
 
+// A previous run may have left a signed transaction that was never broadcast. Send it now.
+for (const op of (await wallet.operations.list({ accountId: account.id })).items) {
+  if (op.phase !== "ready") continue;
+  try { await resumeAndBroadcast(op.operationId); console.log("broadcast a transaction left from an earlier run:", op.steps.at(-1)?.txid); }
+  catch (e) { console.warn("could not broadcast leftover operation", op.operationId, describe(e)); }
+}
+
 /** Scan while waiting so the payment can be observed, as the SDK docs require. */
 async function waitForConfirmation(pending) {
   const stop = new AbortController();
@@ -32,14 +39,36 @@ async function waitForConfirmation(pending) {
   finally { stop.abort(); await Promise.allSettled([watching, waiting]); }
 }
 
+/** Broadcast a transaction that was already built and signed but not sent (tip kept moving). */
+async function resumeAndBroadcast(operationId) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const pending = await wallet.operations.resume({ operationId });
+      await wallet.sync();
+      await pending.broadcast();
+      return pending;
+    } catch (e) {
+      if (e?.code !== "SYNC_REQUIRED" || attempt >= 3) throw e;
+      console.warn(`broadcast attempt ${attempt} for ${operationId}: ${describe(e)}; retrying`);
+    }
+  }
+}
+
 async function anchorBatch(roots) {
   const synced = await wallet.sync();
   if (!synced.targetReached) throw new Error("wallet sync did not reach the chain tip");
   const tip = synced.target?.height ?? 0;
-  const pending = await wallet.send({
-    accountId: account.id, to: ADDRESS, amount: ZATS,
-    memo: { text: "CI1|" + roots.join("|") }, idempotencyKey: randomUUID(),
-  });
+  let pending;
+  try {
+    pending = await wallet.send({
+      accountId: account.id, to: ADDRESS, amount: ZATS,
+      memo: { text: "CI1|" + roots.join("|") }, idempotencyKey: randomUUID(),
+    });
+  } catch (e) {
+    // Built and signed, but the chain moved on before submission: send the same bytes again.
+    if (e?.code === "SYNC_REQUIRED" && e.operationId) pending = await resumeAndBroadcast(e.operationId);
+    else throw e;
+  }
   const sent = (await pending.snapshot()).steps.at(-1)?.txid;
   try {
     const done = await waitForConfirmation(pending);
