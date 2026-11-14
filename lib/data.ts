@@ -1,11 +1,13 @@
 export const art = (n: string) => `/a/${n}.webp`;
-/** Fixtures players can seal. Ids match the `fixtures` table, where the official results are entered. */
-export const FIXTURES = [
-  { id: "reds-blues-2026-11-21", home: "Reds", away: "Blues", when: "Sat 21 Nov · 17:30", sealed: "6 friends sealed" },
-  { id: "lagos-derby-2026-11-22", home: "Lagos Reds", away: "Lagos Blues", when: "Sun 22 Nov · 16:00", sealed: "2 friends sealed" },
+/** Fallback fixtures (used before the database answers, or without accounts). The live list comes
+ * from the `fixtures` table, which admins manage at /admin. */
+export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null };
+export const FIXTURES: Fixture[] = [
+  { id: "reds-blues-2026-11-21", home: "Reds", away: "Blues", kickoff: "2026-11-21T17:30:00Z", when: "Sat 21 Nov · 17:30" },
+  { id: "lagos-derby-2026-11-22", home: "Lagos Reds", away: "Lagos Blues", kickoff: "2026-11-22T16:00:00Z", when: "Sun 22 Nov · 16:00" },
 ];
-export type Fixture = (typeof FIXTURES)[number];
-export const fixtureOf = (id?: string | null) => FIXTURES.find((f) => f.id === id) ?? FIXTURES[0];
+export const fixtureOf = (id?: string | null, list: Fixture[] = FIXTURES) => list.find((f) => f.id === id) ?? FIXTURES.find((f) => f.id === id) ?? list[0] ?? FIXTURES[0];
+export const whenOf = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export const PLAYERS = ["You", "Ada", "Emeka", "Seyi", "Kemi", "Chi", "Ify", "Bayo"].map((name, i) => ({ name, av: art(`avatar_${i + 1}`) }));
 export const MODES = [

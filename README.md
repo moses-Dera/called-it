@@ -43,6 +43,19 @@ until scoring moves to the server.
   `SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run payouts` in `services/anchor`. The secret key is for that
   script only; never put it in the web app or on Vercel.
 
+## Admin, contests and sponsors
+
+Open `/admin` while signed in. The first account to press **Claim admin** becomes the admin (only while
+there is none), and an Admin link then appears in its sidebar. From there:
+
+- **Fixtures:** add matches (or "Demo match in 10 min" to try the full flow), and enter final scores.
+  Signed-in players who sealed a fixture are scored automatically the next time they open the app.
+- **Contests and sponsors:** group fixtures into a contest with an optional sponsor and a testnet ZEC
+  prize pot. It shows on Home with its own leaderboard at `/contest?c=<id>`. Closing it splits the pot
+  50/30/20 between the top three as verified rewards they can withdraw from the Vault.
+- **Payout requests:** see every request, mark paid or rejected (or run `npm run payouts`).
+- **Transaction record:** every anchor transaction (block, seals, players) and every payout, with ids to copy.
+
 ## Zcash testnet anchoring
 
 `services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/)

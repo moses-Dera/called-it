@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { cloudReady, signInWithGoogle, useCloud } from "@/lib/cloud";
+import { useEffect, useState } from "react";
+import { cloudReady, cloudRpc, signInWithGoogle, useCloud } from "@/lib/cloud";
 import { useStore } from "@/lib/store";
 
 const G = () => (
@@ -36,10 +37,13 @@ export function SidebarAccount() {
   const user = c.session?.user;
   if (user) {
     return (
+      <>
+      <AdminLink uid={user.id} />
       <Link href="/profile" style={{ flexDirection: "column", alignItems: "flex-start", gap: 2, background: "var(--panel)", border: "2px solid var(--line)" }}>
         <span style={{ fontSize: 13, color: "var(--text)" }}>{name || user.user_metadata?.full_name || "Signed in"}</span>
         <span style={{ fontSize: 11, color: c.status === "error" ? "var(--red)" : "var(--lime)", fontWeight: 700 }}>{c.status === "error" ? "Sync problem" : c.status === "syncing" ? "Syncing…" : "✓ Progress backed up"}</span>
       </Link>
+      </>
     );
   }
   return (
@@ -61,4 +65,16 @@ export function BackupNudge({ what = "points and proofs" }: { what?: string }) {
       <button onClick={signInWithGoogle} className="btn btn-paper" style={{ minHeight: 40, fontSize: 13, borderRadius: 12, flexShrink: 0 }}><G />Sign in</button>
     </div>
   );
+}
+
+/** Sidebar link to /admin, shown only to the admin. */
+function AdminLink({ uid }: { uid: string }) {
+  const [admin, setAdmin] = useState<{ uid: string; on: boolean } | null>(null);
+  useEffect(() => {
+    let live = true;
+    cloudRpc<{ is_admin: boolean }>("admin_status").then((s) => live && setAdmin({ uid, on: s.is_admin })).catch(() => {});
+    return () => { live = false; };
+  }, [uid]);
+  if (!admin?.on || admin.uid !== uid) return null;
+  return <Link href="/admin" style={{ background: "var(--amber)", color: "#111", border: "2px solid #111", justifyContent: "center", fontWeight: 800 }}>Admin</Link>;
 }

@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fixtureOf, type Fixture } from "@/lib/data";
+import { fixtureOf } from "@/lib/data";
+import { useFixtures } from "@/lib/cloud";
 import { Img, Lock, SealStatus, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
@@ -22,12 +23,16 @@ function Wheel({ v, set, name }: { v: number; set: (n: number) => void; name: st
 export default function SealPage() {
   const [home, setHome] = useState(2), [away, setAway] = useState(1), [side, setSide] = useState(-1);
   const [sealId, setSealId] = useState<string | null>(null), [busy, setBusy] = useState(false);
-  const [fx, setFx] = useState<Fixture>(fixtureOf(null));
+  const fixtures = useFixtures();
+  const [fid, setFid] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
+  const fx = fixtureOf(fid, fixtures);
+  const closed = now !== null && Date.parse(fx.kickoff) <= now; // sealing ends at kickoff
   // Which fixture: /seal?f=<fixture id>. Read on the client so the page stays static.
-  useEffect(() => { setFx(fixtureOf(new URLSearchParams(location.search).get("f"))); }, []);
+  useEffect(() => { setFid(new URLSearchParams(location.search).get("f")); setNow(Date.now()); }, []);
   const seal: Seal | undefined = useStore().seals.find((s) => s.id === sealId);
 
   async function doSeal() {
+    if (closed) return;
     if (busy) return;
     setBusy(true);
     const s = await createSeal("classic", fx.id, `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `${fx.home} ${home} – ${away} ${fx.away}`);
@@ -38,7 +43,7 @@ export default function SealPage() {
     <main className="screen">
       <TopBar mode="classic" eyebrow="Classic Call" title={`${fx.home} vs ${fx.away}`} />
       <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-        <div style={{ background: "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}><b>Early bird x2</b> if sealed a day before kickoff · {fx.when}</div>
+        <div style={{ background: closed ? "var(--pink)" : "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}>{closed ? <><b>Sealing closed.</b> This match kicked off {fx.when}.</> : <><b>Early bird x2</b> if sealed a day before kickoff · Kickoff {fx.when}</>}</div>
         <div className="paper" style={{ borderRadius: 28, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around" }}>
             <Img n="crest_home" size={56} h={65} alt={`${fx.home} crest`} /><span className="eyebrow" style={{ color: "#6b6455" }}>Final score</span><Img n="crest_away" size={56} h={65} alt={`${fx.away} crest`} />
@@ -57,7 +62,7 @@ export default function SealPage() {
         </div>
       </div>
       <div style={{ padding: "14px 20px 30px" }}>
-        <button className="btn btn-primary" style={{ width: "100%" }} onClick={doSeal}><Lock />{busy ? "Sealing…" : `Seal ${home} – ${away}`}</button>
+        <button className="btn btn-primary" style={{ width: "100%", opacity: closed ? 0.5 : 1 }} disabled={closed} onClick={doSeal}><Lock />{closed ? "Kickoff passed" : busy ? "Sealing…" : `Seal ${home} – ${away}`}</button>
       </div>
 
       {seal && (

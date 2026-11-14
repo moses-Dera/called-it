@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { FIXTURES, MODES } from "@/lib/data";
+import { MODES } from "@/lib/data";
+import { HomeFeed } from "@/components/home-feed";
 import { BottomNav, Img } from "@/components/ui";
 import { HomeBadge } from "@/components/home-badge";
 
@@ -26,21 +27,7 @@ export default function Home() {
           </div>
         </Link>
 
-        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
-            <Link href="/seal" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)" }}>All fixtures</Link>
-          </div>
-          {FIXTURES.map((f) => (
-            <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
-              <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6" }}>
-                <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
-                <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>{f.when} · {f.sealed}</div>
-              </div>
-              <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
-            </Link>
-          ))}
-        </section>
+        <HomeFeed />
 
         <section className="home-games" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Pick a game</h2>
