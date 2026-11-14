@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Img, TopBar } from "@/components/ui";
+import { Img, TopBar, RealPlay } from "@/components/ui";
 import { PLAYERS } from "@/lib/data";
 import { createSeal } from "@/lib/store";
 
@@ -21,6 +21,7 @@ export default function Vote() {
     <main className="screen" style={{ background: "#ffce80", color: "#111" }}>
       <Img n="cover_vote" size={240} style={{ position: "absolute", right: -70, top: 30, opacity: 0.22, transform: "rotate(10deg)" }} />
       <TopBar mode="vote" eyebrow="Secret Vote · Uni squad" title={phase === "vote" ? "7 of 8 votes sealed" : "All 8 votes are in"} light accent="#ffce80" />
+      <RealPlay game="vote" />
       <div className="display" style={{ padding: "6px 20px 0", fontSize: 36, letterSpacing: -1, position: "relative" }}>Who gets married first?</div>
       {phase === "vote" ? (
         <div className="vote-grid" style={{ padding: "18px 20px 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, position: "relative" }}>

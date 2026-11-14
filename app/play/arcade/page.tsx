@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CardBack, Flip, Img, TopBar } from "@/components/ui";
+import { CardBack, Flip, Img, TopBar, RealPlay } from "@/components/ui";
 import { PLAYERS } from "@/lib/data";
 import { addReward, commit, randomHex, short } from "@/lib/store";
 
@@ -37,6 +37,7 @@ export default function Arcade() {
     <main className="screen" style={{ background: "var(--yellow)", color: "#111" }}>
       <Img n="cover_arcade" size={300} style={{ position: "absolute", right: -90, top: 40, opacity: 0.18, transform: "rotate(14deg)" }} />
       <TopBar mode="arcade" eyebrow="Fair-Play Arcade" title="Rock Paper Scissors" light accent="var(--yellow)" />
+      <RealPlay game="arcade" />
       <div style={{ margin: "10px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><Img n="avatar_1" size={52} alt="You" style={{ borderRadius: 16, border: "3px solid #111" }} /><div><b>You</b><div className="display" style={{ fontSize: 26 }}>{me}</div></div></div>
         <span className="display" style={{ fontSize: 30 }}>VS</span>

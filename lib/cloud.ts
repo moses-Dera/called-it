@@ -13,7 +13,7 @@ const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT
 export const cloudReady = !!(URL && KEY);
 
 let client: SupabaseClient | null = null;
-function sb() { return cloudReady ? (client ??= createClient(URL!, KEY!, { auth: { flowType: "pkce" } })) : null; }
+export function sb() { return cloudReady ? (client ??= createClient(URL!, KEY!, { auth: { flowType: "pkce" } })) : null; }
 
 type Cloud = { session: Session | null; status: "off" | "idle" | "syncing" | "synced" | "error"; error?: string };
 let cloud: Cloud = { session: null, status: cloudReady ? "idle" : "off" };

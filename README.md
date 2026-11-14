@@ -43,6 +43,18 @@ until scoring moves to the server.
   `SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run payouts` in `services/anchor`. The secret key is for that
   script only; never put it in the web app or on Vercel.
 
+## Play with friends (real players)
+
+`/rooms`: create a game, pick opponents from the player list or share the room code, and play in
+`/room?id=…`. Phase 1 games: Rock Paper Scissors (1 vs 1), Secret Vote, Closest Wins (the host
+referees and enters the true answer) and a group Time Capsule (opens on a chosen date).
+
+Each move is sealed on the device (only the hash reaches the server, and it is also anchored on Zcash).
+When everyone has sealed, each device reveals its move and salt; the server re-hashes them against the
+seals and settles the round. Moves stay hidden until then, even from players who already revealed.
+Anyone who doesn't reveal within 10 minutes forfeits. Wins give ranked points but no ZEC. Rooms update
+live through Supabase Realtime.
+
 ## Admin, contests and sponsors
 
 Open `/admin` while signed in. The first account to press **Claim admin** becomes the admin (only while

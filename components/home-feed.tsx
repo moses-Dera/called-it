@@ -32,6 +32,12 @@ export function HomeFeed() {
         ))}
       </section>
 
+      <Link href="/rooms" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--lilac)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 18, padding: "12px 14px" }}>
+        <Img n="cover_arcade" size={44} style={{ borderRadius: 12, border: "2px solid #111" }} />
+        <div style={{ flex: 1 }}><div className="display" style={{ fontSize: 18 }}>Play with friends</div><div style={{ fontSize: 12, fontWeight: 700 }}>Pick your opponents. Every move sealed, opened together.</div></div>
+        <span style={{ fontWeight: 800 }}>→</span>
+      </Link>
+
       {contests.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>

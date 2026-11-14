@@ -9,7 +9,7 @@ import { SidebarAccount } from "./account";
 // --z: phones (fit 390-wide design to the screen, and shrink further on very short phones).
 const FIT = `(function(){function f(){var w=document.documentElement.clientWidth||innerWidth,h=innerHeight,s=document.documentElement.style;s.setProperty('--w',w+'px');s.setProperty('--z',Math.min(w/390,h/700).toFixed(4));}f();addEventListener('resize',f);})();`;
 
-const NAV = [["/", "Home"], ["/play/arena", "Live Arena"], ["/ranks", "Ranks"], ["/vault", "Vault"], ["/profile", "Profile"]];
+const NAV = [["/", "Home"], ["/play/arena", "Live Arena"], ["/rooms", "Play with friends"], ["/ranks", "Ranks"], ["/vault", "Vault"], ["/profile", "Profile"]];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (

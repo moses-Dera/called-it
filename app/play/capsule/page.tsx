@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Img, SealStatus, TopBar } from "@/components/ui";
+import { Img, SealStatus, TopBar, RealPlay } from "@/components/ui";
 import { sha256Hex } from "@/lib/merkle";
 import { createSeal, useStore } from "@/lib/store";
 
@@ -27,6 +27,7 @@ export default function Capsule() {
   return (
     <main className="screen" style={{ background: "var(--sky)", color: "#111" }}>
       <TopBar mode="capsule" eyebrow="Time Capsule" title="Class of 2026 reunion" light accent="var(--sky)" />
+      <RealPlay game="capsule" />
       <div style={{ display: "flex", justifyContent: "center", height: buried ? 150 : 230, transition: "height 600ms", position: "relative" }}>
         <Img n="cover_capsule" size={220} alt="Capsule" style={{ borderRadius: 40, border: "3px solid #111", boxShadow: "6px 6px 0 #111", transform: buried ? "translateY(40px) rotate(18deg) scale(.5)" : "rotate(-4deg)", transition: "transform 700ms cubic-bezier(.5,-0.4,.4,1.4)" }} />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Img, Lock, TopBar } from "@/components/ui";
+import { Img, Lock, TopBar, RealPlay } from "@/components/ui";
 import { PLAYERS } from "@/lib/data";
 import { addReward, createSeal } from "@/lib/store";
 
@@ -23,6 +23,7 @@ export default function Closest() {
     <main className="screen" style={{ background: "var(--blue)", color: "#111" }}>
       <Img n="cover_closest" size={260} style={{ position: "absolute", right: -80, top: 20, opacity: 0.25, transform: "rotate(-10deg)" }} />
       <TopBar mode="closest" eyebrow="Closest Wins · Office pool" title="8 players" light accent="var(--blue)" />
+      <RealPlay game="closest" />
       <section className="paper" style={{ margin: "6px 20px 0", padding: 18, boxShadow: "5px 5px 0 #111", position: "relative" }}>
         <div className="display" style={{ fontSize: 28 }}>Minute of the first goal in the derby?</div>
         <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: "#4a4436" }}>{open ? "All 8 guesses opened together." : phase === "sealed" ? "8 guesses sealed. Nobody can copy anybody." : "Slide to your guess, then seal it."}</div>

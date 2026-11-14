@@ -110,3 +110,12 @@ export function BottomNav({ active }: { active: string }) {
     </nav></>
   );
 }
+
+/** Under a game's header: switch from the practice version (bots) to a real game with friends. */
+export function RealPlay({ game, dark = false }: { game: string; dark?: boolean }) {
+  return (
+    <Link href={`/rooms?game=${game}`} style={{ margin: "0 20px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: 14, background: dark ? "#111" : "rgba(17,17,17,.88)", color: "var(--paper)", fontSize: 13, fontWeight: 700, position: "relative", zIndex: 2 }}>
+      <span>Practice vs bots. <span style={{ color: "var(--lime)" }}>Play a real person</span></span><span style={{ color: "var(--lime)" }}>→</span>
+    </Link>
+  );
+}
