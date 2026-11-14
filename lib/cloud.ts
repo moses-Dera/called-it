@@ -86,6 +86,11 @@ export function startCloud() {
     set({ session, status: session ? cloud.status : "idle" });
     // Supabase calls must not run inside this callback, so defer the first sync.
     if (session && session.user.id !== was) setTimeout(() => sync(true), 0);
+    // After Google sends the player back, drop the one-time ?code= from the address bar.
+    if (session && new URLSearchParams(location.search).has("code")) {
+      const q = new URLSearchParams(location.search); q.delete("code");
+      history.replaceState(history.state, "", location.pathname + (q.size ? "?" + q : "") + location.hash);
+    }
     if (event === "SIGNED_OUT") set({ status: "idle", error: undefined });
   });
   subscribe(() => {

@@ -1,0 +1,17 @@
+{
+  "name": "called-it-anchor",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Anchors Called It Merkle roots in shielded Zcash testnet memos (zcash.js, no full node).",
+  "type": "module",
+  "scripts": {
+    "init-wallet": "node cli.mjs init",
+    "address": "node cli.mjs address",
+    "balance": "node cli.mjs balance",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@scure/bip39": "2.4.0",
+    "@zcashlabs/zcash.js": "0.1.1"
+  }
+}

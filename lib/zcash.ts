@@ -1,6 +1,6 @@
 import { sha256Hex } from "./merkle";
 // Anchors one Merkle root on Zcash. If ANCHOR_URL is set, it calls the anchor service
-// (services/anchor, zingo-cli on testnet). If that is unset or fails, it returns a clearly labelled simulation.
+// (services/anchor, zcash.js on testnet). If that is unset or fails, it returns a clearly labelled simulation.
 export type Anchor = { txid: string; height: number; mode: "testnet" | "simulated" };
 export async function anchorRoot(root: string): Promise<Anchor> {
   const url = process.env.ANCHOR_URL;

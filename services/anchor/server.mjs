@@ -1,77 +1,110 @@
 #!/usr/bin/env node
-// Called It anchor service: writes one Merkle root into a shielded Zcash testnet memo.
-// It wraps zingo-cli, so it must run on a machine that has the binary and a funded testnet wallet
-// (not on Vercel). The web app reaches it through ANCHOR_URL and ANCHOR_TOKEN.
+// Called It anchor service: writes Merkle roots into shielded Zcash testnet memos.
+// Built on zcash.js with a public light-wallet server: no full node, no Rust build.
+// It keeps a wallet on disk, so it runs on a normal machine or VPS, not on Vercel.
+// The web app reaches it through ANCHOR_URL and ANCHOR_TOKEN.
 //
 //   POST /anchor  { "root": "<64 hex>" }   Authorization: Bearer <ANCHOR_TOKEN>
-//   ->            { "txid": "...", "height": 1234567 }
-//   GET  /health  -> { ok, address, height }
-import { execFile } from "node:child_process";
+//   ->            { "txid": "...", "height": 1234567, "confirmed": true }
+//   GET  /health  -> { ok, address, spendable, height }
 import { createServer } from "node:http";
-import { timingSafeEqual } from "node:crypto";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { SERVER, addressOf, describe, openWallet, unlock, zec } from "./wallet.mjs";
 
 const env = process.env;
 const PORT = Number(env.PORT ?? 8787);
 const TOKEN = env.ANCHOR_TOKEN ?? "";
-const ADDRESS = env.ANCHOR_ADDRESS ?? "";                       // utest1... that receives the anchor memos
-const ZATS = String(env.ANCHOR_ZATS ?? "0");                    // amount per anchor; raise it if the wallet refuses 0
-const CLI = env.ZINGO_CLI ?? "zingo-cli";
-const DATA = env.ZINGO_DATA_DIR ?? join(homedir(), ".called-it", "testnet-wallet");
-const SERVER = env.ZINGO_SERVER ?? "https://testnet.zec.rocks:443";
-
+const ZATS = BigInt(env.ANCHOR_ZATS ?? "10000"); // sent to the wallet's own address, so only the fee is spent
+const WAIT_MS = Number(env.ANCHOR_WAIT_MS ?? 90_000); // how long to wait for the first confirmation
+const PER_TX = 7; // "CI1|" + 7 roots of 65 chars fits in one 512-byte memo
 if (TOKEN.length < 16) { console.error("Set ANCHOR_TOKEN to a random secret of at least 16 characters."); process.exit(1); }
-if (!/^utest1[a-z0-9]{20,}$/.test(ADDRESS)) { console.error("Set ANCHOR_ADDRESS to the anchor wallet's utest1... unified address."); process.exit(1); }
 
-const base = ["--chain", "testnet", "--server", SERVER, "--data-dir", DATA];
-function zingo(args, timeout = 5 * 60_000) {
-  return new Promise((resolve, reject) => {
-    execFile(CLI, [...base, ...args], { timeout, maxBuffer: 8 << 20 }, (err, stdout, stderr) => {
-      if (err) reject(new Error((stderr || stdout || err.message).trim().slice(-600)));
-      else resolve(stdout);
-    });
-  });
-}
-const heightOf = (out) => Number(/"height"\s*:\s*(\d+)/.exec(out)?.[1] ?? 0);
+const wallet = await openWallet();
+const { account, signer, binding } = await unlock(wallet).catch(async (e) => { await wallet.close(); console.error(describe(e)); process.exit(1); });
+const ADDRESS = env.ANCHOR_ADDRESS || (await addressOf(wallet, account.id));
 
-// One wallet, so one send at a time.
-let queue = Promise.resolve();
-function anchor(root) {
-  const job = queue.then(async () => {
-    const sent = await zingo(["--waitsync", "quicksend", ADDRESS, ZATS, `CI1|${root}`]);
-    const txid = /"txids"\s*:\s*\[\s*"([0-9a-f]{64})"/.exec(sent)?.[1];
-    if (!txid) throw new Error("zingo-cli returned no txid: " + sent.trim().slice(-300));
-    // Chain tip when the transaction was broadcast. It is mined in the next block or two.
-    const height = heightOf(await zingo(["--nosync", "height"], 60_000));
-    return { txid, height };
-  });
-  queue = job.catch(() => {});
-  return job;
+/** Scan while waiting so the payment can be observed, as the SDK docs require. */
+async function waitForConfirmation(pending) {
+  const stop = new AbortController();
+  const watching = (async () => { for await (const _ of wallet.watchSync({ signal: stop.signal })) { /* drain */ } throw new Error("sync watcher ended"); })();
+  const waiting = pending.wait({ confirmations: 1, timeoutMs: WAIT_MS, signal: stop.signal });
+  try { return await Promise.race([watching, waiting]); }
+  finally { stop.abort(); await Promise.allSettled([watching, waiting]); }
 }
+
+async function anchorBatch(roots) {
+  const synced = await wallet.sync();
+  if (!synced.targetReached) throw new Error("wallet sync did not reach the chain tip");
+  const tip = synced.target?.height ?? 0;
+  const pending = await wallet.send({
+    accountId: account.id, to: ADDRESS, amount: ZATS,
+    memo: { text: "CI1|" + roots.join("|") }, idempotencyKey: randomUUID(),
+  });
+  const sent = (await pending.snapshot()).steps.at(-1)?.txid;
+  try {
+    const done = await waitForConfirmation(pending);
+    const tx = done.transactions.at(-1);
+    return { txid: String(tx.txid), height: tx.height, confirmed: true };
+  } catch (e) {
+    // Broadcast but not mined within WAIT_MS: report it honestly instead of failing.
+    if (!sent) throw e;
+    console.warn("not confirmed yet:", describe(e));
+    return { txid: String(sent), height: tip, confirmed: false };
+  }
+}
+
+// One wallet, one send at a time. Roots that arrive meanwhile share the next transaction.
+const queue = [];
+let running = false;
+async function drain() {
+  if (running) return;
+  running = true;
+  while (queue.length) {
+    const batch = queue.splice(0, PER_TX);
+    try {
+      const out = await anchorBatch(batch.map((j) => j.root));
+      console.log(new Date().toISOString(), `anchored ${batch.length} root(s) in tx ${out.txid} @ ${out.height}${out.confirmed ? "" : " (unconfirmed)"}`);
+      batch.forEach((j) => j.resolve(out));
+    } catch (e) {
+      console.error(new Date().toISOString(), "anchor failed:", describe(e));
+      batch.forEach((j) => j.reject(e));
+    }
+  }
+  running = false;
+}
+const anchor = (root) => new Promise((resolve, reject) => { queue.push({ root, resolve, reject }); drain(); });
 
 const authed = (req) => {
   const got = Buffer.from((req.headers.authorization ?? "").replace(/^Bearer /, "")), want = Buffer.from(TOKEN);
   return got.length === want.length && timingSafeEqual(got, want);
 };
-const send = (res, code, body) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
+const reply = (res, code, body) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
 
-createServer(async (req, res) => {
+const server = createServer(async (req, res) => {
   try {
-    if (!authed(req)) return send(res, 401, { error: "unauthorized" });
+    if (!authed(req)) return reply(res, 401, { error: "unauthorized" });
     if (req.method === "GET" && req.url === "/health") {
-      return send(res, 200, { ok: true, address: ADDRESS, height: heightOf(await zingo(["--nosync", "height"], 60_000)) });
+      const b = await wallet.getBalance({ accountId: account.id });
+      return reply(res, 200, { ok: true, address: ADDRESS, spendable: b.amounts ? zec(b.amounts.ironwood.spendable) : null, height: b.scan.tipHeight, queued: queue.length });
     }
-    if (req.method !== "POST" || req.url !== "/anchor") return send(res, 404, { error: "not found" });
+    if (req.method !== "POST" || req.url !== "/anchor") return reply(res, 404, { error: "not found" });
     let raw = "";
-    for await (const chunk of req) { raw += chunk; if (raw.length > 4096) return send(res, 413, { error: "too large" }); }
+    for await (const chunk of req) { raw += chunk; if (raw.length > 4096) return reply(res, 413, { error: "too large" }); }
     const root = JSON.parse(raw || "{}").root;
-    if (typeof root !== "string" || !/^[0-9a-f]{64}$/.test(root)) return send(res, 400, { error: "root must be 64 hex characters" });
-    const out = await anchor(root);
-    console.log(new Date().toISOString(), "anchored", root.slice(0, 12), "tx", out.txid);
-    send(res, 200, out);
+    if (typeof root !== "string" || !/^[0-9a-f]{64}$/.test(root)) return reply(res, 400, { error: "root must be 64 hex characters" });
+    reply(res, 200, await anchor(root));
   } catch (e) {
-    console.error(new Date().toISOString(), "anchor failed:", e.message);
-    send(res, 502, { error: e.message });
+    reply(res, 502, { error: describe(e) });
   }
-}).listen(PORT, "127.0.0.1", () => console.log(`anchor service on http://127.0.0.1:${PORT} -> ${SERVER}`));
+});
+server.listen(PORT, "127.0.0.1", () => console.log(`anchor service on http://127.0.0.1:${PORT} · ${SERVER} · paying from ${ADDRESS.slice(0, 16)}…`));
+
+async function shutdown() {
+  server.close();
+  await binding.dispose().catch(() => {});
+  await wallet.close().catch(() => {});
+  await signer.dispose().catch(() => {});
+  process.exit(0);
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

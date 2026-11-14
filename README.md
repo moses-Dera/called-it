@@ -10,7 +10,7 @@ vote and game move is sealed before the outcome is known, so nobody can cheat or
 3. **Reveal:** the move and salt are re-hashed and the Merkle proof is checked against the anchored root.
 
 Anchoring runs in **simulated mode** unless `ANCHOR_URL` (and `ANCHOR_TOKEN`) point at the anchor
-service (zingo-cli on Zcash testnet). The hashing, Merkle proofs and verification are real in both modes.
+service (zcash.js on Zcash testnet). The hashing, Merkle proofs and verification are real in both modes.
 
 ## Accounts (Supabase + Google sign-in)
 
@@ -31,21 +31,32 @@ until scoring moves to the server.
 
 ## Zcash testnet anchoring
 
-`services/anchor/server.mjs` is a small Node service (no dependencies) that wraps `zingo-cli` and
-writes each batch root into a shielded testnet memo (`CI1|<root>`). It needs a machine that can run
-the wallet, so it does not run on Vercel.
+`services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/)
+(`@zcashlabs/zcash.js`). It talks to the public light-wallet server `testnet.zec.rocks`, so there is
+no full node and nothing to compile. Each anchor is a shielded Ironwood transaction to the wallet's
+own address with the memo `CI1|<root>` (up to 7 roots share one transaction). The wallet lives on
+disk, so the service runs on a normal machine or VPS, not on Vercel.
 
-1. Build zingo-cli from [zingolib](https://github.com/zingolabs/zingolib) (`makers run-cli --build-only`).
-2. Create the wallet and note its address:
-   `zingo-cli --chain testnet --server https://testnet.zec.rocks:443 --data-dir ~/.called-it/testnet-wallet addresses`
-3. Fund that `utest1…` address from a testnet faucet. Fees come out of this wallet.
-4. Start the service:
-   `ANCHOR_TOKEN=<long random secret> ANCHOR_ADDRESS=<utest1…> ZINGO_CLI=/path/to/zingo-cli node services/anchor/server.mjs`
-5. Point the app at it with `ANCHOR_URL=http://127.0.0.1:8787` and the same `ANCHOR_TOKEN`.
+```bash
+cd services/anchor
+npm install
+npm run init-wallet   # creates the testnet wallet once and prints the address to fund
+```
+
+1. Fund the printed `utest1…` address from a testnet faucet
+   ([fauzec.com](https://fauzec.com/) or [zcashfaucet.jinolabs.xyz](https://zcashfaucet.jinolabs.xyz/)).
+   Check it arrived with `npm run balance` (3 confirmations before it is spendable).
+2. Start the service: `ANCHOR_TOKEN=<long random secret> npm start`
+3. Point the app at it with `ANCHOR_URL=http://127.0.0.1:8787` and the same `ANCHOR_TOKEN` in `.env.local`.
    For the deployed app, the service has to be reachable from the internet (a small VPS or a tunnel).
 
-Other settings: `ANCHOR_ZATS` (amount per anchor, default 0), `ZINGO_DATA_DIR`, `ZINGO_SERVER`, `PORT`.
-If the service is down or errors, the app falls back to simulated mode and labels the seal that way.
+The wallet's 24-word phrase is saved in `~/.called-it/anchor-wallet/mnemonic.txt` (or supply
+`ANCHOR_MNEMONIC`). It is a testnet wallet; never send real ZEC to it.
+
+Other settings: `ANCHOR_ZATS` (amount sent to itself per anchor, default 10000 zats; only the fee is
+spent), `ANCHOR_WAIT_MS` (wait for the first confirmation, default 90000), `ANCHOR_DATA_DIR`,
+`ZCASH_SERVER`, `PORT`. If the service is down or errors, the app falls back to simulated mode and
+labels the seal that way. zcash.js is an experimental 0.1.x release: fine for testnet, not for real funds.
 
 ## Screens
 
