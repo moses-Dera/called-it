@@ -3,18 +3,37 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { createWalletClient } from "@zcashlabs/zcash.js";
+import { blockHash, createWalletClient, encodeNetworkParameters } from "@zcashlabs/zcash.js";
 
 const env = process.env;
 export const SERVER = env.ZCASH_SERVER ?? "https://testnet.zec.rocks:443";
 export const DATA = env.ANCHOR_DATA_DIR ?? join(homedir(), ".called-it", "anchor-wallet");
 const SEED_FILE = join(DATA, "mnemonic.txt");
+// zcash.js ships a testnet preset that stops at NU6.3, but testnet activated NU7 at block 4,465,026
+// (zcash_protocol consensus.rs, TestNetwork). Describe testnet with NU7 so branch IDs match the server.
+export const TESTNET = {
+  identity: "zcash-testnet",
+  genesisHash: blockHash("05a60a92d99d85997cce3b87616c089f6124d7342af37106edc76126334a2c38"),
+  ...encodeNetworkParameters({
+    encoding: "test", Overwinter: 207500, Sapling: 280000, Blossom: 584000, Heartwood: 903800, Canopy: 1028500,
+    Nu5: 1842420, Nu6: 2976000, Nu6_1: 3536500, Nu6_2: 4052000, Nu6_3: 4134000, Nu7: 4465026,
+  }),
+};
+// The SDK defaults, except: catch up automatically if a block lands between sync and send (testnet
+// mines every ~25 s), and let the wallet reuse its own change after 1 confirmation so anchors can follow
+// each other quickly. Funds from others still need 3.
+const POLICY = {
+  spendPools: ["ironwood"], transparent: "disallow", changePool: "ironwood", feeRule: "zip317-standard",
+  confirmations: { trusted: 1, untrusted: 3, allowZeroConfirmationShielding: false },
+  expiry: { kind: "offset", blocks: 80 }, lockExpiryBlocks: 20, shieldingThreshold: 10000n,
+  freshness: { mode: "catch-up", maxLagBlocks: 1, timeoutMs: 90_000 },
+};
 // Receive on Ironwood only: the SDK's default policy spends and keeps change in Ironwood.
 export const IRONWOOD = { format: "unified", transparent: "omit", sapling: "omit", ironwood: "require" };
 
 export async function openWallet() {
   await mkdir(DATA, { recursive: true, mode: 0o700 });
-  return createWalletClient(SERVER, { network: "testnet", storage: { kind: "node-filesystem", path: join(DATA, "db") } });
+  return createWalletClient(SERVER, { network: TESTNET, storage: { kind: "node-filesystem", path: join(DATA, "db") }, transactionPolicy: POLICY });
 }
 
 /** The 24-word phrase: ANCHOR_MNEMONIC if set, otherwise the file written by `init`. Testnet only. */

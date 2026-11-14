@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fixtureOf, type Fixture } from "@/lib/data";
 import { Img, Lock, SealStatus, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
@@ -21,26 +22,29 @@ function Wheel({ v, set, name }: { v: number; set: (n: number) => void; name: st
 export default function SealPage() {
   const [home, setHome] = useState(2), [away, setAway] = useState(1), [side, setSide] = useState(-1);
   const [sealId, setSealId] = useState<string | null>(null), [busy, setBusy] = useState(false);
+  const [fx, setFx] = useState<Fixture>(fixtureOf(null));
+  // Which fixture: /seal?f=<fixture id>. Read on the client so the page stays static.
+  useEffect(() => { setFx(fixtureOf(new URLSearchParams(location.search).get("f"))); }, []);
   const seal: Seal | undefined = useStore().seals.find((s) => s.id === sealId);
 
   async function doSeal() {
     if (busy) return;
     setBusy(true);
-    const s = await createSeal("classic", "reds-blues-2026-11-21", `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `Reds ${home} – ${away} Blues`);
+    const s = await createSeal("classic", fx.id, `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `${fx.home} ${home} – ${away} ${fx.away}`);
     setSealId(s.id); setBusy(false);
     if (navigator.vibrate) navigator.vibrate(30);
   }
   return (
     <main className="screen">
-      <TopBar mode="classic" eyebrow="Classic Call" title="Reds vs Blues" />
+      <TopBar mode="classic" eyebrow="Classic Call" title={`${fx.home} vs ${fx.away}`} />
       <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-        <div style={{ background: "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}><b>Early bird x2.</b> Kickoff in 6 days.</div>
+        <div style={{ background: "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}><b>Early bird x2</b> if sealed a day before kickoff · {fx.when}</div>
         <div className="paper" style={{ borderRadius: 28, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around" }}>
-            <Img n="crest_home" size={56} h={65} alt="Reds crest" /><span className="eyebrow" style={{ color: "#6b6455" }}>Final score</span><Img n="crest_away" size={56} h={65} alt="Blues crest" />
+            <Img n="crest_home" size={56} h={65} alt={`${fx.home} crest`} /><span className="eyebrow" style={{ color: "#6b6455" }}>Final score</span><Img n="crest_away" size={56} h={65} alt={`${fx.away} crest`} />
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-            <Wheel v={home} set={setHome} name="Reds" /><span className="display" style={{ fontSize: 50 }}>:</span><Wheel v={away} set={setAway} name="Blues" />
+            <Wheel v={home} set={setHome} name={fx.home} /><span className="display" style={{ fontSize: 50 }}>:</span><Wheel v={away} set={setAway} name={fx.away} />
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

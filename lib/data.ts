@@ -1,4 +1,12 @@
 export const art = (n: string) => `/a/${n}.webp`;
+/** Fixtures players can seal. Ids match the `fixtures` table, where the official results are entered. */
+export const FIXTURES = [
+  { id: "reds-blues-2026-11-21", home: "Reds", away: "Blues", when: "Sat 21 Nov · 17:30", sealed: "6 friends sealed" },
+  { id: "lagos-derby-2026-11-22", home: "Lagos Reds", away: "Lagos Blues", when: "Sun 22 Nov · 16:00", sealed: "2 friends sealed" },
+];
+export type Fixture = (typeof FIXTURES)[number];
+export const fixtureOf = (id?: string | null) => FIXTURES.find((f) => f.id === id) ?? FIXTURES[0];
+
 export const PLAYERS = ["You", "Ada", "Emeka", "Seyi", "Kemi", "Chi", "Ify", "Bayo"].map((name, i) => ({ name, av: art(`avatar_${i + 1}`) }));
 export const MODES = [
   { key: "classic", name: "Classic Call", img: "cover_classic", href: "/seal", r: -3 },

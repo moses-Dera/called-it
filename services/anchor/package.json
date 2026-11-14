@@ -5,6 +5,7 @@
   "description": "Anchors Called It Merkle roots in shielded Zcash testnet memos (zcash.js, no full node).",
   "type": "module",
   "scripts": {
+    "postinstall": "node patch-sdk.mjs",
     "init-wallet": "node cli.mjs init",
     "address": "node cli.mjs address",
     "balance": "node cli.mjs balance",
@@ -13,6 +14,6 @@
   },
   "dependencies": {
     "@scure/bip39": "2.4.0",
-    "@zcashlabs/zcash.js": "0.1.1"
+    "@zcashlabs/zcash.js": "https://github.com/zcashlabs/zcashjs/releases/download/v0.1.2/zcashlabs-zcash.js-0.1.2.tgz"
   }
 }

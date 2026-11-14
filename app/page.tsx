@@ -1,12 +1,8 @@
 import Link from "next/link";
-import { MODES } from "@/lib/data";
+import { FIXTURES, MODES } from "@/lib/data";
 import { BottomNav, Img } from "@/components/ui";
 import { HomeBadge } from "@/components/home-badge";
 
-const FIXTURES = [
-  { match: "Reds vs Blues", when: "Sat 17:30", sealed: "6 friends sealed" },
-  { match: "Lagos derby", when: "Sun 16:00", sealed: "2 friends sealed" },
-];
 
 export default function Home() {
   return (
@@ -36,9 +32,9 @@ export default function Home() {
             <Link href="/seal" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)" }}>All fixtures</Link>
           </div>
           {FIXTURES.map((f) => (
-            <Link key={f.match} href="/seal" style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
+            <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
               <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6" }}>
-                <div className="display" style={{ fontSize: 17 }}>{f.match}</div>
+                <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
                 <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>{f.when} · {f.sealed}</div>
               </div>
               <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>

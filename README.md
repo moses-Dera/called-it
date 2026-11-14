@@ -46,7 +46,7 @@ until scoring moves to the server.
 ## Zcash testnet anchoring
 
 `services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/)
-(`@zcashlabs/zcash.js`). It talks to the public light-wallet server `testnet.zec.rocks`, so there is
+(`@zcashlabs/zcash.js` 0.1.2, installed from its GitHub release because npm still has 0.1.1). It talks to the public light-wallet server `testnet.zec.rocks`, so there is
 no full node and nothing to compile. Each anchor is a shielded Ironwood transaction to the wallet's
 own address with the memo `CI1|<root>` (up to 7 roots share one transaction). The wallet lives on
 disk, so the service runs on a normal machine or VPS, not on Vercel.
@@ -63,6 +63,13 @@ npm run init-wallet   # creates the testnet wallet once and prints the address t
 2. Start the service: `ANCHOR_TOKEN=<long random secret> npm start`
 3. Point the app at it with `ANCHOR_URL=http://127.0.0.1:8787` and the same `ANCHOR_TOKEN` in `.env.local`.
    For the deployed app, the service has to be reachable from the internet (a small VPS or a tunnel).
+
+Notes on the SDK (handled automatically):
+
+- The built-in testnet preset stops at NU6.3, so `wallet.mjs` defines testnet with NU7 (block 4,465,026,
+  from librustzcash `zcash_protocol`).
+- `npm install` runs `patch-sdk.mjs`, which accepts light-server protocol v0.6.0 (upstream PR #28) and
+  stops standing transparent-address polls from blocking every send.
 
 The wallet's 24-word phrase is saved in `~/.called-it/anchor-wallet/mnemonic.txt` (or supply
 `ANCHOR_MNEMONIC`). It is a testnet wallet; never send real ZEC to it.

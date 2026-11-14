@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CardBack, Flip, Img, TopBar } from "@/components/ui";
+import { fixtureOf } from "@/lib/data";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
 import { claimClassic, cloudReady, signInWithGoogle, useCloud, type Claim } from "@/lib/cloud";
 
@@ -47,7 +48,7 @@ export default function Reveal() {
       {open && win && Array.from({ length: 16 }, (_, i) => (
         <span key={i} className="pop" style={{ position: "absolute", left: (((i * 61) % 360) / 3.9 + 2) + "%", top: ((i * 43) % 150) + 70, width: 6 + (i % 3) * 3, height: 14, borderRadius: 3, background: COLS[i % 6], border: "1.5px solid #111", transform: `rotate(${(i * 53) % 180}deg)`, animationDelay: i * 25 + "ms" }} />
       ))}
-      <TopBar eyebrow="Full time" title="Reds 2 – 1 Blues" />
+      <TopBar eyebrow="Full time · demo result" title={`${fixtureOf(seal?.round).home} ${FINAL.home} – ${FINAL.away} ${fixtureOf(seal?.round).away}`} />
       {!seal ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 30, textAlign: "center" }}>
           <Img n="seal" size={120} /><div className="display" style={{ fontSize: 28 }}>Nothing sealed yet</div>
