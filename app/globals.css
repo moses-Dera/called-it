@@ -35,6 +35,13 @@ button { font-family: inherit; cursor: pointer; }
 .pop { animation: pop 300ms cubic-bezier(.2,1.5,.4,1) both; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
 
+/* Scrollbars: thin, dark, lime on hover */
+* { scrollbar-width: thin; scrollbar-color: #33414f transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #33414f; border-radius: 99px; border: 2px solid var(--ink); }
+::-webkit-scrollbar-thumb:hover { background: var(--lime); }
+
 /* ---------- Responsive fit ----------
    Phones: every screen is designed at 390 wide and scaled (--z) so it fills any phone's width and height.
    Tablets and desktops: a sidebar plus a stage. Home goes full width; games sit on the stage as a board scaled to the window height (--zd). */
@@ -54,6 +61,7 @@ button { font-family: inherit; cursor: pointer; }
   .screen nav[aria-label="Main"], .screen .navspace { display: none !important; }
   .home-body { max-width: 1180px; width: 100%; margin: 0 auto; display: grid !important; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px !important; align-content: start; padding: 16px 40px 40px !important; }
   .home-head { max-width: 1180px; width: 100%; margin: 0 auto; padding: 28px 40px 6px !important; }
+  .home-head > .display { visibility: hidden; }
   .home-games { grid-column: 1 / -1; }
   .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 18px !important; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 24px !important; }
