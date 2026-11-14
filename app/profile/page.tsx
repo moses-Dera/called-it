@@ -1,11 +1,14 @@
 "use client";
 import { useState } from "react";
 import { Img, TopBar } from "@/components/ui";
+import { cloudReady, signInWithGoogle, signOut, useCloud } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
   const s = useStore();
   const t = totals(s);
+  const cloud = useCloud();
+  const user = cloud.session?.user;
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
 
@@ -50,8 +53,19 @@ export default function Profile() {
 
         <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="display" style={{ fontSize: 18 }}>Account</span>
-          <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>You&apos;re playing as a guest. Your seals, points and profile are stored on this device only.</div>
-          <button className="btn btn-paper" disabled style={{ opacity: 0.6 }}>Sign in with Google (not connected yet)</button>
+          {user ? (
+            <>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up. Your moves and salts stay on this device.</div>
+              <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" ? "var(--red)" : "var(--lime)" }}>{cloud.status === "error" ? "Sync problem: " + cloud.error : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
+              <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>You&apos;re playing as a guest. Your seals, points and profile are stored on this device only.</div>
+              <button className="btn btn-paper" disabled={!cloudReady} style={{ opacity: cloudReady ? 1 : 0.6 }} onClick={signInWithGoogle}>{cloudReady ? "Sign in with Google" : "Sign in with Google (not connected yet)"}</button>
+              {cloud.status === "error" && <div role="alert" style={{ fontSize: 12, fontWeight: 700, color: "var(--red)" }}>{cloud.error}</div>}
+            </>
+          )}
           <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>player id {s.player}</div>
         </section>
       </div>

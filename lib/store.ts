@@ -7,10 +7,11 @@ export type Seal = {
   commitment: string; sealedAt: number; status: "sealed" | "onchain";
   root?: string; proof?: string[]; txid?: string; height?: number; mode?: "testnet" | "simulated";
   revealed?: boolean;
+  remote?: boolean; // synced from another device: the move and salt stay on the device that sealed it
 };
 export type Reward = { id: string; label: string; points: number; zec: number; at: number };
 export type Profile = { name: string; avatar: number; address: string };
-type State = { player: string; seals: Seal[]; ledger: Reward[]; withdrawn: number; profile: Profile };
+export type State = { player: string; seals: Seal[]; ledger: Reward[]; withdrawn: number; profile: Profile };
 
 const KEY = "calledit:v1";
 const EMPTY: State = { player: "you", seals: [], ledger: [], withdrawn: 0, profile: { name: "", avatar: 1, address: "" } };
@@ -27,7 +28,8 @@ function read(): State {
 }
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(cache)); } catch {} }
 function write(next: State) { cache = next; persist(); listeners.forEach((l) => l()); }
-const subscribe = (l: () => void) => { listeners.add(l); return () => listeners.delete(l); };
+export const subscribe = (l: () => void) => { listeners.add(l); return () => listeners.delete(l); };
+export const getState = () => read();
 export function useStore(): State { return useSyncExternalStore(subscribe, read, () => EMPTY); }
 
 export function randomHex(bytes: number) {
@@ -76,6 +78,19 @@ export function addReward(label: string, points: number) {
   write({ ...s, ledger: [{ id: randomHex(4), label, points, zec: points / 100000, at: Date.now() }, ...s.ledger].slice(0, 200) });
 }
 export function saveProfile(patch: Partial<Profile>) { const s = read(); write({ ...s, profile: { ...s.profile, ...patch } }); }
+/** Fold a signed-in account's cloud copy into this device. Local data always wins for seals made here. */
+export function mergeCloud(remote: { profile?: Partial<Profile>; withdrawn?: number; seals: Seal[]; ledger: Reward[] }) {
+  const s = read();
+  const p = remote.profile ?? {};
+  const have = new Set(s.seals.map((x) => x.id)), got = new Set(s.ledger.map((x) => x.id));
+  write({
+    ...s,
+    profile: { name: s.profile.name || p.name || "", address: s.profile.address || p.address || "", avatar: s.profile.avatar !== 1 ? s.profile.avatar : p.avatar || 1 },
+    withdrawn: Math.max(s.withdrawn, remote.withdrawn ?? 0),
+    seals: [...s.seals, ...remote.seals.filter((x) => !have.has(x.id))].sort((a, b) => b.sealedAt - a.sealedAt).slice(0, 200),
+    ledger: [...s.ledger, ...remote.ledger.filter((x) => !got.has(x.id))].sort((a, b) => b.at - a.at).slice(0, 200),
+  });
+}
 export const isShielded = (a: string) => /^(u|utest|zs|ztestsapling)1[a-z0-9]{20,}$/i.test(a.trim());
 export function withdrawAll() { const s = read(); write({ ...s, withdrawn: s.ledger.reduce((a, r) => a + r.zec, 0) }); }
 export const totals = (s: State) => {

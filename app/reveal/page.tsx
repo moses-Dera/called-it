@@ -19,7 +19,7 @@ export default function Reveal() {
   const seals = useStore().seals;
   const [shown, setShown] = useState<Seal | null>(null);
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
-  const pending = seals.find((s) => s.game === "classic" && !s.revealed);
+  const pending = seals.find((s) => s.game === "classic" && !s.revealed && !s.remote);
   const seal = shown ?? pending ?? null;
   const sc = useMemo(() => (seal ? score(seal.move) : null), [seal]);
   const open = !!shown;

@@ -6,7 +6,7 @@ import { PLAYERS } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
 export default function Waiting() {
-  const mine = useStore().seals.find((s) => s.game === "classic" && !s.revealed);
+  const mine = useStore().seals.find((s) => s.game === "classic" && !s.revealed && !s.remote);
   const [nudged, setNudged] = useState(false);
   const sealed = (k: number) => (k === 0 ? !!mine : k < 6 || (nudged && k === 6));
   const count = PLAYERS.filter((_, k) => sealed(k)).length;

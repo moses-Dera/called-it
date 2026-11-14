@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { buildTree } from "@/lib/merkle";
 import { anchorRoot } from "@/lib/zcash";
 
+// A testnet anchor syncs the wallet and builds a proof before it broadcasts.
+export const maxDuration = 120;
+
 // Receives only commitments (hashes). Moves and salts never reach the server before reveal.
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);

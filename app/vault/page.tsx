@@ -27,6 +27,7 @@ export default function Vault() {
     withdrawAll(); setMsg("Withdrawal requested. Testnet payouts are sent once the prize wallet is connected.");
   }
   async function verify(x: Seal) {
+    if (x.remote) return setChecks((p) => ({ ...p, [x.id]: "Sealed on another device. The move and salt live there, so the hash can only be re-checked on that device." }));
     const c = await verifySeal(x);
     setChecks((p) => ({ ...p, [x.id]: `${c.hashOk ? "✓ hash matches move + salt" : "✗ hash mismatch"} · ${c.anchored ? "✓ Merkle proof reaches anchored root" : "not anchored yet"}` }));
   }

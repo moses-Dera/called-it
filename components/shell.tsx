@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MODES, art } from "@/lib/data";
 import { DeskPanel } from "./desk-panel";
 import { SideLink } from "./side-link";
+import { CloudSync } from "./cloud-sync";
 
 // Sets the scale factors before first paint so there is no jump.
 // --z: phones (fit 390-wide design to the screen, and shrink further on very short phones).
@@ -13,6 +14,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: FIT }} />
+      <CloudSync />
       <aside className="sidebar" aria-label="Navigation">
         <Link href="/" className="display" style={{ fontSize: 30, color: "var(--text)", padding: "0 10px 10px", minHeight: 0 }}>
           called<span style={{ background: "var(--lime)", color: "#111", padding: "0 6px", marginLeft: 3, borderRadius: 8, transform: "rotate(-4deg)", display: "inline-block" }}>it!</span>
