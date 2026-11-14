@@ -17,10 +17,13 @@ export default function Vault() {
   const [checks, setChecks] = useState<Record<string, string>>({});
 
   function withdraw() {
-    if (t.available < MIN) return setMsg(`Minimum withdrawal is ${MIN} ZEC. Keep playing!`);
+    // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.
     const to = saved || addr.trim();
+    if (!to) return setMsg("Add your shielded wallet address first.");
     if (!isShielded(to)) return setMsg("Paste a shielded address (it starts with u1 or utest1).");
-    if (!saved) saveProfile({ address: to }); // remembered for next time
+    const justSaved = !saved;
+    if (justSaved) saveProfile({ address: to });
+    if (t.available < MIN) return setMsg(`${justSaved ? "Wallet saved. " : ""}You need at least ${MIN} ZEC to withdraw. Keep playing!`);
     withdrawAll(); setMsg("Withdrawal requested. Testnet payouts are sent once the prize wallet is connected.");
   }
   async function verify(x: Seal) {
@@ -45,7 +48,7 @@ export default function Vault() {
             <input id="addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="u1…" autoComplete="off" spellCheck={false} className="mono" style={{ height: 46, borderRadius: 14, border: "2px solid #111", background: "var(--paper)", color: "#111", padding: "0 12px", fontSize: 13 }} />
           </>
         )}
-        <button className="btn" style={{ background: "#111", color: "var(--amber)", border: 0, fontSize: 16 }} onClick={withdraw}>Withdraw privately</button>
+        <button className="btn" style={{ background: "#111", color: "var(--amber)", border: 0, fontSize: 16 }} onClick={withdraw}>{saved ? "Withdraw privately" : "Save wallet and withdraw"}</button>
         {msg && <div role="status" style={{ fontSize: 12, fontWeight: 700 }}>{msg}</div>}
       </section>
 
