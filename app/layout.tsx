@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "Seal your call now. Prove it later. Fair games sealed on Zcash.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Called It", statusBarStyle: "black-translucent" },
-  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  // Tab and home-screen icons come from app/favicon.ico, app/icon.png and app/apple-icon.png.
   other: { google: "notranslate" }, // page translators were replacing live game text
 };
 export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width", initialScale: 1, viewportFit: "cover" };
