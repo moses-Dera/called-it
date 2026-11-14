@@ -31,9 +31,9 @@ export default function Vault() {
     setChecks((p) => ({ ...p, [x.id]: `${c.hashOk ? "✓ hash matches move + salt" : "✗ hash mismatch"} · ${c.anchored ? "✓ Merkle proof reaches anchored root" : "not anchored yet"}` }));
   }
   return (
-    <main className="screen">
-      <div style={{ padding: "18px 20px 12px" }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1></div>
-      <section style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+    <main className="screen wide hub vault">
+      <div className="vault-title" style={{ padding: "18px 20px 12px" }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1></div>
+      <section className="vault-bal" style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="eyebrow">Prize balance · testnet</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><span className="display" style={{ fontSize: 46 }}>{t.available.toFixed(4)}</span><b style={{ fontSize: 18 }}>ZEC</b></div>
         <div style={{ fontSize: 12, fontWeight: 700 }}>{t.points} points · {s.ledger.length} reward{s.ledger.length === 1 ? "" : "s"} · testnet ZEC has no real value</div>
@@ -52,7 +52,7 @@ export default function Vault() {
         {msg && <div role="status" style={{ fontSize: 12, fontWeight: 700 }}>{msg}</div>}
       </section>
 
-      <section style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+      <section className="vault-rewards" style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Rewards</h2>
         {s.ledger.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>Win a game and your reward lands here.</div>}
         {s.ledger.slice(0, 5).map((r) => (
@@ -62,7 +62,7 @@ export default function Vault() {
         ))}
       </section>
 
-      <section style={{ padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+      <section className="vault-proofs" style={{ padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 className="display" style={{ margin: 0, fontSize: 22 }}>My proofs</h2><span style={{ fontSize: 12, color: "var(--muted)" }}>Tap to inspect</span></div>
         {s.seals.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>Every seal you make shows up here with its proof.</div>}
         {s.seals.slice(0, 12).map((x) => (

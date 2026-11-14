@@ -42,7 +42,7 @@ export default function Werewolf() {
           <span style={{ fontSize: 14, lineHeight: 1.5, color: "#d9d3f5" }}>Sent privately to you. Pick one player to inspect tonight. Your choice is sealed.</span>
         </div>
       </div>
-      <div style={{ margin: "20px 20px 0", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px 8px", position: "relative" }}>
+      <div className="ww-grid" style={{ margin: "20px 20px 0", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "12px 8px", position: "relative" }}>
         {PLAYERS.map((p, k) => {
           const out = k === 7, on = k === pick, me = k === 0;
           return (

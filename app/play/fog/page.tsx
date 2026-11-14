@@ -29,7 +29,7 @@ export default function Fog() {
         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>targets hidden from Emeka</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}><b style={{ fontSize: 13 }}>5 units</b><Img n="avatar_3" size={32} style={{ borderRadius: 10, border: "2px solid var(--pink)" }} /></div>
       </div>
-      <div style={{ margin: "16px 16px 0", padding: 10, borderRadius: 26, background: "#12302a", border: "3px solid #111", boxShadow: "0 8px 0 #0a1a16", transform: "perspective(900px) rotateX(14deg)", transformOrigin: "50% 100%" }}>
+      <div className="fog-board" style={{ margin: "16px 16px 0", padding: 10, borderRadius: 26, background: "#12302a", border: "3px solid #111", boxShadow: "0 8px 0 #0a1a16", transform: "perspective(900px) rotateX(14deg)", transformOrigin: "50% 100%" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 5 }}>
           {Array.from({ length: 36 }, (_, i) => {
             const fog = Math.floor(i / 6) < 2, picked = picks.includes(i);

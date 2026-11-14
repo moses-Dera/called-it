@@ -18,7 +18,7 @@ export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width"
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" translate="no" className={`${display.variable} ${inter.variable}`}>
+    <html lang="en" translate="no" suppressHydrationWarning className={`${display.variable} ${inter.variable}`}>
       <body><Shell>{children}</Shell></body>
     </html>
   );

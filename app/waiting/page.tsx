@@ -20,7 +20,7 @@ export default function Waiting() {
       <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="display" style={{ fontSize: 20 }}>{count} of 8 sealed</div><span style={{ fontSize: 12, color: "var(--muted)" }}>Calls stay face down</span>
       </div>
-      <div style={{ padding: "12px 20px 0", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "14px 10px" }}>
+      <div className="wait-grid" style={{ padding: "12px 20px 0", display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "14px 10px" }}>
         {PLAYERS.map((p, k) => (
           <div key={p.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <div style={{ position: "relative", width: 68, height: 94 }}>

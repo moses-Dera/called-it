@@ -35,7 +35,7 @@ export default function Reveal() {
   return (
     <main className="screen">
       {open && win && Array.from({ length: 16 }, (_, i) => (
-        <span key={i} className="pop" style={{ position: "absolute", left: ((i * 61) % 360) + 10, top: ((i * 43) % 150) + 70, width: 6 + (i % 3) * 3, height: 14, borderRadius: 3, background: COLS[i % 6], border: "1.5px solid #111", transform: `rotate(${(i * 53) % 180}deg)`, animationDelay: i * 25 + "ms" }} />
+        <span key={i} className="pop" style={{ position: "absolute", left: (((i * 61) % 360) / 3.9 + 2) + "%", top: ((i * 43) % 150) + 70, width: 6 + (i % 3) * 3, height: 14, borderRadius: 3, background: COLS[i % 6], border: "1.5px solid #111", transform: `rotate(${(i * 53) % 180}deg)`, animationDelay: i * 25 + "ms" }} />
       ))}
       <TopBar eyebrow="Full time" title="Reds 2 – 1 Blues" />
       {!seal ? (

@@ -15,27 +15,28 @@ export const Lock = ({ size = 22, color = "#111" }: { size?: number; color?: str
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
 );
 
-/** Header with back, title and the "?" how-to-play guide. The guide opens by itself on first visit. */
+/** Header with back, title and the "?" how-to-play guide. The guide opens by itself on first visit (phones and tablets). */
 export function TopBar({ mode, eyebrow, title, accent = "var(--lime)", light = false }: { mode?: string; eyebrow: string; title: string; accent?: string; light?: boolean }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
-    if (!mode) return;
+    // On wide screens the dashboard rail already shows the guide, so do not pop it up.
+    if (!mode || matchMedia("(min-width: 1180px)").matches) return;
     try { if (!localStorage.getItem("guide:" + mode)) { setOpen(true); localStorage.setItem("guide:" + mode, "1"); } } catch {}
   }, [mode]);
   const bg = light ? "var(--black)" : "var(--paper)", fg = light ? accent : "#111";
   const g = mode ? GUIDES[mode] : null;
   return (
     <>
-      <header style={{ padding: "16px 20px 8px", display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
+      <header className="topbar" style={{ padding: "16px 20px 8px", display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
         <Link href="/" aria-label="Back to home" className="iconbtn" style={{ background: bg }}><Back color={fg} /></Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="eyebrow" style={{ color: light ? "#111" : accent }}>{eyebrow}</div>
-          <div className="display" style={{ fontSize: 21 }}>{title}</div>
+          <div className="display topbar-title" style={{ fontSize: 21 }}>{title}</div>
         </div>
         {g && <button aria-label="How to play" onClick={() => setOpen(true)} className="iconbtn display" style={{ background: bg, color: fg, fontSize: 20 }}>?</button>}
       </header>
       {g && open && (
-        <div role="dialog" aria-modal="true" aria-label={"How to play " + g.title} onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(5,7,10,.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+        <div role="dialog" aria-modal="true" aria-label={"How to play " + g.title} onClick={() => setOpen(false)} className="guide" style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(5,7,10,.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
           <div className="sheet paper" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 430, borderRadius: "28px 28px 0 0", padding: "22px 20px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="eyebrow" style={{ color: "#6b6455" }}>How to play</div>
             <div className="display" style={{ fontSize: 30 }}>{g.title}</div>

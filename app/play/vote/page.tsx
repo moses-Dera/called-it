@@ -23,7 +23,7 @@ export default function Vote() {
       <TopBar mode="vote" eyebrow="Secret Vote · Uni squad" title={phase === "vote" ? "7 of 8 votes sealed" : "All 8 votes are in"} light accent="#ffce80" />
       <div className="display" style={{ padding: "6px 20px 0", fontSize: 36, letterSpacing: -1, position: "relative" }}>Who gets married first?</div>
       {phase === "vote" ? (
-        <div style={{ padding: "18px 20px 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, position: "relative" }}>
+        <div className="vote-grid" style={{ padding: "18px 20px 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, position: "relative" }}>
           {PPL.map((p, i) => {
             const on = pick === i;
             return (

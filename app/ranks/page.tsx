@@ -15,8 +15,8 @@ export default function Ranks() {
   const rows = PLAYERS.map((p, i) => ({ ...p, pts: i === 0 ? mine : BOTS[i - 1][tab] })).sort((a, b) => b.pts - a.pts);
   const pod = [rows[1], rows[0], rows[2]];
   return (
-    <main className="screen">
-      <div style={{ padding: "18px 20px 10px", display: "flex", flexDirection: "column", gap: 12 }}>
+    <main className="screen wide hub ranks">
+      <div className="ranks-head" style={{ padding: "18px 20px 10px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Ranks</h1>
           <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)", padding: "6px 10px" }}>SEASON 1 · 9 DAYS</span>
@@ -27,7 +27,7 @@ export default function Ranks() {
           ))}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8, padding: "18px 20px 0" }}>
+      <div className="ranks-pod" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8, padding: "18px 20px 0" }}>
         {pod.map((p, i) => (
           <div key={p.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: 108 }}>
             { }
@@ -39,7 +39,7 @@ export default function Ranks() {
           </div>
         ))}
       </div>
-      <div style={{ background: "var(--paper)", color: "#111", borderRadius: "26px 26px 0 0", padding: "12px 20px 0", display: "flex", flexDirection: "column", flex: 1 }}>
+      <div className="ranks-list" style={{ background: "var(--paper)", color: "#111", borderRadius: "26px 26px 0 0", padding: "12px 20px 0", display: "flex", flexDirection: "column", flex: 1 }}>
         {rows.slice(3).map((r, i) => (
           <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.name === "You" ? "rgba(198,244,50,.35)" : "transparent" }}>
             <span className="display" style={{ width: 22, fontSize: 20 }}>{i + 4}</span>
@@ -53,7 +53,7 @@ export default function Ranks() {
           <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Top 3 win a weekly ZEC bonus</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Sponsored. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
         </Link>
       </div>
-      <div style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>
+      <div className="navwrap" style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>
     </main>
   );
 }

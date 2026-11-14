@@ -15,9 +15,9 @@ export default function Profile() {
     setMsg("Saved.");
   }
   return (
-    <main className="screen">
+    <main className="screen wide hub">
       <TopBar eyebrow="Profile" title={s.profile.name || "Your profile"} />
-      <div style={{ padding: "8px 20px 28px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
+      <div className="profile-body" style={{ padding: "8px 20px 28px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
         <section style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Img n={`avatar_${s.profile.avatar}`} size={84} alt="Your avatar" style={{ borderRadius: 26, border: "3px solid var(--lime)" }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, flex: 1 }}>
@@ -29,7 +29,7 @@ export default function Profile() {
 
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 6 }}>
+          <div className="avatars" style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 6 }}>
             {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
               <button key={n} aria-label={`Avatar ${n}`} aria-pressed={s.profile.avatar === n} onClick={() => saveProfile({ avatar: n })} style={{ padding: 0, background: "transparent", border: 0, minHeight: 44 }}>
                 <Img n={`avatar_${n}`} size={40} style={{ width: "100%", height: "auto", aspectRatio: "1", borderRadius: 12, border: `3px solid ${s.profile.avatar === n ? "var(--lime)" : "transparent"}` }} />
@@ -38,7 +38,7 @@ export default function Profile() {
           </div>
         </section>
 
-        <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+        <section className="paper p-form" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
           <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
           <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Withdrawal wallet (shielded Zcash address)</label>
