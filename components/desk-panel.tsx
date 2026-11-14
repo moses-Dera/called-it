@@ -36,7 +36,7 @@ export function DeskPanel() {
       <section className="dcard" style={{ background: "var(--amber)", color: "#111", border: "3px solid #111" }}>
         <div className="eyebrow">Your stats</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-          {[["Points", t.points], ["Seals", s.seals.length], ["Wins", s.ledger.length]].map(([k, v]) => (
+          {[["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length]].map(([k, v]) => (
             <div key={k} style={{ background: "#111", color: "var(--paper)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 26 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
           ))}
         </div>

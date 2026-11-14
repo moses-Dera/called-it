@@ -24,11 +24,13 @@ export default function Profile() {
         <section style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Img n={`avatar_${s.profile.avatar}`} size={84} alt="Your avatar" style={{ borderRadius: 26, border: "3px solid var(--lime)" }} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, flex: 1 }}>
-            {[["Points", t.points], ["Seals", s.seals.length], ["Wins", s.ledger.length]].map(([k, v]) => (
+            {[["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length]].map(([k, v]) => (
               <div key={k} style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, padding: "8px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 22 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
             ))}
           </div>
         </section>
+
+        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks and earn testnet ZEC. Practice points come from games against bots.</div>
 
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
@@ -45,7 +47,7 @@ export default function Profile() {
           <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
           <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
           <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Withdrawal wallet (shielded Zcash address)</label>
-          <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="u1… paste from Zodl" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
+          <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="utest1… (testnet address from Zodl or Zingo)" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
           <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Saved once, then every withdrawal goes here in one tap.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
           <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
