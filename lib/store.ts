@@ -52,28 +52,45 @@ export async function createSeal(game: string, round: string, move: string, labe
   return seal;
 }
 let anchoring = false;
-/** Anchor every seal made on this device that is not on-chain yet. Safe to call often:
- * if the anchor service is down, the seals stay pending and the next call retries them. */
+/** Anchor every seal made on this device that is not on-chain yet. Safe to call often (every minute):
+ * 1. seals with no batch yet are handed to the anchor service, which answers at once ("queued");
+ * 2. seals whose batch is queued are checked until their transaction id comes back.
+ * If the service is down the seals simply stay pending and the next call retries. */
 export async function anchorPending() {
-  const pending = read().seals.filter((x) => x.status === "sealed" && !x.remote);
-  if (!pending.length || anchoring) return;
+  if (anchoring) return;
   anchoring = true;
   try {
-    const r = await fetch("/api/anchor", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitments: pending.map((p) => p.commitment) }) });
-    if (!r.ok) return;
-    const j = await r.json();
-    const s = read();
-    write({ ...s, seals: s.seals.map((x) => {
-      const i = pending.findIndex((p) => p.id === x.id);
-      return i < 0 ? x : { ...x, status: "onchain", root: j.root, proof: j.proofs[i], txid: j.txid, height: j.height, mode: j.mode };
-    }) });
+    const mine = read().seals.filter((x) => x.status === "sealed" && !x.remote);
+    const fresh = mine.filter((x) => !x.root);
+    if (fresh.length) {
+      const r = await fetch("/api/anchor", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitments: fresh.map((p) => p.commitment) }) });
+      if (r.ok) {
+        const j = await r.json();
+        const s = read();
+        write({ ...s, seals: s.seals.map((x) => {
+          const i = fresh.findIndex((p) => p.id === x.id);
+          return i < 0 ? x : { ...x, root: j.root, proof: j.proofs[i], mode: j.mode, ...(j.txid ? { status: "onchain", txid: j.txid, height: j.height } : {}) };
+        }) });
+      }
+    }
+    const waiting = [...new Set(read().seals.filter((x) => x.status === "sealed" && !x.remote && x.root).map((x) => x.root!))];
+    for (const root of waiting) {
+      const r = await fetch(`/api/anchor?root=${root}`);
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (!j.txid && j.status !== "failed") continue;
+      const s = read();
+      write({ ...s, seals: s.seals.map((x) => x.root !== root || x.status !== "sealed" ? x
+        : j.txid ? { ...x, status: "onchain", txid: j.txid, height: j.height, mode: j.mode }
+        : { ...x, root: undefined, proof: undefined }) }); // failed: start again in a new batch
+    }
   } catch {}
   finally { anchoring = false; }
 }
 /** Re-hash the move and salt, then walk the Merkle proof up to the anchored root. */
 export async function verifySeal(seal: Seal): Promise<{ hashOk: boolean; anchored: boolean }> {
   const hashOk = (await commit(read().player, seal.round, seal.move, seal.salt)) === seal.commitment;
-  const anchored = !!(seal.root && seal.proof && (await verifyProof(seal.commitment, seal.proof, seal.root)));
+  const anchored = seal.status === "onchain" && !!(seal.root && seal.proof && (await verifyProof(seal.commitment, seal.proof, seal.root)));
   return { hashOk, anchored };
 }
 export function markRevealed(id: string) { const s = read(); write({ ...s, seals: s.seals.map((x) => (x.id === id ? { ...x, revealed: true } : x)) }); }

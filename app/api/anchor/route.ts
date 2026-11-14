@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildTree } from "@/lib/merkle";
-import { anchorRoot } from "@/lib/zcash";
+import { anchorRoot, anchorStatus } from "@/lib/zcash";
 
-// A testnet anchor syncs the wallet and builds a proof before it broadcasts.
-export const maxDuration = 120;
 
 // Receives only commitments (hashes). Moves and salts never reach the server before reveal.
 export async function POST(req: Request) {
@@ -17,5 +15,14 @@ export async function POST(req: Request) {
   const anchor = await anchorRoot(root);
   // Anchor service down: tell the browser to keep the seals pending and try again later.
   if (!anchor) return NextResponse.json({ error: "anchor service unavailable", retry: true }, { status: 503 });
-  return NextResponse.json({ root, proofs, ...anchor, anchoredAt: Date.now() });
+  return NextResponse.json({ root, proofs, ...anchor });
+}
+
+// Where is this root now? queued -> sent (txid) -> mined (block height).
+export async function GET(req: Request) {
+  const root = new URL(req.url).searchParams.get("root") ?? "";
+  if (!/^[0-9a-f]{64}$/.test(root)) return NextResponse.json({ error: "root must be 64 hex characters" }, { status: 400 });
+  const state = await anchorStatus(root);
+  if (!state) return NextResponse.json({ error: "anchor service unavailable", retry: true }, { status: 503 });
+  return NextResponse.json(state);
 }

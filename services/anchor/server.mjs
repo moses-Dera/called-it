@@ -4,12 +4,16 @@
 // It keeps a wallet on disk, so it runs on a normal machine or VPS, not on Vercel.
 // The web app reaches it through ANCHOR_URL and ANCHOR_TOKEN.
 //
-//   POST /anchor  { "root": "<64 hex>" }   Authorization: Bearer <ANCHOR_TOKEN>
-//   ->            { "txid": "...", "height": 1234567, "confirmed": true }
-//   GET  /health  -> { ok, address, spendable, height }
+// Anchoring takes minutes (sync, proof, broadcast, mining), so requests never wait for it:
+//   POST /anchor         { "root": "<64 hex>" }  -> 202 { status: "queued" } or the root's current state
+//   GET  /anchor/<root>  -> { status: "queued" | "sent" | "mined" | "failed", txid?, height?, error? }
+//   GET  /health         -> { ok, address, spendable, height, queued }
+// All need Authorization: Bearer <ANCHOR_TOKEN>. Root states are kept in <data dir>/anchors.json.
 import { createServer } from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
-import { SERVER, addressOf, describe, openWallet, unlock, zec } from "./wallet.mjs";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { DATA, SERVER, addressOf, describe, openWallet, unlock, zec } from "./wallet.mjs";
 
 const env = process.env;
 const PORT = Number(env.PORT ?? 8787);
@@ -54,7 +58,7 @@ async function resumeAndBroadcast(operationId) {
   }
 }
 
-async function anchorBatch(roots) {
+async function anchorBatch(roots, onSent) {
   const synced = await wallet.sync();
   if (!synced.targetReached) throw new Error("wallet sync did not reach the chain tip");
   const tip = synced.target?.height ?? 0;
@@ -70,6 +74,7 @@ async function anchorBatch(roots) {
     else throw e;
   }
   const sent = (await pending.snapshot()).steps.at(-1)?.txid;
+  if (sent) await onSent(String(sent), tip);
   try {
     const done = await waitForConfirmation(pending);
     const tx = done.transactions.at(-1);
@@ -82,8 +87,14 @@ async function anchorBatch(roots) {
   }
 }
 
+// Root -> state, saved to disk so a restart neither loses nor re-sends anything.
+const STATE_FILE = join(DATA, "anchors.json");
+const roots = new Map(Object.entries(JSON.parse(await readFile(STATE_FILE, "utf8").catch(() => "{}"))));
+const save = () => writeFile(STATE_FILE, JSON.stringify(Object.fromEntries(roots))).catch((e) => console.error("could not save anchor state", e));
+const set = (list, patch) => { for (const r of list) roots.set(r, { ...roots.get(r), ...patch, at: Date.now() }); return save(); };
+
 // One wallet, one send at a time. Roots that arrive meanwhile share the next transaction.
-const queue = [];
+const queue = [...roots].filter(([, s]) => s.status === "queued").map(([r]) => r);
 let running = false;
 async function drain() {
   if (running) return;
@@ -91,17 +102,27 @@ async function drain() {
   while (queue.length) {
     const batch = queue.splice(0, PER_TX);
     try {
-      const out = await anchorBatch(batch.map((j) => j.root));
-      console.log(new Date().toISOString(), `anchored ${batch.length} root(s) in tx ${out.txid} @ ${out.height}${out.confirmed ? "" : " (unconfirmed)"}`);
-      batch.forEach((j) => j.resolve(out));
+      const out = await anchorBatch(batch, (txid, height) => set(batch, { status: "sent", txid, height, error: undefined }));
+      await set(batch, { status: out.confirmed ? "mined" : "sent", txid: out.txid, height: out.height, error: undefined });
+      console.log(new Date().toISOString(), `anchored ${batch.length} root(s) in tx ${out.txid} @ ${out.height}${out.confirmed ? "" : " (not mined yet)"}`);
     } catch (e) {
       console.error(new Date().toISOString(), "anchor failed:", describe(e));
-      batch.forEach((j) => j.reject(e));
+      // Not sent: put the roots back so the next run tries again (in a fresh transaction).
+      if (batch.every((r) => !roots.get(r)?.txid)) { await set(batch, { status: "queued", error: describe(e) }); queue.push(...batch); await new Promise((r) => setTimeout(r, 30_000)); }
+      else await set(batch, { status: "failed", error: describe(e) });
     }
   }
   running = false;
 }
-const anchor = (root) => new Promise((resolve, reject) => { queue.push({ root, resolve, reject }); drain(); });
+function enqueue(root) {
+  const known = roots.get(root);
+  if (known && known.status !== "failed") return known;
+  roots.set(root, { status: "queued", at: Date.now() });
+  save();
+  queue.push(root);
+  drain();
+  return roots.get(root);
+}
 
 const authed = (req) => {
   const got = Buffer.from((req.headers.authorization ?? "").replace(/^Bearer /, "")), want = Buffer.from(TOKEN);
@@ -116,17 +137,24 @@ const server = createServer(async (req, res) => {
       const b = await wallet.getBalance({ accountId: account.id });
       return reply(res, 200, { ok: true, address: ADDRESS, spendable: b.amounts ? zec(b.amounts.ironwood.spendable) : null, height: b.scan.tipHeight, queued: queue.length });
     }
+    const lookup = /^\/anchor\/([0-9a-f]{64})$/.exec(req.url ?? "");
+    if (req.method === "GET" && lookup) {
+      const s = roots.get(lookup[1]);
+      return s ? reply(res, 200, s) : reply(res, 404, { error: "unknown root" });
+    }
     if (req.method !== "POST" || req.url !== "/anchor") return reply(res, 404, { error: "not found" });
     let raw = "";
     for await (const chunk of req) { raw += chunk; if (raw.length > 4096) return reply(res, 413, { error: "too large" }); }
     const root = JSON.parse(raw || "{}").root;
     if (typeof root !== "string" || !/^[0-9a-f]{64}$/.test(root)) return reply(res, 400, { error: "root must be 64 hex characters" });
-    reply(res, 200, await anchor(root));
+    const state = enqueue(root);
+    reply(res, state.status === "queued" ? 202 : 200, state);
   } catch (e) {
     reply(res, 502, { error: describe(e) });
   }
 });
 server.listen(PORT, "127.0.0.1", () => console.log(`anchor service on http://127.0.0.1:${PORT} · ${SERVER} · paying from ${ADDRESS.slice(0, 16)}…`));
+if (queue.length) { console.log(`resuming ${queue.length} queued root(s)`); drain(); }
 
 async function shutdown() {
   server.close();
