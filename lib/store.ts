@@ -51,9 +51,13 @@ export async function createSeal(game: string, round: string, move: string, labe
   timer = setTimeout(anchorPending, 5000); // batch window; a real Zcash block takes about 25s
   return seal;
 }
+let anchoring = false;
+/** Anchor every seal made on this device that is not on-chain yet. Safe to call often:
+ * if the anchor service is down, the seals stay pending and the next call retries them. */
 export async function anchorPending() {
-  const pending = read().seals.filter((x) => x.status === "sealed");
-  if (!pending.length) return;
+  const pending = read().seals.filter((x) => x.status === "sealed" && !x.remote);
+  if (!pending.length || anchoring) return;
+  anchoring = true;
   try {
     const r = await fetch("/api/anchor", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitments: pending.map((p) => p.commitment) }) });
     if (!r.ok) return;
@@ -64,6 +68,7 @@ export async function anchorPending() {
       return i < 0 ? x : { ...x, status: "onchain", root: j.root, proof: j.proofs[i], txid: j.txid, height: j.height, mode: j.mode };
     }) });
   } catch {}
+  finally { anchoring = false; }
 }
 /** Re-hash the move and salt, then walk the Merkle proof up to the anchored root. */
 export async function verifySeal(seal: Seal): Promise<{ hashOk: boolean; anchored: boolean }> {

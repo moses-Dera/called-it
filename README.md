@@ -60,7 +60,9 @@ npm run init-wallet   # creates the testnet wallet once and prints the address t
 1. Fund the printed `utest1…` address from a testnet faucet
    ([fauzec.com](https://fauzec.com/) or [zcashfaucet.jinolabs.xyz](https://zcashfaucet.jinolabs.xyz/)).
    Check it arrived with `npm run balance` (3 confirmations before it is spendable).
-2. Start the service: `ANCHOR_TOKEN=<long random secret> npm start`
+2. Start the service. Either `npm run online`, which starts it plus a free Cloudflare quick tunnel
+   (`cloudflared` must be installed) and prints the `ANCHOR_URL` and token for Vercel, or
+   `ANCHOR_TOKEN=<long random secret> npm start` on a server you expose yourself.
 3. Point the app at it with `ANCHOR_URL=http://127.0.0.1:8787` and the same `ANCHOR_TOKEN` in `.env.local`.
    For the deployed app, the service has to be reachable from the internet (a small VPS or a tunnel).
 
@@ -76,8 +78,8 @@ The wallet's 24-word phrase is saved in `~/.called-it/anchor-wallet/mnemonic.txt
 
 Other settings: `ANCHOR_ZATS` (amount sent to itself per anchor, default 10000 zats; only the fee is
 spent), `ANCHOR_WAIT_MS` (wait for the first confirmation, default 90000), `ANCHOR_DATA_DIR`,
-`ZCASH_SERVER`, `PORT`. If the service is down or errors, the app falls back to simulated mode and
-labels the seal that way. zcash.js is an experimental 0.1.x release: fine for testnet, not for real funds.
+`ZCASH_SERVER`, `PORT`. Without `ANCHOR_URL` (a local demo) the app labels seals "simulated". With `ANCHOR_URL` set, seals made while the service is down stay pending
+("SEALED · ANCHORING…") and the browser retries every minute, so they are anchored once it is back. zcash.js is an experimental 0.1.x release: fine for testnet, not for real funds.
 
 ## Screens
 

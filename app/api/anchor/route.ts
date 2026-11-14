@@ -15,5 +15,7 @@ export async function POST(req: Request) {
   }
   const { root, proofs } = await buildTree(commitments as string[]);
   const anchor = await anchorRoot(root);
+  // Anchor service down: tell the browser to keep the seals pending and try again later.
+  if (!anchor) return NextResponse.json({ error: "anchor service unavailable", retry: true }, { status: 503 });
   return NextResponse.json({ root, proofs, ...anchor, anchoredAt: Date.now() });
 }

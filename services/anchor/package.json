@@ -10,7 +10,8 @@
     "address": "node cli.mjs address",
     "balance": "node cli.mjs balance",
     "payouts": "node cli.mjs payouts",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "online": "node online.mjs"
   },
   "dependencies": {
     "@scure/bip39": "2.4.0",
