@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /services/anchor/node_modules
+/supabase/.temp
 /.pnp
 .pnp.*
 .yarn/*

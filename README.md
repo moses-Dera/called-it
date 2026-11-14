@@ -29,6 +29,20 @@ A signed-in account backs up the profile, the rewards ledger and each seal's has
 Moves and salts are never uploaded. Points are reported by the client, so treat them as unverified
 until scoring moves to the server.
 
+## Ranked points, fixtures and payouts
+
+- **Practice points** come from games against bots. They are counted in the browser, so they never
+  reach the leaderboard or carry prize ZEC.
+- **Ranked points** come only from the database function `claim_classic()`. At reveal it re-hashes the
+  move and salt, checks the seal reached the server before kickoff, and scores it against the official
+  result in the `fixtures` table. The leaderboard (`leaderboard()`) and the prize balance count only these.
+- **Fixtures** live in the `fixtures` table. Enter a final score in the Supabase SQL editor once a match ends:
+  `update fixtures set home_goals = 2, away_goals = 1 where id = 'reds-blues-2026-11-21';`
+- **Withdrawals**: signed-in players request a payout from the Vault (`request_withdrawal()`, testnet
+  `utest1…` addresses only). Pay them from the anchor wallet with
+  `SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run payouts` in `services/anchor`. The secret key is for that
+  script only; never put it in the web app or on Vercel.
+
 ## Zcash testnet anchoring
 
 `services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/)

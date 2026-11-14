@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CardBack, Flip, Img, TopBar } from "@/components/ui";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
+import { claimClassic, cloudReady, signInWithGoogle, useCloud, type Claim } from "@/lib/cloud";
 
 const FINAL = { home: 2, away: 1 }; // demo fixture result; live scores come from the football feed
 function score(move: string) {
@@ -19,6 +20,8 @@ export default function Reveal() {
   const seals = useStore().seals;
   const [shown, setShown] = useState<Seal | null>(null);
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
+  const [claim, setClaim] = useState<Claim | { status: "error"; message: string } | null>(null);
+  const signedIn = !!useCloud().session;
   const pending = seals.find((s) => s.game === "classic" && !s.revealed && !s.remote);
   const seal = shown ?? pending ?? null;
   const sc = useMemo(() => (seal ? score(seal.move) : null), [seal]);
@@ -28,7 +31,14 @@ export default function Reveal() {
     if (!seal || open) return;
     const c = await verifySeal(seal);
     setCheck(c); setShown(seal);
-    if (c.hashOk) { markRevealed(seal.id); addReward(`${seal.label} · Classic Call`, score(seal.move).total); }
+    if (!c.hashOk) return;
+    markRevealed(seal.id);
+    if (signedIn) {
+      // Ranked points: the server re-hashes the move and scores it against the official result.
+      claimClassic(seal).then(setClaim, (e) => setClaim({ status: "error", message: e instanceof Error ? e.message : "Claim failed" }));
+    } else {
+      addReward(`${seal.label} · Classic Call (practice)`, score(seal.move).total);
+    }
     if (navigator.vibrate) navigator.vibrate([20, 40, 60]);
   }
   const win = !!sc && sc.total > 0;
@@ -64,6 +74,15 @@ export default function Reveal() {
             {sc?.lines.map((l) => <div key={l.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>{l.label}</span><b>+{l.v}</b></div>)}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>Early bird</span><b>x2</b></div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #111", paddingTop: 8 }}><b>Total</b><span className="display" style={{ fontSize: 28 }}>+{sc?.total}</span></div>
+            <div role="status" style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", lineHeight: 1.45, borderTop: "2px dashed #c9bfa6", paddingTop: 8 }}>
+              {signedIn ? (
+                !claim ? "Checking your seal with the server…"
+                  : claim.status === "scored" ? `✓ Ranked: the server checked your seal against the official ${claim.final} result and awarded +${claim.points} points.`
+                  : claim.message ?? "Could not claim ranked points."
+              ) : cloudReady ? (
+                <>These are practice points (demo result). <button onClick={signInWithGoogle} style={{ background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 800, textDecoration: "underline", color: "#111" }}>Sign in</button> before kickoff to earn ranked points scored by the server.</>
+              ) : "These are practice points against a demo result."}
+            </div>
           </div>
           <div style={{ flex: 1, minHeight: 16 }} />
           <div style={{ padding: "0 20px 28px", display: "flex", gap: 10 }}>

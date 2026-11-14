@@ -9,7 +9,7 @@ export type Seal = {
   revealed?: boolean;
   remote?: boolean; // synced from another device: the move and salt stay on the device that sealed it
 };
-export type Reward = { id: string; label: string; points: number; zec: number; at: number };
+export type Reward = { id: string; label: string; points: number; zec: number; at: number; verified?: boolean };
 export type Profile = { name: string; avatar: number; address: string };
 export type State = { player: string; seals: Seal[]; ledger: Reward[]; withdrawn: number; profile: Profile };
 
@@ -72,10 +72,12 @@ export async function verifySeal(seal: Seal): Promise<{ hashOk: boolean; anchore
   return { hashOk, anchored };
 }
 export function markRevealed(id: string) { const s = read(); write({ ...s, seals: s.seals.map((x) => (x.id === id ? { ...x, revealed: true } : x)) }); }
-export function addReward(label: string, points: number) {
+/** Practice points by default. Verified rewards come back from the server's claim with their own id. */
+export function addReward(label: string, points: number, opts: { id?: string; verified?: boolean } = {}) {
   if (points <= 0) return;
   const s = read();
-  write({ ...s, ledger: [{ id: randomHex(4), label, points, zec: points / 100000, at: Date.now() }, ...s.ledger].slice(0, 200) });
+  if (opts.id && s.ledger.some((r) => r.id === opts.id)) return;
+  write({ ...s, ledger: [{ id: opts.id ?? randomHex(4), label, points, zec: points / 100000, at: Date.now(), verified: opts.verified }, ...s.ledger].slice(0, 200) });
 }
 export function saveProfile(patch: Partial<Profile>) { const s = read(); write({ ...s, profile: { ...s.profile, ...patch } }); }
 /** Fold a signed-in account's cloud copy into this device. Local data always wins for seals made here. */
@@ -92,10 +94,12 @@ export function mergeCloud(remote: { profile?: Partial<Profile>; withdrawn?: num
   });
 }
 export const isShielded = (a: string) => /^(u|utest|zs|ztestsapling)1[a-z0-9]{20,}$/i.test(a.trim());
-export function withdrawAll() { const s = read(); write({ ...s, withdrawn: s.ledger.reduce((a, r) => a + r.zec, 0) }); }
+export function withdrawAll() { const s = read(); write({ ...s, withdrawn: s.ledger.reduce((a, r) => a + (r.verified ? r.zec : 0), 0) }); }
 export const totals = (s: State) => {
   const points = s.ledger.reduce((a, r) => a + r.points, 0);
-  const earned = s.ledger.reduce((a, r) => a + r.zec, 0);
-  return { points, earned, available: Math.max(0, earned - s.withdrawn) };
+  const ranked = s.ledger.reduce((a, r) => a + (r.verified ? r.points : 0), 0);
+  // Only server-verified rewards carry prize ZEC; practice points against bots do not.
+  const earned = s.ledger.reduce((a, r) => a + (r.verified ? r.zec : 0), 0);
+  return { points, ranked, earned, available: Math.max(0, earned - s.withdrawn) };
 };
 export const short = (h?: string) => (h ? h.slice(0, 6) + "…" + h.slice(-4) : "");

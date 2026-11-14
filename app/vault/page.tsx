@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
+import { requestWithdrawal, useCloud } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -16,16 +17,23 @@ export default function Vault() {
   const [open, setOpen] = useState<string | null>(null);
   const saved = s.profile.address;
   const [checks, setChecks] = useState<Record<string, string>>({});
+  const signedIn = !!useCloud().session;
 
-  function withdraw() {
+  async function withdraw() {
     // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.
     const to = saved || addr.trim();
     if (!to) return setMsg("Add your shielded wallet address first.");
     if (!isShielded(to)) return setMsg("Paste a shielded address (it starts with u1 or utest1).");
     const justSaved = !saved;
     if (justSaved) saveProfile({ address: to });
-    if (t.available < MIN) return setMsg(`${justSaved ? "Wallet saved. " : ""}You need at least ${MIN} ZEC to withdraw. Keep playing!`);
-    withdrawAll(); setMsg("Withdrawal requested. Testnet payouts are sent once the prize wallet is connected.");
+    if (!signedIn) return setMsg(`${justSaved ? "Wallet saved. " : ""}Sign in to request a payout. Prizes come only from ranked (server-checked) points.`);
+    setMsg("Requesting…");
+    try {
+      const r = await requestWithdrawal(to);
+      if (r.status === "too_small") return setMsg(`${justSaved ? "Wallet saved. " : ""}You need at least ${MIN} ZEC of ranked winnings to withdraw. You have ${(r.available ?? 0).toFixed(4)}.`);
+      withdrawAll();
+      setMsg(`Payout of ${Number(r.amount).toFixed(4)} testnet ZEC requested. It is sent from the prize wallet to ${short(to)}.`);
+    } catch (e) { setMsg(e instanceof Error ? e.message : "Request failed"); }
   }
   async function verify(x: Seal) {
     if (x.remote) return setChecks((p) => ({ ...p, [x.id]: "Sealed on another device. The move and salt live there, so the hash can only be re-checked on that device." }));
@@ -38,7 +46,7 @@ export default function Vault() {
       <section className="vault-bal" style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="eyebrow">Prize balance · testnet</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><span className="display" style={{ fontSize: 46 }}>{t.available.toFixed(4)}</span><b style={{ fontSize: 18 }}>ZEC</b></div>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>{t.points} points · {s.ledger.length} reward{s.ledger.length === 1 ? "" : "s"} · testnet ZEC has no real value</div>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>{t.ranked} ranked · {t.points - t.ranked} practice points · testnet ZEC has no real value</div>
         {saved ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "var(--paper)", border: "2px solid #111", borderRadius: 14, padding: "8px 12px" }}>
             <div><div style={{ fontSize: 11, fontWeight: 800 }}>SAVED WALLET</div><div className="mono" style={{ fontSize: 13 }}>{short(saved)}</div></div>
@@ -46,8 +54,8 @@ export default function Vault() {
           </div>
         ) : (
           <>
-            <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800 }}>Your shielded address (from Zodl). Saved for next time.</label>
-            <input id="addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="u1…" autoComplete="off" spellCheck={false} className="mono" style={{ height: 46, borderRadius: 14, border: "2px solid #111", background: "var(--paper)", color: "#111", padding: "0 12px", fontSize: 13 }} />
+            <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800 }}>Your testnet shielded address (utest1…, from Zodl or Zingo on testnet). Saved for next time.</label>
+            <input id="addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="utest1…" autoComplete="off" spellCheck={false} className="mono" style={{ height: 46, borderRadius: 14, border: "2px solid #111", background: "var(--paper)", color: "#111", padding: "0 12px", fontSize: 13 }} />
           </>
         )}
         <button className="btn" style={{ background: "#111", color: "var(--amber)", border: 0, fontSize: 16 }} onClick={withdraw}>{saved ? "Withdraw privately" : "Save wallet and withdraw"}</button>

@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GUIDES, PLAYERS } from "@/lib/data";
+import { GUIDES, PLAYERS, art } from "@/lib/data";
+import { cloudReady, useLeaderboard } from "@/lib/cloud";
 import { short, totals, useStore } from "@/lib/store";
 import { SealStatus } from "./ui";
 
@@ -15,7 +16,9 @@ export function DeskPanel() {
   const s = useStore();
   const t = totals(s);
   const g = GUIDES[MODE[path] ?? path.replace("/play/", "")];
-  const board = PLAYERS.map((p, i) => ({ ...p, name: i === 0 ? s.profile.name || "You" : p.name, me: i === 0, pts: i === 0 ? t.points : BOTS[i - 1] })).sort((a, b) => b.pts - a.pts).slice(0, 5);
+  const live = useLeaderboard("week").rows;
+  const demo = PLAYERS.map((p, i) => ({ ...p, name: i === 0 ? s.profile.name || "You" : p.name, me: i === 0, pts: i === 0 ? t.points : BOTS[i - 1] })).sort((a, b) => b.pts - a.pts).slice(0, 5);
+  const board = cloudReady ? (live ?? []).slice(0, 5).map((r) => ({ name: r.name, av: art(`avatar_${r.avatar}`), me: r.me, pts: r.points })) : demo;
   return (
     <aside className="desk" aria-label="Dashboard">
       <section className="dcard paper">
@@ -56,6 +59,7 @@ export function DeskPanel() {
 
       <section className="dcard" style={{ background: "var(--panel)", border: "2px solid var(--line)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span className="eyebrow" style={{ color: "var(--lime)" }}>Top players this week</span><Link href="/ranks" style={{ fontSize: 12, fontWeight: 700, color: "var(--lime)" }}>All ranks</Link></div>
+        {cloudReady && live && board.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>No ranked points yet this week. Be the first: seal a Classic Call before kickoff.</div>}
         {board.map((p, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: p.me ? "rgba(198,244,50,.12)" : "transparent", borderRadius: 10, padding: "2px 4px" }}>
             <span className="display" style={{ width: 18, fontSize: 16 }}>{i + 1}</span>

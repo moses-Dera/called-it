@@ -1,11 +1,12 @@
 "use client";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
-import { getState, mergeCloud, subscribe, type Reward, type Seal } from "./store";
+import { addReward, getState, mergeCloud, subscribe, type Reward, type Seal } from "./store";
 
 // Optional cloud account (Supabase + Google sign-in). Without the two env vars the app stays guest-only.
 // What syncs: profile, the rewards ledger, and each seal's commitment and proof.
 // What never syncs: the move and its salt. Those stay on the device until reveal.
+// Ranked points are "verified": only the database function claim_classic() can create them.
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; // older projects call it the anon key
 export const cloudReady = !!(URL && KEY);
@@ -44,20 +45,21 @@ async function pull(uid: string) {
     sealedAt: Date.parse(r.sealed_at), status: r.status, root: r.root ?? undefined, proof: r.proof ?? undefined,
     txid: r.txid ?? undefined, height: r.height ?? undefined, mode: r.mode ?? undefined, revealed: r.revealed, remote: true,
   }));
-  const ledger: Reward[] = (re.data ?? []).map((r) => ({ id: r.id, label: r.label, points: r.points, zec: Number(r.zec), at: Date.parse(r.at) }));
+  const ledger: Reward[] = (re.data ?? []).map((r) => ({ id: r.id, label: r.label, points: r.points, zec: Number(r.zec), at: Date.parse(r.at), verified: !!r.verified }));
   mergeCloud({ profile: p.data ?? undefined, withdrawn: Number(p.data?.withdrawn ?? 0), seals, ledger });
 }
 
 async function push(uid: string) {
   const c = sb()!, s = getState();
   const mine = s.seals.filter((x) => !x.remote); // only this device's seals; never the move or salt
+  const practice = s.ledger.filter((r) => !r.verified); // verified rows are written by the server only
   const res = await Promise.all([
     c.from("profiles").upsert({ id: uid, name: s.profile.name, avatar: s.profile.avatar, address: s.profile.address, player: s.player, withdrawn: s.withdrawn, updated_at: iso(Date.now()) }),
     mine.length ? c.from("seals").upsert(mine.map((x) => ({
       user_id: uid, id: x.id, game: x.game, round: x.round, label: x.label, commitment: x.commitment, sealed_at: iso(x.sealedAt),
       status: x.status, root: x.root ?? null, proof: x.proof ?? null, txid: x.txid ?? null, height: x.height ?? null, mode: x.mode ?? null, revealed: !!x.revealed,
     }))) : null,
-    s.ledger.length ? c.from("rewards").upsert(s.ledger.map((r) => ({ user_id: uid, id: r.id, label: r.label, points: r.points, zec: r.zec, at: iso(r.at) }))) : null,
+    practice.length ? c.from("rewards").upsert(practice.map((r) => ({ user_id: uid, id: r.id, label: r.label, points: r.points, zec: r.zec, at: iso(r.at) }))) : null,
   ]);
   const err = res.find((r) => r?.error)?.error;
   if (err) throw new Error(err.message);
@@ -73,6 +75,49 @@ async function sync(first = false) {
   catch (e) { set({ status: "error", error: e instanceof Error ? e.message : "Sync failed" }); }
   busy = false;
   if (again) { again = false; sync(); }
+}
+
+/** Push local changes now (used before a claim, so the server has the seal). */
+export async function syncNow() { if (timer) clearTimeout(timer); await sync(); }
+
+export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; final?: string; id?: string; message?: string };
+/** Reveal a Classic Call to the server, which re-hashes it and scores it against the official result. */
+export async function claimClassic(seal: Seal): Promise<Claim> {
+  const c = sb();
+  if (!c || !cloud.session) throw new Error("Sign in to earn ranked points.");
+  await syncNow();
+  const { data, error } = await c.rpc("claim_classic", { p_seal_id: seal.id, p_player: getState().player, p_move: seal.move, p_salt: seal.salt });
+  if (error) throw new Error(error.message);
+  const r = data as Claim;
+  if (r.status === "scored" && r.points && r.id) addReward(`${seal.label} · Classic Call (verified)`, r.points, { id: r.id, verified: true });
+  return r;
+}
+
+export async function requestWithdrawal(address: string): Promise<{ status: "requested" | "too_small"; amount?: number; available?: number }> {
+  const c = sb();
+  if (!c || !cloud.session) throw new Error("Sign in to request a payout.");
+  const { data, error } = await c.rpc("request_withdrawal", { p_address: address.trim() });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export type Rank = { rank: number; name: string; avatar: number; points: number; me: boolean };
+/** Verified-points leaderboard. null while loading; [] when nobody has ranked points yet. */
+export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; error?: string } {
+  const [state, setState] = useState<{ key: string; rows: Rank[] | null; error?: string }>({ key: "", rows: null });
+  const uid = useCloud().session?.user.id ?? "";
+  const key = period + uid;
+  useEffect(() => {
+    const c = sb();
+    if (!c) return;
+    let live = true;
+    c.rpc("leaderboard", { p_period: period }).then(({ data, error }) => {
+      if (!live) return;
+      setState({ key, rows: error ? [] : (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) })), error: error?.message });
+    });
+    return () => { live = false; };
+  }, [key, period]);
+  return state.key === key ? state : { rows: null };
 }
 
 let started = false;

@@ -26,7 +26,7 @@ const ADDRESS = env.ANCHOR_ADDRESS || (await addressOf(wallet, account.id));
 /** Scan while waiting so the payment can be observed, as the SDK docs require. */
 async function waitForConfirmation(pending) {
   const stop = new AbortController();
-  const watching = (async () => { for await (const _ of wallet.watchSync({ signal: stop.signal })) { /* drain */ } throw new Error("sync watcher ended"); })();
+  const watching = (async () => { for await (const status of wallet.watchSync({ signal: stop.signal })) void status; throw new Error("sync watcher ended"); })();
   const waiting = pending.wait({ confirmations: 1, timeoutMs: WAIT_MS, signal: stop.signal });
   try { return await Promise.race([watching, waiting]); }
   finally { stop.abort(); await Promise.allSettled([watching, waiting]); }
