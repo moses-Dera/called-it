@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Inter } from "next/font/google";
 import "./globals.css";
+import { Shell } from "@/components/shell";
 
 const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-display", display: "swap" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -17,7 +18,7 @@ export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width"
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      <body><Shell>{children}</Shell></body>
     </html>
   );
 }

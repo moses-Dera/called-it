@@ -1,0 +1,59 @@
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+import { BottomNav, Img } from "@/components/ui";
+import { PLAYERS } from "@/lib/data";
+import { totals, useStore } from "@/lib/store";
+
+const BOTS = [[410, 1180, 7740], [355, 990, 8820], [320, 1210, 8100], [290, 870, 6550], [240, 760, 6900], [150, 700, 5100], [95, 410, 6020]];
+const BADGES = ["ORACLE · 10 CORRECT", "EARLY BIRD", "SNIPER · 5 EXACT", "BOLD CALLER", "CLOWN OF THE WEEK"];
+const POD = [{ rank: 2, size: 64, h: 96, bg: "#9FD8FF", rot: -4 }, { rank: 1, size: 78, h: 128, bg: "var(--lime)", rot: 3 }, { rank: 3, size: 58, h: 74, bg: "var(--amber)", rot: 4 }];
+
+export default function Ranks() {
+  const [tab, setTab] = useState(0);
+  const mine = totals(useStore()).points;
+  const rows = PLAYERS.map((p, i) => ({ ...p, pts: i === 0 ? mine : BOTS[i - 1][tab] })).sort((a, b) => b.pts - a.pts);
+  const pod = [rows[1], rows[0], rows[2]];
+  return (
+    <main className="screen">
+      <div style={{ padding: "18px 20px 10px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Ranks</h1>
+          <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)", padding: "6px 10px" }}>SEASON 1 · 9 DAYS</span>
+        </div>
+        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+          {["This week", "My groups", "All time"].map((t, i) => (
+            <button key={t} role="tab" aria-selected={tab === i} onClick={() => setTab(i)} style={{ height: 44, borderRadius: 12, border: `2px solid ${tab === i ? "#111" : "var(--line)"}`, background: tab === i ? "var(--lime)" : "var(--panel)", color: tab === i ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13 }}>{t}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8, padding: "18px 20px 0" }}>
+        {pod.map((p, i) => (
+          <div key={p.name} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: 108 }}>
+            { }
+            <img src={p.av} alt="" width={POD[i].size} height={POD[i].size} style={{ borderRadius: 20, border: "3px solid #111", boxShadow: `3px 3px 0 ${POD[i].bg}`, transform: `rotate(${POD[i].rot}deg)` }} />
+            <b style={{ fontSize: 13 }}>{p.name}</b>
+            <div style={{ width: "100%", height: POD[i].h, borderRadius: "16px 16px 0 0", background: POD[i].bg, border: "3px solid #111", borderBottom: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8, color: "#111", transition: "height 300ms" }}>
+              <span className="display" style={{ fontSize: 36 }}>{POD[i].rank}</span><b style={{ fontSize: 13 }}>{p.pts}</b>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "var(--paper)", color: "#111", borderRadius: "26px 26px 0 0", padding: "12px 20px 0", display: "flex", flexDirection: "column", flex: 1 }}>
+        {rows.slice(3).map((r, i) => (
+          <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.name === "You" ? "rgba(198,244,50,.35)" : "transparent" }}>
+            <span className="display" style={{ width: 22, fontSize: 20 }}>{i + 4}</span>
+            { }
+            <img src={r.av} alt="" width={38} height={38} style={{ borderRadius: 12, border: "2px solid #111" }} />
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 800, fontSize: 14 }}>{r.name}</div><div style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>{BADGES[i % 5]}</div></div>
+            <span className="display" style={{ fontSize: 20 }}>{r.pts}</span>
+          </div>
+        ))}
+        <Link href="/vault" style={{ margin: "12px 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
+          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Top 3 win a weekly ZEC bonus</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Sponsored. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
+        </Link>
+      </div>
+      <div style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>
+    </main>
+  );
+}

@@ -1,69 +1,64 @@
-import Image from "next/image";
+import Link from "next/link";
+import { MODES } from "@/lib/data";
+import { BottomNav, Img } from "@/components/ui";
+import { HomeBadge } from "@/components/home-badge";
+
+const FIXTURES = [
+  { match: "Reds vs Blues", when: "Sat 17:30", sealed: "6 friends sealed" },
+  { match: "Lagos derby", when: "Sun 16:00", sealed: "2 friends sealed" },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="screen wide">
+      <header className="home-head" style={{ padding: "18px 20px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="display" style={{ fontSize: 30, letterSpacing: -1 }}>called<span style={{ background: "var(--lime)", color: "#111", padding: "0 6px", marginLeft: 3, borderRadius: 8, display: "inline-block", transform: "rotate(-4deg)" }}>it!</span></div>
+        <HomeBadge />
+      </header>
+
+      <div className="home-body" style={{ padding: "10px 20px 16px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
+        <Link href="/play/arena" className="home-hero" style={{ display: "block", color: "var(--text)", borderRadius: 26, background: "#1e7a47", border: "2px solid #111", boxShadow: "5px 5px 0 var(--lime)", padding: 16, position: "relative", overflow: "hidden" }}>
+          <Img n="cover_arena" size={170} style={{ position: "absolute", right: -40, top: -40, opacity: 0.25, transform: "rotate(12deg)" }} />
+          <span className="chip" style={{ background: "var(--red)", border: 0 }}><span style={{ width: 7, height: 7, borderRadius: "50%", background: "#111" }} />LIVE 63&apos;</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, position: "relative" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: 80 }}><Img n="crest_ng" size={50} h={58} alt="Home XI crest" /><b style={{ fontSize: 12 }}>Home XI</b></div>
+            <div className="display" style={{ fontSize: 54 }}>1–0</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: 80 }}><Img n="crest_gh" size={50} h={58} alt="Away XI crest" /><b style={{ fontSize: 12 }}>Away XI</b></div>
+          </div>
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111", borderRadius: 14, padding: "11px 14px", fontSize: 14, fontWeight: 700 }}>
+            <span>Quick call is open <span style={{ color: "var(--lime)" }}>now</span></span><span style={{ color: "var(--lime)" }}>Enter →</span>
+          </div>
+        </Link>
+
+        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
+            <Link href="/seal" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)" }}>All fixtures</Link>
+          </div>
+          {FIXTURES.map((f) => (
+            <Link key={f.match} href="/seal" style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
+              <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6" }}>
+                <div className="display" style={{ fontSize: 17 }}>{f.match}</div>
+                <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>{f.when} · {f.sealed}</div>
+              </div>
+              <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
+            </Link>
+          ))}
+        </section>
+
+        <section className="home-games" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Pick a game</h2>
+          <div className="tiles" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+            {MODES.map((m) => (
+              <Link key={m.key} href={m.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text)" }}>
+                <Img n={m.img} size={76} style={{ borderRadius: 18, border: "2px solid #111", boxShadow: "3px 3px 0 var(--text)", transform: `rotate(${m.r}deg)`, maxWidth: "100%", height: "auto", aspectRatio: "1" }} />
+                <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+      <BottomNav active="/" />
+    </main>
   );
 }

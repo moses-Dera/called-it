@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Called It
 
-## Getting Started
+Seal your call now. Prove it later. A free-to-play social game app where every prediction,
+vote and game move is sealed before the outcome is known, so nobody can cheat or change their answer.
 
-First, run the development server:
+## How sealing works
+
+1. **On your device:** the app hashes `player + round + move + random salt` (SHA-256). Only the hash leaves the phone.
+2. **Batching:** `/api/anchor` collects hashes into a Merkle tree and anchors the single root in a shielded Zcash memo.
+3. **Reveal:** the move and salt are re-hashed and the Merkle proof is checked against the anchored root.
+
+Anchoring runs in **simulated mode** unless `ANCHOR_URL` (and `ANCHOR_TOKEN`) point at the anchor
+service (zingo-cli on Zcash testnet). The hashing, Merkle proofs and verification are real in both modes.
+
+## Screens
+
+Home, Seal (Classic Call), Waiting room, Reveal, Ranks, Vault, and eight game modes under `/play`:
+Live Arena, Closest Wins, Secret Vote, Bluff Vault, Fog of War, Werewolf Night, Fair-Play Arcade, Time Capsule.
+Each game has a "?" how-to-play guide that opens on first visit.
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
+npm run build && npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Next.js (App Router) + TypeScript, installable as a PWA. Planned next: Supabase (Google sign-in,
+contests, sponsor pots, rewards ledger), the Zcash testnet anchor service, live football data.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `app/` screens and the `/api/anchor` route
+- `lib/store.ts` sealing, verification and local rewards ledger
+- `lib/merkle.ts` Merkle tree and proofs, `lib/zcash.ts` anchor client
+- `components/ui.tsx` shared components
+- `public/a/` optimised artwork, `design-assets/` original PNGs

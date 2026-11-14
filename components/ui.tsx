@@ -5,7 +5,7 @@ import { GUIDES, art } from "@/lib/data";
 import type { Seal } from "@/lib/store";
 
 export function Img({ n, size, h, alt = "", style, className }: { n: string; size: number; h?: number; alt?: string; style?: React.CSSProperties; className?: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
+   
   return <img src={art(n)} alt={alt} width={size} height={h ?? size} loading="lazy" decoding="async" className={className} style={{ width: size, height: h ?? size, ...style }} />;
 }
 const Back = ({ color }: { color: string }) => (
@@ -77,7 +77,7 @@ export function Flip({ on, front, back, w, h, delay = 0, style }: { on: boolean;
   );
 }
 export const CardBack = ({ radius = 10 }: { radius?: number }) => (
-  // eslint-disable-next-line @next/next/no-img-element
+   
   <img src={art("cardback")} alt="Sealed" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: radius, border: "2px solid #111", display: "block" }} />
 );
 
@@ -89,8 +89,16 @@ const NAV = [
   { href: "/vault", label: "Vault", d: "M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM12 9.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" },
 ];
 export function BottomNav({ active }: { active: string }) {
+  const [hide, setHide] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => { const y = window.scrollY; if (Math.abs(y - last) > 6) { setHide(y > last && y > 40); last = y; } };
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
   return (
-    <nav aria-label="Main" style={{ margin: "0 14px calc(14px + env(safe-area-inset-bottom))", height: 70, background: "var(--paper)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "space-around", color: "#111", flexShrink: 0 }}>
+    <><div className="navspace" />
+    <nav aria-label="Main" className={"tabbar" + (hide ? " hide" : "")} style={{ height: 70, background: "var(--paper)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "space-around", color: "#111", flexShrink: 0 }}>
       {NAV.map((n, i) => n ? (
         <Link key={n.href} href={n.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, minWidth: 48, minHeight: 44, justifyContent: "center", color: active === n.href ? "#111" : "#6b6455" }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={n.d} /></svg>{n.label}
@@ -98,6 +106,6 @@ export function BottomNav({ active }: { active: string }) {
       ) : (
         <Link key={i} href="/seal" aria-label="Seal a call" style={{ width: 62, height: 62, marginTop: -34, borderRadius: "50%", background: "var(--lime)", border: "3px solid #111", boxShadow: "0 6px 0 #111", display: "flex", alignItems: "center", justifyContent: "center" }}><Lock size={26} /></Link>
       ))}
-    </nav>
+    </nav></>
   );
 }
