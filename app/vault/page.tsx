@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
+import { BackupNudge } from "@/components/account";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -33,7 +34,7 @@ export default function Vault() {
   }
   return (
     <main className="screen wide hub vault">
-      <div className="vault-title" style={{ padding: "18px 20px 12px" }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1></div>
+      <div className="vault-title" style={{ padding: "18px 20px 12px", display: "flex", flexDirection: "column", gap: 12 }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1><BackupNudge what="winnings and proofs" /></div>
       <section className="vault-bal" style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="eyebrow">Prize balance · testnet</span>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><span className="display" style={{ fontSize: 46 }}>{t.available.toFixed(4)}</span><b style={{ fontSize: 18 }}>ZEC</b></div>

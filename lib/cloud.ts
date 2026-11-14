@@ -23,7 +23,7 @@ export function useCloud(): Cloud {
 }
 
 export async function signInWithGoogle() {
-  const { error } = (await sb()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + "/profile" } })) ?? {};
+  const { error } = (await sb()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } })) ?? {};
   if (error) set({ status: "error", error: error.message });
 }
 export async function signOut() { await sb()?.auth.signOut(); }

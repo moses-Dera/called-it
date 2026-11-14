@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Img, Lock, SealStatus, TopBar } from "@/components/ui";
+import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
 
 const SIDES = ["Striker scores first", "Red card shown", "Goal after 85’"];
@@ -64,6 +65,7 @@ export default function SealPage() {
           <div className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--panel)", borderRadius: 10, padding: "8px 12px" }}>
             hash {short(seal.commitment)}{seal.txid ? ` · block ${seal.height?.toLocaleString()} · tx ${short(seal.txid)}` : ""}
           </div>
+          <div style={{ width: "100%", textAlign: "left" }}><BackupNudge what="calls and proofs" /></div>
           <Link href="/waiting" className="btn btn-paper" style={{ width: "100%", marginTop: 8 }}>Go to waiting room</Link>
           <button onClick={() => setSealId(null)} style={{ minHeight: 44, background: "transparent", border: 0, color: "var(--lime)", fontWeight: 700, fontSize: 14 }}>Seal another call</button>
         </div>

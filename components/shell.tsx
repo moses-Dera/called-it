@@ -3,6 +3,7 @@ import { MODES, art } from "@/lib/data";
 import { DeskPanel } from "./desk-panel";
 import { SideLink } from "./side-link";
 import { CloudSync } from "./cloud-sync";
+import { SidebarAccount } from "./account";
 
 // Sets the scale factors before first paint so there is no jump.
 // --z: phones (fit 390-wide design to the screen, and shrink further on very short phones).
@@ -29,6 +30,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </SideLink>
         ))}
         <div style={{ flex: 1 }} />
+        <SidebarAccount />
         <div style={{ fontSize: 12, color: "var(--muted)", padding: "12px 10px 0", lineHeight: 1.5 }}>Every call is sealed before the result. Free to play.</div>
       </aside>
       <div className="stage">{children}<DeskPanel /></div>
