@@ -20,7 +20,7 @@ export const BLUFF_CARDS = ["2", "4", "6", "8", "10", "Steal", "Shield"];
 
 export type Player = { user_id: string; name: string; avatar: number; state: "invited" | "joined"; plays: boolean; sealed: boolean; revealed: boolean; reported?: boolean; move: string | null };
 export type Room = {
-  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number; rounds?: number; turns?: number };
+  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number; rounds?: number; turns?: number; timer?: number };
   status: "lobby" | "sealing" | "revealing" | "report" | "answer" | "done"; round: number; answer: number | null; reveal_by: string | null; updated_at: string;
   result: { moves?: { user_id: string; name: string; move: string }[]; winner?: string | null; winner_name?: string | null; tally?: Record<string, number>; top?: string[]; votes?: number;
     guesses?: { user_id: string; name: string; move: string }[]; answer?: number; winners?: { user_id: string; name: string; move: string }[]; messages?: { user_id: string; name: string; move: string }[];
@@ -72,6 +72,28 @@ export async function reportHits(room: Room) {
   const theirs = Object.entries(turn?.targets ?? {}).find(([uid]) => uid !== room.me)?.[1] ?? [];
   await cloudRpc("report_hits", { p_room: room.id, p_hits: theirs.filter((c) => mine.includes(c)) });
 }
+/** Keep my rooms moving from any page: reveal or report what this device holds, and settle steps whose
+ * deadline has passed (whoever didn't act loses that round). Called every 30 s while signed in. */
+let working = false;
+export async function tendRooms() {
+  if (working) return;
+  working = true;
+  try {
+    for (const id of await cloudRpc<string[]>("my_open_rooms")) {
+      try {
+        const room = await cloudRpc<Room>("room_state", { p_room: id });
+        const me = room.players.find((p) => p.user_id === room.me);
+        const late = room.reveal_by !== null && Date.parse(room.reveal_by) < Date.now();
+        const opened = room.game !== "capsule" || !room.options.opens || Date.parse(room.options.opens) <= Date.now();
+        if (room.status === "revealing" && me?.sealed && !me.revealed && opened && hasLocalSeal(room)) await revealMine(room);
+        else if (room.status === "report" && me?.plays && !me.reported && myPlacement(room)) await reportHits(room);
+        else if (late) await forceSettle(room.id);
+      } catch { /* try again next time */ }
+    }
+  } catch { /* not signed in or offline */ }
+  finally { working = false; }
+}
+
 export type MyRole = { role: "wolf" | "seer" | "villager"; seen: { name: string; wolf: boolean; night: number }[]; pack: { id: string; name: string }[] | null };
 export const myRole = (room: string) => cloudRpc<MyRole | null>("my_role", { p_room: room });
 export const hasLocalSeal = (room: Room) => getState().seals.some((s) => s.round === roundKey(room.id, room.round) && !s.remote && !!s.move);

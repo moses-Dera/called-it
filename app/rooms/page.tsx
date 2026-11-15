@@ -110,6 +110,7 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
   const [title, setTitle] = useState(""), [choices, setChoices] = useState(["", ""]), [opens, setOpens] = useState("");
   const [search, setSearch] = useState(""), [people, setPeople] = useState<{ id: string; name: string; avatar: number }[]>([]);
   const [pick, setPick] = useState<string[]>([]), [busy, setBusy] = useState(false);
+  const [timer, setTimer] = useState(10), [rounds, setRounds] = useState(5), [turns, setTurns] = useState(6);
   const max = GAME_INFO[game].max - 1;
 
   useEffect(() => {
@@ -121,7 +122,8 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
   async function create() {
     setBusy(true);
     try {
-      const options = game === "vote" ? { choices: choices.map((c) => c.trim()).filter(Boolean) } : game === "capsule" ? { opens: opens ? new Date(opens).toISOString() : undefined } : {};
+      const base = game === "vote" ? { choices: choices.map((c) => c.trim()).filter(Boolean) } : game === "capsule" ? { opens: opens ? new Date(opens).toISOString() : undefined } : {};
+      const options = { ...base, ...(game !== "capsule" ? { timer } : {}), ...(game === "bluff" ? { rounds } : {}), ...(game === "fog" ? { turns } : {}) };
       const r = await createRoom(game, title, options, pick);
       onCreated(r.id);
     } catch (e) { onError(e instanceof Error ? e.message : "Could not create the game"); setBusy(false); }
@@ -150,6 +152,19 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
         </div>
       )}
       {game === "capsule" && <label style={{ fontSize: 12, fontWeight: 800 }}>Opens on<input type="datetime-local" value={opens} onChange={(e) => setOpens(e.target.value)} style={{ ...field, marginTop: 4 }} /></label>}
+
+      {game !== "capsule" && (
+        <div style={{ display: "grid", gridTemplateColumns: game === "bluff" || game === "fog" ? "1fr 1fr" : "1fr", gap: 8 }}>
+          <label style={{ fontSize: 12, fontWeight: 800 }}>Time to act each step
+            <select value={timer} onChange={(e) => setTimer(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>
+              {[2, 5, 10, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
+            </select>
+          </label>
+          {game === "bluff" && <label style={{ fontSize: 12, fontWeight: 800 }}>Rounds<select value={rounds} onChange={(e) => setRounds(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>{[3, 5, 7].map((n) => <option key={n} value={n}>{n} rounds</option>)}</select></label>}
+          {game === "fog" && <label style={{ fontSize: 12, fontWeight: 800 }}>Turns<select value={turns} onChange={(e) => setTurns(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>{[4, 6, 8].map((n) => <option key={n} value={n}>{n} turns</option>)}</select></label>}
+        </div>
+      )}
+      <span style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Whoever doesn’t act before the timer runs out loses that round, so a game never gets stuck. Wins with friends count up to 100 ranked points a day.</span>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <b style={{ fontSize: 13 }}>{game === "arcade" ? "Choose your opponent" : `Invite players (up to ${max})`}{pick.length ? ` · ${pick.length} picked` : ""}</b>

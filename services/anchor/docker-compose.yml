@@ -1,0 +1,34 @@
+# Anchor service + Caddy for automatic HTTPS. On the server:
+#   1. point a DNS name at the server (or use a free one such as <ip>.sslip.io)
+#   2. create .env next to this file:  ANCHOR_DOMAIN=anchor.example.com  ANCHOR_TOKEN=<long random secret>
+#   3. docker compose run --rm anchor node cli.mjs init      (once: creates the wallet, prints its address)
+#   4. fund the printed address from a testnet faucet
+#   5. docker compose up -d
+# Then set ANCHOR_URL=https://$ANCHOR_DOMAIN and the same ANCHOR_TOKEN in Vercel, and redeploy.
+services:
+  anchor:
+    build: .
+    restart: unless-stopped
+    environment:
+      ANCHOR_TOKEN: ${ANCHOR_TOKEN:?set ANCHOR_TOKEN in .env}
+      ZCASH_SERVER: ${ZCASH_SERVER:-https://testnet.zec.rocks:443}
+    volumes:
+      - wallet:/data
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: caddy reverse-proxy --from ${ANCHOR_DOMAIN:?set ANCHOR_DOMAIN in .env} --to anchor:8787
+    volumes:
+      - caddy:/data
+    depends_on:
+      - anchor
+
+volumes:
+  wallet:
+  caddy:

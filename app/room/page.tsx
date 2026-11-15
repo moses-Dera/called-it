@@ -35,6 +35,17 @@ export default function RoomPage() {
     revealMine(room).then(reload, (e) => setMsg(e instanceof Error ? e.message : "Reveal failed")).finally(() => { revealing.current = false; });
   }, [room, me, reload]);
 
+  // Deadline passed: any player's app settles the step (whoever didn't act loses that round).
+  const settling = useRef(false);
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  const late = !!room?.reveal_by && Date.parse(room.reveal_by) < Date.now() && ["sealing", "revealing", "report"].includes(room.status);
+  useEffect(() => {
+    if (!room || !late || settling.current) return;
+    settling.current = true;
+    forceSettle(room.id).then(reload, () => {}).finally(() => { settling.current = false; });
+  }, [room, late, reload]);
+
   // Fog of War: report the hits this device's units took, straight after each turn opens.
   const reporting = useRef(false);
   useEffect(() => {
@@ -66,6 +77,7 @@ export default function RoomPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="chip" style={{ background: "var(--amber)" }}>{STEP[room.status].toUpperCase()}</span>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>Host: {room.is_host ? "you" : room.host_name}</span>
+            {room.reveal_by && ["sealing", "revealing", "report"].includes(room.status) && <Countdown until={room.reveal_by} />}
           </div>
           {room.status === "lobby" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#0b0f14", borderRadius: 16, padding: 12 }}>
@@ -114,7 +126,7 @@ export default function RoomPage() {
                 : room.game === "fog" && room.round === 0 ? `Battle over. Opening both unit positions to check every report: ${revealed} of ${plays.length}.`
                 : `All moves are sealed. Opening them: ${revealed} of ${plays.length} revealed.`} />
               {me?.sealed && !me.revealed && !hasLocalSeal(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>You sealed this move on another device. Open this room there to reveal it.</p>}
-              {room.is_host && room.reveal_by && Date.parse(room.reveal_by) < Date.now() && room.game !== "capsule" && (
+              {room.reveal_by && Date.parse(room.reveal_by) < Date.now() && room.game !== "capsule" && (
                 <button className="btn btn-paper" disabled={busy} onClick={() => run(() => forceSettle(room.id))}>Close the round (players who didn’t reveal forfeit)</button>
               )}
               {room.reveal_by && <span style={{ fontSize: 12, color: "#4a4436" }}>Players who don’t reveal by {fmt(room.reveal_by)} forfeit.</span>}
@@ -125,7 +137,7 @@ export default function RoomPage() {
             <>
               <Waiting text={`Both volleys are open. Counting hits: ${plays.filter((p) => p.reported).length} of ${plays.length} reported.`} />
               {me?.plays && !me.reported && !myPlacement(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>Your unit positions are on another device. Open this game there to report.</p>}
-              {room.is_host && room.reveal_by && Date.parse(room.reveal_by) < Date.now() && <button className="btn btn-paper" disabled={busy} onClick={() => run(() => forceSettle(room.id))}>End the game (the player who didn’t report forfeits)</button>}
+              {room.reveal_by && Date.parse(room.reveal_by) < Date.now() && <button className="btn btn-paper" disabled={busy} onClick={() => run(() => forceSettle(room.id))}>End the game (the player who didn’t report forfeits)</button>}
             </>
           )}
           {room.status === "answer" && <AnswerStep room={room} busy={busy} onAnswer={(n) => run(() => setAnswer(room.id, n))} />}
@@ -457,4 +469,12 @@ function WolfEnd({ room }: { room: Room }) {
       </p>
     </>
   );
+}
+
+/** Time left for the current step. Long waits (time capsules) show the date instead. */
+function Countdown({ until }: { until: string }) {
+  const left = Math.max(0, Math.round((Date.parse(until) - Date.now()) / 1000));
+  if (left > 3 * 3600) return <span className="chip" style={{ background: "var(--sky)" }}>UNTIL {fmt(until).toUpperCase()}</span>;
+  const m = Math.floor(left / 60), s = left % 60;
+  return <span className="chip" style={{ background: left < 60 ? "var(--pink)" : "var(--paper)" }} aria-label={`${m} minutes ${s} seconds left`}>⏱ {left === 0 ? "TIME UP" : `${m}:${String(s).padStart(2, "0")}`}</span>;
 }

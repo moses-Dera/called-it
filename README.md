@@ -103,6 +103,12 @@ Notes on the SDK (handled automatically):
 - `npm install` runs `patch-sdk.mjs`, which accepts light-server protocol v0.6.0 (upstream PR #28) and
   stops standing transparent-address polls from blocking every send.
 
+**Deploying on an always-on server (recommended for launch).** `services/anchor` ships a `Dockerfile`
+and a `docker-compose.yml` that runs the service behind Caddy with automatic HTTPS. Any small Linux
+server works (a $5 VPS, or Oracle Cloud's Always Free tier). Steps are at the top of
+`docker-compose.yml`: set `ANCHOR_DOMAIN` and `ANCHOR_TOKEN` in `.env`, run `init` once, fund the
+address, `docker compose up -d`, then point `ANCHOR_URL` in Vercel at `https://<domain>`.
+
 The wallet's 24-word phrase is saved in `~/.called-it/anchor-wallet/mnemonic.txt` (or supply
 `ANCHOR_MNEMONIC`). It is a testnet wallet; never send real ZEC to it.
 

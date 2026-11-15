@@ -153,7 +153,9 @@ const server = createServer(async (req, res) => {
     reply(res, 502, { error: describe(e) });
   }
 });
-server.listen(PORT, "127.0.0.1", () => console.log(`anchor service on http://127.0.0.1:${PORT} · ${SERVER} · paying from ${ADDRESS.slice(0, 16)}…`));
+// Loopback by default; the Docker image sets HOST=0.0.0.0 and puts Caddy (HTTPS) in front.
+const HOST = env.HOST ?? "127.0.0.1";
+server.listen(PORT, HOST, () => console.log(`anchor service on http://${HOST}:${PORT} · ${SERVER} · paying from ${ADDRESS.slice(0, 16)}…`));
 if (queue.length) { console.log(`resuming ${queue.length} queued root(s)`); drain(); }
 
 async function shutdown() {
