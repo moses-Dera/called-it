@@ -5,7 +5,8 @@ import { BottomNav, Img, Lock } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { art } from "@/lib/data";
 import { useCloud } from "@/lib/cloud";
-import { BLUFF_CARDS, GAME_INFO, forceSettle, hasLocalSeal, myPlacement, nextRound, reportHits, revealMine, sealMove, setAnswer, startRoom, useRoom, type Room } from "@/lib/rooms";
+import { sha256Hex } from "@/lib/merkle";
+import { BLUFF_CARDS, GAME_INFO, forceSettle, hasLocalSeal, myPlacement, myRole, nextRound, reportHits, revealMine, sealMove, setAnswer, startRoom, useRoom, type MyRole, type Room } from "@/lib/rooms";
 
 const STEP: Record<Room["status"], string> = { lobby: "Waiting to start", sealing: "Seal your move", revealing: "Opening the seals", report: "Counting hits", answer: "Waiting for the answer", done: "Result" };
 const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -58,7 +59,7 @@ export default function RoomPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Img n={info.img} size={56} style={{ borderRadius: 16, border: "2px solid #111" }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
+              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "werewolf" && room.status !== "lobby" && room.status !== "done" ? ` · ${room.result?.phase === "night" ? "night" : "day"} ${room.result?.day ?? 1}` : ""}{room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
               <h1 className="display" style={{ margin: 0, fontSize: 26 }}>{room.title || info.name}</h1>
             </div>
           </div>
@@ -97,6 +98,7 @@ export default function RoomPage() {
             </>
           ) : <><h2 className="display" style={{ margin: 0, fontSize: 24 }}>You’re in</h2><p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#4a4436" }}>Waiting for {room.host_name} to start.</p></>)}
 
+          {room.game === "werewolf" && room.status !== "lobby" && <WolfStory room={room} />}
           {room.game === "bluff" && (room.result?.history?.length ?? 0) > 0 && <BluffBoard room={room} />}
           {room.game === "fog" && room.status !== "lobby" && <FogBoard room={room} />}
 
@@ -182,6 +184,7 @@ function MovePicker({ room, busy, onSeal }: { room: Room; busy: boolean; onSeal:
     );
   }
   if (room.game === "fog") return <FogPicker room={room} busy={busy} onSeal={onSeal} />;
+  if (room.game === "werewolf") return <WolfPicker room={room} busy={busy} onSeal={onSeal} />;
   if (room.game === "vote") return (
     <>
       <h2 className="display" style={{ margin: 0, fontSize: 24 }}>{room.title}</h2>
@@ -272,6 +275,7 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
           <Guesses list={r.guesses ?? []} answer={r.answer} />
         </>
       )}
+      {room.game === "werewolf" && <WolfEnd room={room} />}
       {room.game === "bluff" && <h2 className="display" style={{ margin: 0, fontSize: 28 }}>{(r.champions ?? []).join(" & ") || "Nobody"} {(r.champions?.length ?? 0) > 1 ? "win" : "wins"} the vault</h2>}
       {room.game === "fog" && (
         <>
@@ -354,5 +358,103 @@ function Grid({ cells, onTap, small = false }: { cells: (i: number) => keyof typ
         return <button key={i} disabled={!onTap} onClick={() => onTap?.(i)} aria-label={`Cell ${i + 1}: ${cells(i)}`} className="display" style={{ aspectRatio: "1", borderRadius: small ? 5 : 9, border: "2px solid #111", background: bg, color: "#111", fontSize: small ? 11 : 16, padding: 0, minHeight: small ? 0 : 36 }}>{mark}</button>;
       })}
     </div>
+  );
+}
+
+// ---------- Werewolf ----------
+const ROLE_TEXT: Record<MyRole["role"], [string, string, string]> = {
+  wolf: ["Werewolf", "var(--pink)", "Each night, pick a villager to attack with your pack. By day, blend in."],
+  seer: ["Seer", "var(--lilac)", "Each night, inspect one player to learn if they are a wolf. Use it wisely by day."],
+  villager: ["Villager", "var(--mint)", "Sleep at night. By day, find the wolves and vote them out."],
+};
+
+function useMyRole(room: Room) {
+  const [role, setRole] = useState<MyRole | null>(null);
+  useEffect(() => { if (room.status !== "lobby") myRole(room.id).then(setRole).catch(() => {}); }, [room.id, room.status, room.round]);
+  return role;
+}
+
+function WolfStory({ room }: { room: Room }) {
+  const role = useMyRole(room);
+  const r = room.result ?? {};
+  const alive = new Set(r.alive ?? []);
+  const out = room.players.filter((p) => p.state === "joined" && !alive.has(p.user_id));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {role && room.status !== "done" && (
+        <div style={{ background: "#111", color: "var(--paper)", borderRadius: 18, padding: 12, display: "flex", gap: 12, alignItems: "center", border: `3px solid ${ROLE_TEXT[role.role][1]}` }}>
+          <span className="display" style={{ fontSize: 13, background: ROLE_TEXT[role.role][1], color: "#111", borderRadius: 10, padding: "8px 10px" }}>{ROLE_TEXT[role.role][0].toUpperCase()}</span>
+          <div style={{ fontSize: 13, lineHeight: 1.45 }}>
+            <b>Only you can see this.</b> {ROLE_TEXT[role.role][2]}
+            {role.pack?.length ? <div>Your pack: {role.pack.map((p) => p.name).join(", ")}</div> : null}
+            {role.seen.length > 0 && <div>You found: {role.seen.map((s) => `${s.name} is ${s.wolf ? "a WOLF" : "not a wolf"}`).join(" · ")}</div>}
+            {!alive.has(room.me) && <div style={{ color: "var(--pink)", fontWeight: 800 }}>You are out. Watch quietly.</div>}
+          </div>
+        </div>
+      )}
+      {(r.log?.length ?? 0) > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, lineHeight: 1.45 }}>
+          {r.log!.map((e, i) => (
+            <div key={i}>{e.phase === "night" ? "🌙" : "☀️"} <b>{e.phase === "night" ? `Night ${e.day}` : `Day ${e.day}`}:</b>{" "}
+              {e.out ? `${e.out} ${e.phase === "night" ? "was attacked" : "was voted out"} (${e.role === "wolf" ? "a wolf" : e.role === "seer" ? "the seer" : "a villager"}).` : e.phase === "night" ? "Nobody was attacked." : "No majority. Nobody was voted out."}
+              {e.votes && Object.keys(e.votes).length > 0 ? <span style={{ color: "#4a4436" }}> Votes: {Object.entries(e.votes).map(([n, c]) => `${n} ${c}`).join(", ")}</span> : null}
+            </div>
+          ))}
+        </div>
+      )}
+      {out.length > 0 && room.status !== "done" && <div style={{ fontSize: 12, color: "#4a4436" }}>Out: {out.map((p) => p.name).join(", ")}</div>}
+    </div>
+  );
+}
+
+function WolfPicker({ room, busy, onSeal }: { room: Room; busy: boolean; onSeal: (move: string) => void }) {
+  const role = useMyRole(room);
+  const night = room.result?.phase === "night";
+  const alive = new Set(room.result?.alive ?? []);
+  if (!role) return <p style={{ margin: 0 }}>Loading your role…</p>;
+  const pack = new Set((role.pack ?? []).map((p) => p.id));
+  const choices = room.players.filter((p) => alive.has(p.user_id) && (night
+    ? role.role === "wolf" ? p.user_id !== room.me && !pack.has(p.user_id) : role.role === "seer" ? p.user_id !== room.me : false
+    : true));
+  if (night && role.role === "villager") return (
+    <>
+      <h2 className="display" style={{ margin: 0, fontSize: 24 }}>Night falls</h2>
+      <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#4a4436", lineHeight: 1.5 }}>Villagers sleep. Everyone seals something at night, so nobody can tell who the wolves are from who is busy.</p>
+      <button className="btn btn-primary" style={{ boxShadow: "0 6px 0 #111" }} disabled={busy} onClick={() => onSeal("sleep")}><Lock />Seal and sleep</button>
+    </>
+  );
+  return (
+    <>
+      <h2 className="display" style={{ margin: 0, fontSize: 24 }}>{night ? (role.role === "wolf" ? "Pick tonight’s victim" : "Inspect someone") : "Vote someone out"}</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+        {choices.map((p) => (
+          <button key={p.user_id} disabled={busy} onClick={() => onSeal(p.user_id)} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 56, padding: 8, borderRadius: 14, border: "3px solid #111", boxShadow: "0 4px 0 #111", background: night && role.role === "wolf" ? "var(--pink)" : "#fff", color: "#111", textAlign: "left" }}>
+            <img src={art(`avatar_${p.avatar}`)} alt="" width={34} height={34} style={{ borderRadius: 10, border: "2px solid #111" }} />
+            <b style={{ fontSize: 14 }}>{p.name}{p.user_id === room.me ? " (you)" : ""}</b>
+          </button>
+        ))}
+        {!night && <button disabled={busy} onClick={() => onSeal("skip")} style={{ minHeight: 56, borderRadius: 14, border: "3px dashed #111", background: "transparent", color: "#111", fontWeight: 800 }}>Skip vote</button>}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>{night ? "Sealed until everyone has acted." : "Votes are sealed, so nobody follows the crowd. A tie means nobody goes."}</p>
+    </>
+  );
+}
+
+function WolfEnd({ room }: { room: Room }) {
+  const r = room.result ?? {};
+  const [ok, setOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (r.deal && r.salt && r.deal_hash) sha256Hex(`calledit:ww|${r.deal}|${r.salt}`).then((h) => setOk(h === r.deal_hash));
+  }, [r.deal, r.salt, r.deal_hash]);
+  return (
+    <>
+      <h2 className="display" style={{ margin: 0, fontSize: 28 }}>{r.team === "village" ? "The village wins!" : "The wolves win!"}</h2>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {(r.roles ?? []).map((x) => <span key={x.name + x.role} className="chip" style={{ background: x.role === "wolf" ? "var(--pink)" : x.role === "seer" ? "var(--lilac)" : "var(--mint)" }}>{x.name}: {x.role}</span>)}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: ok ? "#3d6b00" : ok === false ? "#9a2d1d" : "#4a4436" }}>
+        {ok === null ? "Checking the deal against its seal…" : ok ? "✓ The role deal matches the seal published at the start: nobody’s role was changed." : "✗ The deal does not match its seal."}
+      </p>
+    </>
   );
 }

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cloudRpc, sb, useCloud } from "./cloud";
 import { createSeal, getState, markRevealed } from "./store";
 
-export type Game = "arcade" | "vote" | "closest" | "capsule" | "bluff" | "fog";
+export type Game = "arcade" | "vote" | "closest" | "capsule" | "bluff" | "fog" | "werewolf";
 export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string; min: number; max: number }> = {
   arcade: { name: "Rock Paper Scissors", img: "cover_arcade", blurb: "1 vs 1. Both moves sealed, then opened together.", min: 2, max: 2 },
   vote: { name: "Secret Vote", img: "cover_vote", blurb: "Ask the group. Every vote sealed until all are in.", min: 2, max: 8 },
@@ -14,6 +14,7 @@ export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string;
   capsule: { name: "Time Capsule", img: "cover_capsule", blurb: "Seal messages together. They open on a date you pick.", min: 1, max: 8 },
   bluff: { name: "Bluff Vault", img: "cover_bluff", blurb: "2 to 6 players, 5 rounds. Same seven cards each, one sealed per round.", min: 2, max: 6 },
   fog: { name: "Fog of War", img: "cover_fog", blurb: "1 vs 1. Hide five units, then fire sealed shots for six turns.", min: 2, max: 2 },
+  werewolf: { name: "Werewolf", img: "cover_werewolf", blurb: "5 to 8 players. Secret roles from a sealed deal; nights and day votes.", min: 5, max: 8 },
 };
 export const BLUFF_CARDS = ["2", "4", "6", "8", "10", "Steal", "Shield"];
 
@@ -24,7 +25,9 @@ export type Room = {
   result: { moves?: { user_id: string; name: string; move: string }[]; winner?: string | null; winner_name?: string | null; tally?: Record<string, number>; top?: string[]; votes?: number;
     guesses?: { user_id: string; name: string; move: string }[]; answer?: number; winners?: { user_id: string; name: string; move: string }[]; messages?: { user_id: string; name: string; move: string }[];
     scores?: Record<string, number>; history?: { round: number; cards: { user_id: string; name: string; move: string }[]; winners: string[] }[]; champions?: string[]; final?: boolean;
-    turns?: { round: number; targets: Record<string, number[]>; hits?: Record<string, number[]> }[]; hits?: Record<string, number>; placements?: Record<string, number[] | null>; liars?: string[] } | null;
+    turns?: { round: number; targets: Record<string, number[]>; hits?: Record<string, number[]> }[]; hits?: Record<string, number>; placements?: Record<string, number[] | null>; liars?: string[];
+    phase?: "night" | "day"; day?: number; alive?: string[]; log?: { day: number; phase: "night" | "day"; out: string | null; role: string | null; votes?: Record<string, number> }[];
+    team?: "village" | "wolves"; roles?: { name: string; role: string }[]; deal?: string; salt?: string; deal_hash?: string } | null;
   host: string; host_name: string; me: string; is_host: boolean; players: Player[];
 };
 export type RoomSummary = { id: string; code: string; game: Game; title: string; status: Room["status"]; updated_at: string; my_state: "invited" | "joined"; is_host: boolean; host_name: string; players: number };
@@ -69,6 +72,8 @@ export async function reportHits(room: Room) {
   const theirs = Object.entries(turn?.targets ?? {}).find(([uid]) => uid !== room.me)?.[1] ?? [];
   await cloudRpc("report_hits", { p_room: room.id, p_hits: theirs.filter((c) => mine.includes(c)) });
 }
+export type MyRole = { role: "wolf" | "seer" | "villager"; seen: { name: string; wolf: boolean; night: number }[]; pack: { id: string; name: string }[] | null };
+export const myRole = (room: string) => cloudRpc<MyRole | null>("my_role", { p_room: room });
 export const hasLocalSeal = (room: Room) => getState().seals.some((s) => s.round === roundKey(room.id, room.round) && !s.remote && !!s.move);
 
 /** Live room state: refetch on every change to the room row, plus a 15 s poll in case realtime drops. */

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { TopBar } from "@/components/ui";
+import { TopBar, RealPlay } from "@/components/ui";
 import { PLAYERS, art } from "@/lib/data";
 import { commit, createSeal, randomHex, short } from "@/lib/store";
 
@@ -32,6 +32,7 @@ export default function Werewolf() {
       { }
       <img src={art("village")} alt="" loading="lazy" style={{ position: "absolute", left: 0, bottom: 0, width: "100%", height: 240, objectFit: "cover", opacity: 0.85 }} />
       <TopBar mode="werewolf" eyebrow="Werewolf Night" title="Night 2" accent="var(--lilac)" />
+      <RealPlay game="werewolf" />
       <div style={{ margin: "10px 20px 0", display: "flex", gap: 14, alignItems: "center", position: "relative" }}>
         <div style={{ width: 92, height: 124, borderRadius: 16, background: "linear-gradient(160deg, #2b2160, #17123a)", border: "2px solid var(--lilac)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, flexShrink: 0 }}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#b9a5ff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
