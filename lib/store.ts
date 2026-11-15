@@ -7,7 +7,8 @@ export type Seal = {
   commitment: string; sealedAt: number; status: "sealed" | "onchain";
   root?: string; proof?: string[]; txid?: string; height?: number; mode?: "testnet" | "simulated";
   revealed?: boolean;
-  remote?: boolean; // synced from another device: the move and salt stay on the device that sealed it
+  remote?: boolean; // synced from another device: the move and salt stay there unless the encrypted backup brings them in
+  player?: string; // the per-device player id the commitment was made with
 };
 export type Reward = { id: string; label: string; points: number; zec: number; at: number; verified?: boolean };
 export type Profile = { name: string; avatar: number; address: string };
@@ -45,7 +46,7 @@ export async function createSeal(game: string, round: string, move: string, labe
   const s = read();
   const salt = randomHex(16);
   const commitment = await commit(s.player, round, move, salt);
-  const seal: Seal = { id: randomHex(6), game, round, label, move, salt, commitment, sealedAt: Date.now(), status: "sealed" };
+  const seal: Seal = { id: randomHex(6), game, round, label, move, salt, commitment, sealedAt: Date.now(), status: "sealed", player: s.player };
   write({ ...s, seals: [seal, ...s.seals].slice(0, 200) });
   if (timer) clearTimeout(timer);
   timer = setTimeout(anchorPending, 5000); // batch window; a real Zcash block takes about 25s
@@ -89,9 +90,14 @@ export async function anchorPending() {
 }
 /** Re-hash the move and salt, then walk the Merkle proof up to the anchored root. */
 export async function verifySeal(seal: Seal): Promise<{ hashOk: boolean; anchored: boolean }> {
-  const hashOk = (await commit(read().player, seal.round, seal.move, seal.salt)) === seal.commitment;
+  const hashOk = (await commit(seal.player ?? read().player, seal.round, seal.move, seal.salt)) === seal.commitment;
   const anchored = seal.status === "onchain" && !!(seal.root && seal.proof && (await verifyProof(seal.commitment, seal.proof, seal.root)));
   return { hashOk, anchored };
+}
+/** Moves and salts recovered from the encrypted backup (sealed on another device). */
+export function restoreSecrets(list: { id: string; move: string; salt: string; player: string }[]) {
+  const s = read(), by = new Map(list.map((x) => [x.id, x]));
+  write({ ...s, seals: s.seals.map((x) => { const v = by.get(x.id); return v && !x.move ? { ...x, move: v.move, salt: v.salt, player: v.player } : x; }) });
 }
 export function markRevealed(id: string) { const s = read(); write({ ...s, seals: s.seals.map((x) => (x.id === id ? { ...x, revealed: true } : x)) }); }
 /** Practice points by default. Verified rewards come back from the server's claim with their own id. */
@@ -120,7 +126,7 @@ export function withdrawAll() { const s = read(); write({ ...s, withdrawn: s.led
 export const totals = (s: State) => {
   const points = s.ledger.reduce((a, r) => a + r.points, 0);
   const ranked = s.ledger.reduce((a, r) => a + (r.verified ? r.points : 0), 0);
-  // Only server-verified rewards carry prize ZEC; practice points against bots do not.
+  // Only verified rewards can carry ZEC (contest prizes); points themselves are score only.
   const earned = s.ledger.reduce((a, r) => a + (r.verified ? r.zec : 0), 0);
   return { points, ranked, earned, available: Math.max(0, earned - s.withdrawn) };
 };

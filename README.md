@@ -26,8 +26,12 @@ Optional. Without it the app is guest-only and everything stays on the device.
    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Add the same two on Vercel.
 
 A signed-in account backs up the profile, the rewards ledger and each seal's hash and proof.
-Moves and salts are never uploaded. Points are reported by the client, so treat them as unverified
-until scoring moves to the server.
+Sealed moves follow the account through a **reveal escrow** (`/api/escrow`): each move is encrypted with
+`SEAL_ESCROW_KEY`, a key held only in the server environment, stored in the player's own rows, and
+decrypted only for that player, so they can reveal from any device with nothing to remember. Other players
+can never read moves early. Trade-off: whoever runs the server could; nobody can change a move, because
+its hash is already sealed and anchored on Zcash. Set `SEAL_ESCROW_KEY` (`openssl rand -base64 32`) on
+Vercel. Points are score only; ZEC comes from contest prizes.
 
 ## Ranked points, fixtures and payouts
 

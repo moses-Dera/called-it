@@ -36,7 +36,7 @@ export default function Vault() {
     } catch (e) { setMsg(e instanceof Error ? e.message : "Request failed"); }
   }
   async function verify(x: Seal) {
-    if (x.remote) return setChecks((p) => ({ ...p, [x.id]: "Sealed on another device. The move and salt live there, so the hash can only be re-checked on that device." }));
+    if (!x.move) return setChecks((p) => ({ ...p, [x.id]: "Sealed on another device. Unlock your move backup in Profile to check it here." }));
     const c = await verifySeal(x);
     setChecks((p) => ({ ...p, [x.id]: `${c.hashOk ? "✓ hash matches move + salt" : "✗ hash mismatch"} · ${c.anchored ? "✓ Merkle proof reaches anchored root" : "not anchored yet"}` }));
   }

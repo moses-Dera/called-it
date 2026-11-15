@@ -78,7 +78,7 @@ export default function Ranks() {
           </div>
         )}
         <Link href="/vault" style={{ margin: "12px 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
-          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Ranked points earn testnet ZEC</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Request a payout from the Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
+          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn ZEC</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes pay testnet ZEC to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
         </Link>
       </div>
       <div className="navwrap" style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>

@@ -23,7 +23,7 @@ export default function Reveal() {
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
   const [claim, setClaim] = useState<Claim | { status: "error"; message: string } | null>(null);
   const signedIn = !!useCloud().session;
-  const pending = seals.find((s) => s.game === "classic" && !s.revealed && !s.remote);
+  const pending = seals.find((s) => s.game === "classic" && !s.revealed && !!s.move);
   const seal = shown ?? pending ?? null;
   const sc = useMemo(() => (seal ? score(seal.move) : null), [seal]);
   const open = !!shown;

@@ -30,7 +30,7 @@ export default function Profile() {
           </div>
         </section>
 
-        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks and earn testnet ZEC. Practice points come from games against bots.</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks. Practice points come from games against bots. ZEC prizes come from contests. Your sealed moves follow your account to any device where you sign in.</div>
 
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
@@ -57,7 +57,7 @@ export default function Profile() {
           <span className="display" style={{ fontSize: 18 }}>Account</span>
           {user ? (
             <>
-              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up. Your moves and salts stay on this device.</div>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up, and your sealed moves follow you to any device where you sign in. Other players can never see them before the reveal.</div>
               <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" ? "var(--red)" : "var(--lime)" }}>{cloud.status === "error" ? "Sync problem: " + cloud.error : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
               <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
             </>

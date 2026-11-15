@@ -48,7 +48,7 @@ export default function Rooms() {
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <span className="eyebrow" style={{ color: "var(--lime)" }}>Real players</span>
         <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Play with friends</h1>
-        <p style={{ margin: 0, fontSize: 14, color: "#c9d3de", lineHeight: 1.5, maxWidth: 640 }}>Pick your opponents, everyone seals a move, then all moves open together. Nobody can peek or change their mind, not even the host.</p>
+        <p style={{ margin: 0, fontSize: 14, color: "#c9d3de", lineHeight: 1.5, maxWidth: 640 }}>Pick your opponents, everyone seals a move, then all moves open together. No player can peek or change their mind, not even the host.</p>
       </div>
       {msg && <div role="status" style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--pink)" }}>{msg}</div>}
 

@@ -89,7 +89,7 @@ export async function claimClassic(seal: Seal): Promise<Claim> {
   const c = sb();
   if (!c || !cloud.session) throw new Error("Sign in to earn ranked points.");
   await syncNow();
-  const { data, error } = await c.rpc("claim_classic", { p_seal_id: seal.id, p_player: getState().player, p_move: seal.move, p_salt: seal.salt });
+  const { data, error } = await c.rpc("claim_classic", { p_seal_id: seal.id, p_player: seal.player ?? getState().player, p_move: seal.move, p_salt: seal.salt });
   if (error) throw new Error(error.message);
   const r = data as Claim;
   if (r.status === "scored" && r.points && r.id) addReward(`${seal.label} · Classic Call (verified)`, r.points, { id: r.id, verified: true });
@@ -197,7 +197,7 @@ export async function autoClaim() {
   try {
     await fixtureStore.refresh();
     const final = new Set(fixtureStore.get().filter((f) => f.homeGoals != null).map((f) => f.id));
-    const due = getState().seals.filter((x) => x.game === "classic" && !x.remote && !x.revealed && x.move && final.has(x.round));
+    const due = getState().seals.filter((x) => x.game === "classic" && !x.revealed && x.move && final.has(x.round));
     for (const seal of due) {
       try {
         const r = await claimClassic(seal);

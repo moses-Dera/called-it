@@ -53,15 +53,15 @@ export async function sealMove(room: Room, move: string) {
 
 /** Reveal this device's move for the current round, if it holds one. Returns false when it cannot. */
 export async function revealMine(room: Room): Promise<boolean> {
-  const seal = getState().seals.find((s) => s.round === roundKey(room.id, room.round) && !s.remote && s.move);
+  const seal = getState().seals.find((s) => s.round === roundKey(room.id, room.round) && !!s.move);
   if (!seal) return false;
-  await cloudRpc("reveal_move", { p_room: room.id, p_player: getState().player, p_move: seal.move, p_salt: seal.salt });
+  await cloudRpc("reveal_move", { p_room: room.id, p_player: seal.player ?? getState().player, p_move: seal.move, p_salt: seal.salt });
   markRevealed(seal.id);
   return true;
 }
 /** Fog of War: this device's sealed unit positions (round 0), if it holds them. */
 export function myPlacement(room: Room): number[] | null {
-  const seal = getState().seals.find((s) => s.round === roundKey(room.id, 0) && !s.remote && s.move);
+  const seal = getState().seals.find((s) => s.round === roundKey(room.id, 0) && !!s.move);
   return seal ? seal.move.split(",").map(Number) : null;
 }
 /** Fog of War: report the hits my units took this turn (the server re-checks them against my placement at the end). */
@@ -96,7 +96,7 @@ export async function tendRooms() {
 
 export type MyRole = { role: "wolf" | "seer" | "villager"; seen: { name: string; wolf: boolean; night: number }[]; pack: { id: string; name: string }[] | null };
 export const myRole = (room: string) => cloudRpc<MyRole | null>("my_role", { p_room: room });
-export const hasLocalSeal = (room: Room) => getState().seals.some((s) => s.round === roundKey(room.id, room.round) && !s.remote && !!s.move);
+export const hasLocalSeal = (room: Room) => getState().seals.some((s) => s.round === roundKey(room.id, room.round) && !!s.move);
 
 /** Live room state: refetch on every change to the room row, plus a 15 s poll in case realtime drops. */
 export function useRoom(id: string | null) {

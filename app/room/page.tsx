@@ -125,7 +125,7 @@ export default function RoomPage() {
                 ? `Everyone has sealed. The capsule opens ${fmt(room.options.opens)}.`
                 : room.game === "fog" && room.round === 0 ? `Battle over. Opening both unit positions to check every report: ${revealed} of ${plays.length}.`
                 : `All moves are sealed. Opening them: ${revealed} of ${plays.length} revealed.`} />
-              {me?.sealed && !me.revealed && !hasLocalSeal(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>You sealed this move on another device. Open this room there to reveal it.</p>}
+              {me?.sealed && !me.revealed && !hasLocalSeal(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>You sealed this move on another device. It is being fetched from your account; if this persists, open the room on that device.</p>}
               {room.reveal_by && Date.parse(room.reveal_by) < Date.now() && room.game !== "capsule" && (
                 <button className="btn btn-paper" disabled={busy} onClick={() => run(() => forceSettle(room.id))}>Close the round (players who didn’t reveal forfeit)</button>
               )}
