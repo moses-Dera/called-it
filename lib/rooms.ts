@@ -6,20 +6,25 @@ import { useCallback, useEffect, useState } from "react";
 import { cloudRpc, sb, useCloud } from "./cloud";
 import { createSeal, getState, markRevealed } from "./store";
 
-export type Game = "arcade" | "vote" | "closest" | "capsule";
+export type Game = "arcade" | "vote" | "closest" | "capsule" | "bluff" | "fog";
 export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string; min: number; max: number }> = {
   arcade: { name: "Rock Paper Scissors", img: "cover_arcade", blurb: "1 vs 1. Both moves sealed, then opened together.", min: 2, max: 2 },
   vote: { name: "Secret Vote", img: "cover_vote", blurb: "Ask the group. Every vote sealed until all are in.", min: 2, max: 8 },
   closest: { name: "Closest Wins", img: "cover_closest", blurb: "Everyone guesses a number. You referee and enter the answer.", min: 2, max: 8 },
   capsule: { name: "Time Capsule", img: "cover_capsule", blurb: "Seal messages together. They open on a date you pick.", min: 1, max: 8 },
+  bluff: { name: "Bluff Vault", img: "cover_bluff", blurb: "2 to 6 players, 5 rounds. Same seven cards each, one sealed per round.", min: 2, max: 6 },
+  fog: { name: "Fog of War", img: "cover_fog", blurb: "1 vs 1. Hide five units, then fire sealed shots for six turns.", min: 2, max: 2 },
 };
+export const BLUFF_CARDS = ["2", "4", "6", "8", "10", "Steal", "Shield"];
 
-export type Player = { user_id: string; name: string; avatar: number; state: "invited" | "joined"; plays: boolean; sealed: boolean; revealed: boolean; move: string | null };
+export type Player = { user_id: string; name: string; avatar: number; state: "invited" | "joined"; plays: boolean; sealed: boolean; revealed: boolean; reported?: boolean; move: string | null };
 export type Room = {
-  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number };
-  status: "lobby" | "sealing" | "revealing" | "answer" | "done"; round: number; answer: number | null; reveal_by: string | null; updated_at: string;
+  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number; rounds?: number; turns?: number };
+  status: "lobby" | "sealing" | "revealing" | "report" | "answer" | "done"; round: number; answer: number | null; reveal_by: string | null; updated_at: string;
   result: { moves?: { user_id: string; name: string; move: string }[]; winner?: string | null; winner_name?: string | null; tally?: Record<string, number>; top?: string[]; votes?: number;
-    guesses?: { user_id: string; name: string; move: string }[]; answer?: number; winners?: { user_id: string; name: string; move: string }[]; messages?: { user_id: string; name: string; move: string }[] } | null;
+    guesses?: { user_id: string; name: string; move: string }[]; answer?: number; winners?: { user_id: string; name: string; move: string }[]; messages?: { user_id: string; name: string; move: string }[];
+    scores?: Record<string, number>; history?: { round: number; cards: { user_id: string; name: string; move: string }[]; winners: string[] }[]; champions?: string[]; final?: boolean;
+    turns?: { round: number; targets: Record<string, number[]>; hits?: Record<string, number[]> }[]; hits?: Record<string, number>; placements?: Record<string, number[] | null>; liars?: string[] } | null;
   host: string; host_name: string; me: string; is_host: boolean; players: Player[];
 };
 export type RoomSummary = { id: string; code: string; game: Game; title: string; status: Room["status"]; updated_at: string; my_state: "invited" | "joined"; is_host: boolean; host_name: string; players: number };
@@ -50,6 +55,19 @@ export async function revealMine(room: Room): Promise<boolean> {
   await cloudRpc("reveal_move", { p_room: room.id, p_player: getState().player, p_move: seal.move, p_salt: seal.salt });
   markRevealed(seal.id);
   return true;
+}
+/** Fog of War: this device's sealed unit positions (round 0), if it holds them. */
+export function myPlacement(room: Room): number[] | null {
+  const seal = getState().seals.find((s) => s.round === roundKey(room.id, 0) && !s.remote && s.move);
+  return seal ? seal.move.split(",").map(Number) : null;
+}
+/** Fog of War: report the hits my units took this turn (the server re-checks them against my placement at the end). */
+export async function reportHits(room: Room) {
+  const mine = myPlacement(room);
+  if (!mine) throw new Error("Your unit positions are on another device. Open this game there.");
+  const turn = room.result?.turns?.at(-1);
+  const theirs = Object.entries(turn?.targets ?? {}).find(([uid]) => uid !== room.me)?.[1] ?? [];
+  await cloudRpc("report_hits", { p_room: room.id, p_hits: theirs.filter((c) => mine.includes(c)) });
 }
 export const hasLocalSeal = (room: Room) => getState().seals.some((s) => s.round === roundKey(room.id, room.round) && !s.remote && !!s.move);
 

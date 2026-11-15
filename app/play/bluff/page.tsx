@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CardBack, Flip, TopBar } from "@/components/ui";
+import { CardBack, Flip, TopBar, RealPlay } from "@/components/ui";
 import { PLAYERS, art } from "@/lib/data";
 import { addReward, commit, createSeal, randomHex } from "@/lib/store";
 
@@ -58,6 +58,7 @@ export default function Bluff() {
   return (
     <main className="screen">
       <TopBar mode="bluff" eyebrow="Bluff Vault" title={`Round ${round} · ${chips} chips`} accent="var(--pink)" />
+      <RealPlay game="bluff" />
       <section style={{ position: "relative", margin: "8px 12px 0", height: 410, borderRadius: 40, overflow: "hidden", border: "3px solid #111", boxShadow: "0 6px 0 #3b2a1a", backgroundImage: `url(${art("felt")})`, backgroundSize: "cover" }}>
         {SEATS.map((s, i) => (
           <div key={s.p.name} style={{ position: "absolute", left: `calc(50% - 183px + ${s.x}px)`, top: s.y, width: 110, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>

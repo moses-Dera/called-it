@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
 import { cloudReady, cloudRpc, refreshContests, refreshFixtures, signInWithGoogle, useCloud, useContests, useFixtures } from "@/lib/cloud";
 import { short } from "@/lib/store";
@@ -64,7 +65,7 @@ export default function Admin() {
   return (
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Admin</h1>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}><Link href="/" className="admin-back" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>← Back to the app</Link><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Admin</h1></div>
         <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)", padding: "6px 10px" }}>RUN THE GAME</span>
       </div>
 
@@ -72,7 +73,7 @@ export default function Admin() {
         <section className="paper" style={{ ...card, marginTop: 18, maxWidth: 560, fontSize: 15, fontWeight: 600, boxShadow: "6px 6px 0 var(--lime)" }}>{gate}{msg && <span style={{ fontSize: 13, fontWeight: 800, color: msg.bad ? "#9a2d1d" : "#3d6b00" }}>{msg.text}</span>}</section>
       ) : (
         <>
-          <div role="tablist" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "14px 0 6px" }}>
+          <div role="tablist" className="admin-toptabs" style={{ display: "flex", gap: 6, overflowX: "auto", padding: "14px 0 6px" }}>
             {TABS.map((t) => (
               <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} style={{ height: 44, padding: "0 16px", borderRadius: 12, border: `2px solid ${tab === t ? "#111" : "var(--line)"}`, background: tab === t ? "var(--lime)" : "var(--panel)", color: tab === t ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>
                 {t}{t === "Payouts" && pending ? ` (${pending})` : ""}
@@ -89,7 +90,7 @@ export default function Admin() {
           </div>
         </>
       )}
-      <BottomNav active="/" />
+      {gate ? <BottomNav active="/" /> : <AdminTabBar tab={tab} setTab={setTab} pending={pending} />}
     </main>
   );
 }
@@ -313,5 +314,32 @@ function TransactionsTab({ txs }: { txs: Txs | null }) {
         {txs && txs.payouts.length === 0 && <p style={{ margin: 0, fontSize: 14, color: "#4a4436" }}>No payouts sent yet.</p>}
       </section>
     </div>
+  );
+}
+
+// On phones the admin tabs take the place of the app's bottom bar (same look; hidden on desktop,
+// where the tabs sit under the title).
+const ICON: Record<Tab, string> = {
+  Overview: "M4 13h6V4H4zM14 20h6v-9h-6zM14 4v4h6V4zM4 20h6v-4H4z",
+  Fixtures: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 7l4 3-1.5 4.5h-5L8 10z",
+  Contests: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3",
+  Payouts: "M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM12 9.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  Transactions: "M4 7h13l-3-3M20 17H7l3 3",
+};
+const LABEL: Record<Tab, string> = { Overview: "Overview", Fixtures: "Fixtures", Contests: "Contests", Payouts: "Payouts", Transactions: "Txs" };
+function AdminTabBar({ tab, setTab, pending }: { tab: Tab; setTab: (t: Tab) => void; pending: number }) {
+  return (
+    <>
+      <div className="navspace" />
+      <nav aria-label="Main" className="tabbar" style={{ height: 70, background: "var(--paper)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "space-around", color: "#111" }}>
+        {TABS.map((t) => (
+          <button key={t} onClick={() => { setTab(t); window.scrollTo({ top: 0 }); }} aria-current={tab === t ? "page" : undefined} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, minWidth: 54, minHeight: 50, justifyContent: "center", border: 0, borderRadius: 14, background: tab === t ? "var(--lime)" : "transparent", color: tab === t ? "#111" : "#6b6455" }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICON[t]} /></svg>
+            {LABEL[t]}
+            {t === "Payouts" && pending > 0 && <span style={{ position: "absolute", top: 2, right: 6, minWidth: 18, height: 18, borderRadius: 9, background: "var(--red)", color: "#111", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" }}>{pending}</span>}
+          </button>
+        ))}
+      </nav>
+    </>
   );
 }

@@ -55,6 +55,9 @@ button { font-family: inherit; cursor: pointer; }
 .tabbar { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; transition: transform 260ms cubic-bezier(.3,1.2,.4,1); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
 .tabbar.hide { transform: translateY(150%); }
 .navspace { height: 100px; flex-shrink: 0; }
+/* Admin: tabs live in the bottom bar on phones, under the title on wider screens */
+.admin-toptabs { display: none !important; }
+@media (min-width: 768px) { .admin-toptabs { display: flex !important; } .admin-back { display: none; } }
 
 @media (min-width: 768px) {
   body { display: grid; grid-template-columns: 264px minmax(0, 1fr); height: 100dvh; overflow: hidden; background: #05070a; }

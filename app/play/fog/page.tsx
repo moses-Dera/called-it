@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Img, TopBar } from "@/components/ui";
+import { Img, TopBar, RealPlay } from "@/components/ui";
 import { addReward, createSeal } from "@/lib/store";
 
 const MINE: Record<number, string> = { 30: "A", 25: "S", 32: "K", 19: "A", 27: "S" };
@@ -24,6 +24,7 @@ export default function Fog() {
   return (
     <main className="screen">
       <TopBar mode="fog" eyebrow={`Fog of War · turn ${turn}`} title="You vs Emeka" accent="var(--mint)" />
+      <RealPlay game="fog" />
       <div style={{ margin: "4px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}><Img n="avatar_1" size={32} style={{ borderRadius: 10, border: "2px solid var(--mint)" }} /><b style={{ fontSize: 13 }}>5 units</b></div>
         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>targets hidden from Emeka</span>

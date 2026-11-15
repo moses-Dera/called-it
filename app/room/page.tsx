@@ -5,9 +5,9 @@ import { BottomNav, Img, Lock } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { art } from "@/lib/data";
 import { useCloud } from "@/lib/cloud";
-import { GAME_INFO, forceSettle, hasLocalSeal, nextRound, revealMine, sealMove, setAnswer, startRoom, useRoom, type Room } from "@/lib/rooms";
+import { BLUFF_CARDS, GAME_INFO, forceSettle, hasLocalSeal, myPlacement, nextRound, reportHits, revealMine, sealMove, setAnswer, startRoom, useRoom, type Room } from "@/lib/rooms";
 
-const STEP: Record<Room["status"], string> = { lobby: "Waiting to start", sealing: "Seal your move", revealing: "Opening the seals", answer: "Waiting for the answer", done: "Result" };
+const STEP: Record<Room["status"], string> = { lobby: "Waiting to start", sealing: "Seal your move", revealing: "Opening the seals", report: "Counting hits", answer: "Waiting for the answer", done: "Result" };
 const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export default function RoomPage() {
@@ -34,6 +34,14 @@ export default function RoomPage() {
     revealMine(room).then(reload, (e) => setMsg(e instanceof Error ? e.message : "Reveal failed")).finally(() => { revealing.current = false; });
   }, [room, me, reload]);
 
+  // Fog of War: report the hits this device's units took, straight after each turn opens.
+  const reporting = useRef(false);
+  useEffect(() => {
+    if (!room || room.game !== "fog" || room.status !== "report" || !me?.plays || me.reported || reporting.current || !myPlacement(room)) return;
+    reporting.current = true;
+    reportHits(room).then(reload, (e) => setMsg(e instanceof Error ? e.message : "Report failed")).finally(() => { reporting.current = false; });
+  }, [room, me, reload]);
+
   if (!signedIn) return <Shell><section className="paper" style={{ padding: 18, display: "flex", alignItems: "center", gap: 12, maxWidth: 560 }}><span style={{ flex: 1, fontWeight: 700 }}>Sign in to play this game.</span><SignInPill /></section></Shell>;
   if (error) return <Shell><p style={{ color: "var(--pink)", fontWeight: 700 }}>{error}</p><Link href="/rooms" style={{ color: "var(--lime)", fontWeight: 800 }}>Back to your games</Link></Shell>;
   if (!room) return <Shell><p style={{ color: "var(--muted)" }}>Loading the room…</p></Shell>;
@@ -50,7 +58,7 @@ export default function RoomPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Img n={info.img} size={56} style={{ borderRadius: 16, border: "2px solid #111" }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.round > 1 ? ` · round ${room.round}` : ""}</span>
+              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
               <h1 className="display" style={{ margin: 0, fontSize: 26 }}>{room.title || info.name}</h1>
             </div>
           </div>
@@ -89,6 +97,9 @@ export default function RoomPage() {
             </>
           ) : <><h2 className="display" style={{ margin: 0, fontSize: 24 }}>You’re in</h2><p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#4a4436" }}>Waiting for {room.host_name} to start.</p></>)}
 
+          {room.game === "bluff" && (room.result?.history?.length ?? 0) > 0 && <BluffBoard room={room} />}
+          {room.game === "fog" && room.status !== "lobby" && <FogBoard room={room} />}
+
           {room.status === "sealing" && (me?.plays ? (me.sealed
             ? <Waiting text={`Your move is sealed. Waiting for ${plays.length - sealed} more.`} />
             : <MovePicker room={room} busy={busy} onSeal={(move) => run(() => sealMove(room, move))} />)
@@ -98,6 +109,7 @@ export default function RoomPage() {
             <>
               <Waiting text={room.game === "capsule" && room.options.opens && Date.parse(room.options.opens) > Date.now()
                 ? `Everyone has sealed. The capsule opens ${fmt(room.options.opens)}.`
+                : room.game === "fog" && room.round === 0 ? `Battle over. Opening both unit positions to check every report: ${revealed} of ${plays.length}.`
                 : `All moves are sealed. Opening them: ${revealed} of ${plays.length} revealed.`} />
               {me?.sealed && !me.revealed && !hasLocalSeal(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>You sealed this move on another device. Open this room there to reveal it.</p>}
               {room.is_host && room.reveal_by && Date.parse(room.reveal_by) < Date.now() && room.game !== "capsule" && (
@@ -107,6 +119,13 @@ export default function RoomPage() {
             </>
           )}
 
+          {room.status === "report" && (
+            <>
+              <Waiting text={`Both volleys are open. Counting hits: ${plays.filter((p) => p.reported).length} of ${plays.length} reported.`} />
+              {me?.plays && !me.reported && !myPlacement(room) && <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#9a2d1d" }}>Your unit positions are on another device. Open this game there to report.</p>}
+              {room.is_host && room.reveal_by && Date.parse(room.reveal_by) < Date.now() && <button className="btn btn-paper" disabled={busy} onClick={() => run(() => forceSettle(room.id))}>End the game (the player who didn’t report forfeits)</button>}
+            </>
+          )}
           {room.status === "answer" && <AnswerStep room={room} busy={busy} onAnswer={(n) => run(() => setAnswer(room.id, n))} />}
           {room.status === "done" && <Result room={room} busy={busy} onNext={() => run(() => nextRound(room.id))} />}
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
@@ -142,6 +161,27 @@ function MovePicker({ room, busy, onSeal }: { room: Room; busy: boolean; onSeal:
       <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>Tapping a move seals it. Your opponent can’t see it until both are sealed.</p>
     </>
   );
+  if (room.game === "bluff") {
+    const used = new Set((room.result?.history ?? []).flatMap((h) => h.cards.filter((c) => c.user_id === room.me).map((c) => c.move)));
+    return (
+      <>
+        <h2 className="display" style={{ margin: 0, fontSize: 24 }}>Play a card</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+          {BLUFF_CARDS.map((c) => {
+            const gone = used.has(c);
+            return (
+              <button key={c} disabled={busy || gone} onClick={() => onSeal(c)} aria-label={gone ? `${c}, already played` : c} style={{ height: 96, borderRadius: 14, border: "3px solid #111", boxShadow: gone ? "none" : "0 4px 0 #111", background: c === "Steal" ? "var(--pink)" : c === "Shield" ? "#9FD8FF" : "var(--paper)", color: "#111", opacity: gone ? 0.3 : 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <span className="display" style={{ fontSize: c.length > 2 ? 17 : 30 }}>{c}</span>
+                <span style={{ fontSize: 9, fontWeight: 800 }}>{gone ? "USED" : c === "Steal" || c === "Shield" ? c.toUpperCase() : "NUMBER"}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>Each card works once. Shield beats Steal, Steal beats any number, otherwise the highest number takes the 10 chips.</p>
+      </>
+    );
+  }
+  if (room.game === "fog") return <FogPicker room={room} busy={busy} onSeal={onSeal} />;
   if (room.game === "vote") return (
     <>
       <h2 className="display" style={{ margin: 0, fontSize: 24 }}>{room.title}</h2>
@@ -232,6 +272,14 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
           <Guesses list={r.guesses ?? []} answer={r.answer} />
         </>
       )}
+      {room.game === "bluff" && <h2 className="display" style={{ margin: 0, fontSize: 28 }}>{(r.champions ?? []).join(" & ") || "Nobody"} {(r.champions?.length ?? 0) > 1 ? "win" : "wins"} the vault</h2>}
+      {room.game === "fog" && (
+        <>
+          <h2 className="display" style={{ margin: 0, fontSize: 28 }}>{!r.winner ? "Draw" : r.winner === room.me ? "You win! +40" : `${r.winner_name} wins`}</h2>
+          {(r.liars?.length ?? 0) > 0 && <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#9a2d1d" }}>Caught misreporting hits: {r.liars!.join(", ")}. That player loses.</p>}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>{room.players.filter((p) => p.plays).map((p) => <span key={p.user_id} className="chip" style={{ background: "var(--paper)" }}>{p.name}: {r.hits?.[p.user_id] ?? 0} hits</span>)}</div>
+        </>
+      )}
       {room.game === "capsule" && (
         <>
           <h2 className="display" style={{ margin: 0, fontSize: 26 }}>The capsule is open</h2>
@@ -242,5 +290,69 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#4a4436" }}>✓ Every move was checked against its seal by the server before this result was shown.</p>
       {again && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} disabled={busy} onClick={onNext}>{room.game === "arcade" ? "Play another round" : "Vote again"}</button>}
     </>
+  );
+}
+
+function BluffBoard({ room }: { room: Room }) {
+  const r = room.result ?? {};
+  const last = r.history?.at(-1);
+  const names = Object.fromEntries(room.players.map((p) => [p.user_id, p.name]));
+  return (
+    <div style={{ background: "#111", color: "var(--paper)", borderRadius: 18, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <span className="eyebrow" style={{ color: "var(--lime)" }}>Chips</span>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {room.players.filter((p) => p.plays).map((p) => <span key={p.user_id} className="chip" style={{ background: p.user_id === room.me ? "var(--lime)" : "var(--paper)" }}>{names[p.user_id]}: {r.scores?.[p.user_id] ?? 0}</span>)}
+      </div>
+      {last && <div style={{ fontSize: 13, lineHeight: 1.5 }}>Round {last.round}: {last.cards.map((c) => `${c.name} ${c.move}`).join(" · ") || "no cards"}. <b style={{ color: "var(--lime)" }}>{last.winners.join(" & ") || "Nobody"} took it.</b></div>}
+    </div>
+  );
+}
+
+/** 6x6 grid. "place" picks exactly 5 cells for your units; "target" picks 1 to 3 cells to fire at. */
+function FogPicker({ room, busy, onSeal }: { room: Room; busy: boolean; onSeal: (move: string) => void }) {
+  const placing = room.round === 0;
+  const [pick, setPick] = useState<number[]>([]);
+  const limit = placing ? 5 : 3;
+  const fired = new Set((room.result?.turns ?? []).flatMap((t) => t.targets[room.me] ?? []));
+  return (
+    <>
+      <h2 className="display" style={{ margin: 0, fontSize: 24 }}>{placing ? "Hide your five units" : "Pick up to three targets"}</h2>
+      <Grid cells={(i) => pick.includes(i) ? (placing ? "unit" : "aim") : !placing && fired.has(i) ? "shot" : "empty"} onTap={(i) => setPick(pick.includes(i) ? pick.filter((x) => x !== i) : pick.length < limit ? [...pick, i] : pick)} />
+      <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>{placing ? "Your opponent never sees where until the end, when both placements are checked." : "Grey cells are ones you already fired at."}</p>
+      <button className="btn btn-primary" style={{ boxShadow: "0 6px 0 #111" }} disabled={busy || (placing ? pick.length !== 5 : pick.length === 0)} onClick={() => onSeal([...pick].sort((a, b) => a - b).join(","))}>
+        <Lock />{placing ? `Seal positions (${pick.length}/5)` : `Seal ${pick.length} shot${pick.length === 1 ? "" : "s"}`}
+      </button>
+    </>
+  );
+}
+
+function FogBoard({ room }: { room: Room }) {
+  const r = room.result ?? {};
+  const mine = r.placements?.[room.me] ?? myPlacement(room) ?? [];
+  const turns = r.turns ?? [];
+  const takenOnMe = new Set(turns.flatMap((t) => t.hits?.[room.me] ?? []));
+  const opp = room.players.find((p) => p.plays && p.user_id !== room.me);
+  const myShots = new Set(turns.flatMap((t) => t.targets[room.me] ?? []));
+  const myHits = new Set(opp ? turns.flatMap((t) => t.hits?.[opp.user_id] ?? []) : []);
+  const theirs = opp ? r.placements?.[opp.user_id] ?? null : null;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+      <div><b style={{ fontSize: 12 }}>Your units ({mine.length - [...takenOnMe].filter((c) => mine.includes(c)).length} left)</b>
+        <Grid small cells={(i) => takenOnMe.has(i) && mine.includes(i) ? "hit" : mine.includes(i) ? "unit" : "empty"} /></div>
+      <div><b style={{ fontSize: 12 }}>Your shots at {opp?.name ?? "them"} ({myHits.size} hits)</b>
+        <Grid small cells={(i) => myHits.has(i) ? "hit" : theirs?.includes(i) ? "unit" : myShots.has(i) ? "shot" : "empty"} /></div>
+    </div>
+  );
+}
+
+const FOG: Record<string, [string, string]> = { empty: ["#1c4a3d", ""], unit: ["var(--mint)", "●"], aim: ["var(--amber)", "+"], shot: ["#5b6878", "·"], hit: ["var(--pink)", "✕"] };
+function Grid({ cells, onTap, small = false }: { cells: (i: number) => keyof typeof FOG | string; onTap?: (i: number) => void; small?: boolean }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: small ? 3 : 5, padding: small ? 6 : 8, borderRadius: 16, background: "#12302a", border: "3px solid #111", marginTop: 4 }}>
+      {Array.from({ length: 36 }, (_, i) => {
+        const [bg, mark] = FOG[cells(i)] ?? FOG.empty;
+        return <button key={i} disabled={!onTap} onClick={() => onTap?.(i)} aria-label={`Cell ${i + 1}: ${cells(i)}`} className="display" style={{ aspectRatio: "1", borderRadius: small ? 5 : 9, border: "2px solid #111", background: bg, color: "#111", fontSize: small ? 11 : 16, padding: 0, minHeight: small ? 0 : 36 }}>{mark}</button>;
+      })}
+    </div>
   );
 }

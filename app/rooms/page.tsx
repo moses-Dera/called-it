@@ -10,7 +10,7 @@ import { GAME_INFO, answerInvite, createRoom, joinRoom, listPlayers, useMyRooms,
 
 const GAMES = Object.keys(GAME_INFO) as Game[];
 const STATUS: Record<RoomSummary["status"], [string, string]> = {
-  lobby: ["WAITING TO START", "var(--sky)"], sealing: ["SEALING", "var(--amber)"], revealing: ["REVEALING", "var(--pink)"],
+  lobby: ["WAITING TO START", "var(--sky)"], sealing: ["SEALING", "var(--amber)"], revealing: ["REVEALING", "var(--pink)"], report: ["COUNTING HITS", "var(--pink)"],
   answer: ["AWAITING ANSWER", "var(--amber)"], done: ["FINISHED", "var(--lime)"],
 };
 const field: React.CSSProperties = { height: 46, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 15, fontWeight: 600, minWidth: 0, width: "100%" };
@@ -130,7 +130,7 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
   return (
     <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
       <span className="eyebrow" style={{ color: "#5b6b12" }}>New game</span>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
         {GAMES.map((g) => (
           <button key={g} aria-pressed={game === g} onClick={() => setGame(g)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: 8, borderRadius: 16, border: `3px solid ${game === g ? "#111" : "transparent"}`, background: game === g ? "var(--lime)" : "transparent", color: "#111" }}>
             <Img n={GAME_INFO[g].img} size={52} style={{ borderRadius: 14, border: "2px solid #111" }} />
