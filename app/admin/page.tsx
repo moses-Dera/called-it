@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
-import { cloudReady, cloudRpc, refreshContests, refreshFixtures, signInWithGoogle, useCloud, useContests, useFixtures } from "@/lib/cloud";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, signInWithGoogle, useCloud, useContests, useFixtures } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -198,7 +198,49 @@ function FixturesTab({ act }: { act: Act }) {
           <button style={{ ...btn("var(--amber)"), minHeight: 52 }} onClick={() => demoMatch(act)}>Demo match in 10 min</button>
         </div>
       </section>
+      <ImportCard />
     </div>
+  );
+}
+
+const LEAGUES: [string, string][] = [["PL", "Premier League"], ["CL", "Champions League"], ["PD", "La Liga"], ["SA", "Serie A"], ["BL1", "Bundesliga"], ["FL1", "Ligue 1"], ["DED", "Eredivisie"], ["PPL", "Primeira Liga"], ["ELC", "Championship"], ["BSA", "Brasileirão"], ["EC", "Euros"], ["WC", "World Cup"]];
+type Imported = { id: string; home: string; away: string; kickoff: string; homeGoals: number | null; awayGoals: number | null };
+
+/** Real fixtures and results from football-data.org (the key stays on the server). */
+function ImportCard() {
+  const fixtures = useFixtures();
+  const [league, setLeague] = useState("PL"), [note, setNote] = useState(""), [busy, setBusy] = useState(false);
+  async function pull(kind: "upcoming" | "results") {
+    setBusy(true); setNote("Asking football-data.org…");
+    try {
+      const r = await fetch(`/api/football?competition=${league}&kind=${kind}`, { headers: { authorization: `Bearer ${await accessToken()}` } });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? `Failed (${r.status})`);
+      const matches = j.matches as Imported[];
+      const have = new Map(fixtures.map((f) => [f.id, f]));
+      let n = 0;
+      for (const m of matches) {
+        if (kind === "upcoming" && !have.has(m.id)) { await cloudRpc("admin_upsert_fixture", { p_id: m.id, p_home: m.home, p_away: m.away, p_kickoff: m.kickoff }); n++; }
+        if (kind === "results" && have.has(m.id) && have.get(m.id)!.homeGoals == null && m.homeGoals != null && m.awayGoals != null) { await cloudRpc("admin_set_result", { p_id: m.id, p_home: m.homeGoals, p_away: m.awayGoals }); n++; }
+      }
+      await refreshFixtures();
+      setNote(kind === "upcoming" ? `${n} new fixture${n === 1 ? "" : "s"} added (${matches.length} found in the next 10 days).` : `${n} result${n === 1 ? "" : "s"} entered. Players are scored as they open the app.`);
+    } catch (e) { setNote(e instanceof Error ? e.message : "Import failed"); }
+    setBusy(false);
+  }
+  return (
+    <section className="paper" style={{ ...card }}>
+      <span className="eyebrow" style={{ color: "#5b6b12" }}>Real fixtures</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "#4a4436", lineHeight: 1.45 }}>Pull real matches and final scores from football-data.org. Results scored this way need no typing.</span>
+      <select aria-label="Competition" value={league} onChange={(e) => setLeague(e.target.value)} style={field}>
+        {LEAGUES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+      </select>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button style={btn("var(--lime)")} disabled={busy} onClick={() => pull("upcoming")}>Import next 10 days</button>
+        <button style={btn("#111", "var(--lime)")} disabled={busy} onClick={() => pull("results")}>Fetch results</button>
+      </div>
+      {note && <span role="status" style={{ fontSize: 13, fontWeight: 800 }}>{note}</span>}
+    </section>
   );
 }
 

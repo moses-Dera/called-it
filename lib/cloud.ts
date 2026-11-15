@@ -29,6 +29,8 @@ export async function signInWithGoogle() {
   if (error) set({ status: "error", error: error.message });
 }
 export async function signOut() { await sb()?.auth.signOut(); }
+/** The signed-in user's access token, for server routes that check who is calling. */
+export async function accessToken() { return (await sb()?.auth.getSession())?.data.session?.access_token ?? null; }
 
 const iso = (ms: number) => new Date(ms).toISOString();
 

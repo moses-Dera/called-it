@@ -46,8 +46,10 @@ until scoring moves to the server.
 ## Play with friends (real players)
 
 `/rooms`: create a game, pick opponents from the player list or share the room code, and play in
-`/room?id=…`. Phase 1 games: Rock Paper Scissors (1 vs 1), Secret Vote, Closest Wins (the host
-referees and enters the true answer) and a group Time Capsule (opens on a chosen date).
+`/room?id=…`. Games: Rock Paper Scissors (1 vs 1), Secret Vote, Closest Wins (the host referees and enters the
+true answer), a group Time Capsule (opens on a chosen date), Bluff Vault (2-6 players; everyone holds
+the same seven cards, one sealed per round), Fog of War (1 vs 1; sealed unit positions and volleys,
+reports re-checked at the end) and Werewolf (5-8 players; a sealed role deal opened and checked at the end).
 
 Each move is sealed on the device (only the hash reaches the server, and it is also anchored on Zcash).
 When everyone has sealed, each device reveals its move and salt; the server re-hashes them against the
@@ -65,6 +67,9 @@ there is none), and an Admin link then appears in its sidebar. From there:
 - **Contests and sponsors:** group fixtures into a contest with an optional sponsor and a testnet ZEC
   prize pot. It shows on Home with its own leaderboard at `/contest?c=<id>`. Closing it splits the pot
   50/30/20 between the top three as verified rewards they can withdraw from the Vault.
+- **Real fixtures:** with `FOOTBALL_DATA_KEY` set (a free key from football-data.org), "Import next
+  10 days" adds real matches for a chosen competition and "Fetch results" enters their final scores.
+  The key stays on the server (`/api/football`, admin-only).
 - **Payout requests:** see every request, mark paid or rejected (or run `npm run payouts`).
 - **Transaction record:** every anchor transaction (block, seals, players) and every payout, with ids to copy.
 
