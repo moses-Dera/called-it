@@ -100,8 +100,26 @@ function demoMatch(act: Act) {
   return act("admin_upsert_fixture", { p_id: slug(`demo-${k.toISOString().slice(0, 16)}`), p_home: "Demo United", p_away: "Test City", p_kickoff: k.toISOString() }, "Demo match added. It kicks off in 10 minutes: seal it from Home now.");
 }
 
+type WalletHealth = { ok: boolean; address: string; spendable: number | null; height: number; queued: number };
+
+function useWalletHealth() {
+  const [health, setHealth] = useState<WalletHealth | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const refresh = useCallback(async () => {
+    try {
+      const r = await fetch("/api/anchor/health", { headers: { authorization: `Bearer ${await accessToken()}` } });
+      if (!r.ok) { setError(r.status === 501 ? "Anchor service not configured" : `Error ${r.status}`); return; }
+      setHealth(await r.json());
+      setError(null);
+    } catch { setError("Could not reach anchor service"); }
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { health, error, refresh };
+}
+
 function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | null; act: Act; go: (t: Tab) => void }) {
   const fixtures = useFixtures();
+  const wallet = useWalletHealth();
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, [fixtures]);
   const awaiting = fixtures.filter((f) => f.homeGoals == null && now && Date.parse(f.kickoff) <= now);
@@ -113,6 +131,32 @@ function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | nul
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
           {stats.map(([k, v]) => <div key={k} style={{ background: "#111", color: "var(--paper)", borderRadius: 16, padding: "12px 14px" }}><div className="display" style={{ fontSize: 30 }}>{v}</div><div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>{k}{k === "Payouts owed" ? " (ZEC)" : ""}</div></div>)}
         </div>
+      </section>
+
+      <section style={{ borderRadius: 26, background: "#111", color: "var(--paper)", border: "3px solid var(--line)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span className="eyebrow" style={{ color: "var(--lime)" }}>Anchor wallet</span>
+          <button onClick={wallet.refresh} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--muted)" }}>Refresh</button>
+        </div>
+        {wallet.error ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>{wallet.error}</div>
+        ) : !wallet.health ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>Loading…</div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="display" style={{ fontSize: 36, color: "var(--lime)" }}>{wallet.health.spendable != null ? wallet.health.spendable.toFixed(4) : "—"}</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>ZEC spendable</span>
+            </div>
+            <div style={{ display: "flex", gap: 16, fontSize: 12, fontWeight: 700, color: "var(--muted)", flexWrap: "wrap" }}>
+              <span>Block {wallet.health.height?.toLocaleString()}</span>
+              {wallet.health.queued > 0 && <span style={{ color: "var(--amber)" }}>{wallet.health.queued} anchor{wallet.health.queued === 1 ? "" : "s"} queued</span>}
+              <button onClick={() => { navigator.clipboard?.writeText(wallet.health!.address); }} className="mono" style={{ background: "rgba(198,244,50,.15)", color: "var(--lime)", border: 0, borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "copy" }} title={wallet.health.address}>
+                {short(wallet.health.address)}
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
