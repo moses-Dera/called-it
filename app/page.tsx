@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { MODES } from "@/lib/data";
 import { HomeFeed } from "@/components/home-feed";
-import { BottomNav, Img } from "@/components/ui";
+import { BottomNav, ErrorBoundary, Img } from "@/components/ui";
 import { HomeBadge } from "@/components/home-badge";
+import { Onboarding } from "@/components/onboarding";
 
 
 export default function Home() {
   return (
     <main className="screen wide">
+      <Onboarding />
       <header className="home-head" style={{ padding: "18px 20px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div className="display" style={{ fontSize: 30, letterSpacing: -1 }}>called<span style={{ background: "var(--lime)", color: "#111", padding: "0 6px", marginLeft: 3, borderRadius: 8, display: "inline-block", transform: "rotate(-4deg)" }}>it!</span></div>
         <HomeBadge />
@@ -27,7 +29,7 @@ export default function Home() {
           </div>
         </Link>
 
-        <HomeFeed />
+        <ErrorBoundary><HomeFeed /></ErrorBoundary>
 
         <section className="home-games" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Pick a game</h2>

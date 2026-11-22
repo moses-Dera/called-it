@@ -10,6 +10,28 @@ import { createSeal, short, useStore, type Seal } from "@/lib/store";
 const SIDES = ["Striker scores first", "Red card shown", "Goal after 85’"];
 const clamp = (n: number) => Math.max(0, Math.min(9, n));
 
+function playSealSound() {
+  try {
+    const ctx = new AudioContext();
+    // Thunk: short low hit
+    const o1 = ctx.createOscillator(), g1 = ctx.createGain();
+    o1.type = "sine"; o1.frequency.setValueAtTime(180, ctx.currentTime);
+    o1.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.12);
+    g1.gain.setValueAtTime(0.4, ctx.currentTime);
+    g1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    o1.connect(g1).connect(ctx.destination);
+    o1.start(); o1.stop(ctx.currentTime + 0.15);
+    // Click: short high tap
+    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = "square"; o2.frequency.setValueAtTime(800, ctx.currentTime);
+    g2.gain.setValueAtTime(0.15, ctx.currentTime);
+    g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    o2.connect(g2).connect(ctx.destination);
+    o2.start(); o2.stop(ctx.currentTime + 0.04);
+    setTimeout(() => ctx.close(), 300);
+  } catch {}
+}
+
 function Wheel({ v, set, name }: { v: number; set: (n: number) => void; name: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -37,7 +59,8 @@ export default function SealPage() {
     setBusy(true);
     const s = await createSeal("classic", fx.id, `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `${fx.home} ${home} – ${away} ${fx.away}`);
     setSealId(s.id); setBusy(false);
-    if (navigator.vibrate) navigator.vibrate(30);
+    if (navigator.vibrate) navigator.vibrate([12, 30, 50]);
+    playSealSound();
   }
   return (
     <main className="screen">
@@ -71,9 +94,12 @@ export default function SealPage() {
           <div className="display" style={{ fontSize: 40 }}>Sealed.</div>
           <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label} is locked.<br />Only its fingerprint left your phone.</div>
           <SealStatus seal={seal} />
-          <div className="mono" style={{ fontSize: 12, color: "var(--muted)", background: "var(--panel)", borderRadius: 10, padding: "8px 12px" }}>
-            hash {short(seal.commitment)}{seal.txid ? ` · block ${seal.height?.toLocaleString()} · tx ${short(seal.txid)}` : ""}
-          </div>
+          <details style={{ fontSize: 12, color: "var(--muted)" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>View proof details</summary>
+            <div className="mono" style={{ background: "var(--panel)", borderRadius: 10, padding: "8px 12px", marginTop: 6 }}>
+              seal {short(seal.commitment)}{seal.txid ? ` · block ${seal.height?.toLocaleString()} · tx ${short(seal.txid)}` : ""}
+            </div>
+          </details>
           <div style={{ width: "100%", textAlign: "left" }}><BackupNudge what="calls and proofs" /></div>
           <Link href="/waiting" className="btn btn-paper" style={{ width: "100%", marginTop: 8 }}>Go to waiting room</Link>
           <button onClick={() => setSealId(null)} style={{ minHeight: 44, background: "transparent", border: 0, color: "var(--lime)", fontWeight: 700, fontSize: 14 }}>Seal another call</button>

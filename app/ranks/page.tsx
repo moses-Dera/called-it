@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { BottomNav, Img } from "@/components/ui";
+import { BottomNav, ErrorBoundary, Img, Skeleton } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { PLAYERS, art } from "@/lib/data";
 import { cloudReady, useCloud, useLeaderboard } from "@/lib/cloud";
@@ -57,7 +57,18 @@ export default function Ranks() {
       </div>
 
       <div className="ranks-list" style={{ background: "var(--paper)", color: "#111", borderRadius: "26px 26px 0 0", padding: "12px 20px 0", display: "flex", flexDirection: "column", flex: 1 }}>
-        {rows === null && <div style={{ padding: "18px 0", fontSize: 14, fontWeight: 600, color: "#4a4436" }}>Loading the leaderboard…</div>}
+        {rows === null && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 0" }}>
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
+                <Skeleton w={22} h={22} r={6} />
+                <Skeleton w={38} h={38} r={12} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}><Skeleton w="60%" h={14} /><Skeleton w="30%" h={10} /></div>
+                <Skeleton w={40} h={20} r={6} />
+              </div>
+            ))}
+          </div>
+        )}
         {rows && rows.length === 0 && (
           <div style={{ padding: "16px 0", fontSize: 14, fontWeight: 600, color: "#4a4436", lineHeight: 1.5 }}>
             No ranked points {tab === "week" ? "this week" : "yet"}. Seal a Classic Call before kickoff while signed in, and the server scores it at full time.
@@ -78,7 +89,7 @@ export default function Ranks() {
           </div>
         )}
         <Link href="/vault" style={{ margin: "12px 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
-          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn ZEC</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes pay testnet ZEC to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
+          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn prizes</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes go to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
         </Link>
       </div>
       <div className="navwrap" style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>

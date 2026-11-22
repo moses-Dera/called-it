@@ -7,12 +7,13 @@ const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["700", "800"]
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Called It",
-  description: "Seal your call now. Prove it later. Fair games sealed on Zcash.",
+  title: { default: "Called It", template: "%s — Called It" },
+  description: "Seal your call now. Prove it later. Nobody can cheat.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Called It", statusBarStyle: "black-translucent" },
-  // Tab and home-screen icons come from app/favicon.ico, app/icon.png and app/apple-icon.png.
-  other: { google: "notranslate" }, // page translators were replacing live game text
+  openGraph: { type: "website", siteName: "Called It", title: "Called It", description: "Seal your call before kickoff. Prove it after. Nobody can cheat." },
+  twitter: { card: "summary_large_image" },
+  other: { google: "notranslate" },
 };
 export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width", initialScale: 1, viewportFit: "cover" };
 

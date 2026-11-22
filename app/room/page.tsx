@@ -303,7 +303,7 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
           {(r.messages ?? []).length === 0 && <p style={{ margin: 0 }}>No messages were revealed.</p>}
         </>
       )}
-      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#4a4436" }}>✓ Every move was checked against its seal by the server before this result was shown.</p>
+      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#4a4436" }}>✓ Every move was sealed before the result — nobody could change their answer.</p>
       {again && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} disabled={busy} onClick={onNext}>{room.game === "arcade" ? "Play another round" : "Vote again"}</button>}
     </>
   );
@@ -465,7 +465,7 @@ function WolfEnd({ room }: { room: Room }) {
         {(r.roles ?? []).map((x) => <span key={x.name + x.role} className="chip" style={{ background: x.role === "wolf" ? "var(--pink)" : x.role === "seer" ? "var(--lilac)" : "var(--mint)" }}>{x.name}: {x.role}</span>)}
       </div>
       <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: ok ? "#3d6b00" : ok === false ? "#9a2d1d" : "#4a4436" }}>
-        {ok === null ? "Checking the deal against its seal…" : ok ? "✓ The role deal matches the seal published at the start: nobody’s role was changed." : "✗ The deal does not match its seal."}
+        {ok === null ? "Checking the role deal…" : ok ? "✓ The roles match the seal from the start — nobody’s role was changed." : "✗ The roles don’t match the original seal."}
       </p>
     </>
   );

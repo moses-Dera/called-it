@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Img, TopBar } from "@/components/ui";
-import { cloudReady, signInWithGoogle, signOut, useCloud } from "@/lib/cloud";
+import { cloudReady, signInWithGoogle, signOut, useCloud, usePlayerStats } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
@@ -9,11 +9,13 @@ export default function Profile() {
   const t = totals(s);
   const cloud = useCloud();
   const user = cloud.session?.user;
+  const stats = usePlayerStats();
+  const streak = stats?.streak ?? 0;
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
 
   function save() {
-    if (addrV.trim() && !isShielded(addrV)) return setMsg("That doesn't look like a shielded address. It should start with u1 (or utest1 on testnet).");
+    if (addrV.trim() && !isShielded(addrV)) return setMsg("That doesn't look like a valid Zcash address. It should start with u1 or utest1.");
     saveProfile({ name: nameV.trim().slice(0, 24), address: addrV.trim() });
     setMsg("Saved.");
   }
@@ -23,14 +25,16 @@ export default function Profile() {
       <div className="profile-body" style={{ padding: "8px 20px 28px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
         <section style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Img n={`avatar_${s.profile.avatar}`} size={84} alt="Your avatar" style={{ borderRadius: 26, border: "3px solid var(--lime)" }} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, flex: 1 }}>
-            {[["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length]].map(([k, v]) => (
-              <div key={k} style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, padding: "8px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 22 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, flex: 1 }}>
+            {([["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length], ["Streak", streak]] as const).map(([k, v]) => (
+              <div key={k} style={{ background: k === "Streak" && streak >= 3 ? "rgba(255,107,53,.2)" : "var(--panel)", border: `2px solid ${k === "Streak" && streak >= 3 ? "#FF6B35" : "var(--line)"}`, borderRadius: 14, padding: "8px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 22 }}>{v}{k === "Streak" && streak >= 3 ? "🔥" : ""}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
             ))}
           </div>
         </section>
 
-        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks. Practice points come from games against bots. ZEC prizes come from contests. Your sealed moves follow your account to any device where you sign in.</div>
+        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks. Practice points come from games against bots. Contest winners earn prizes. Your sealed moves follow your account to any device where you sign in.</div>
+
+        <PlayerBadges />
 
         <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
@@ -46,8 +50,8 @@ export default function Profile() {
         <section className="paper p-form" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
           <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
-          <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Withdrawal wallet (shielded Zcash address)</label>
-          <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="utest1… (testnet address from Zodl or Zingo)" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
+          <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Withdrawal wallet (Zcash address)</label>
+          <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
           <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Saved once, then every withdrawal goes here in one tap.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
           <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
@@ -72,5 +76,42 @@ export default function Profile() {
         </section>
       </div>
     </main>
+  );
+}
+
+const BADGE_DEFS: { key: string; label: string; desc: string; check: (s: Record<string, number>) => boolean; bg: string }[] = [
+  { key: "first_seal", label: "First Seal", desc: "Sealed your first call", check: (s) => (s.total_seals ?? 0) >= 1, bg: "var(--sky)" },
+  { key: "called_it", label: "Called It!", desc: "Got an exact score", check: (s) => (s.called_it ?? 0) >= 1, bg: "var(--lime)" },
+  { key: "sniper", label: "Sniper", desc: "5 exact scores", check: (s) => (s.exact_scores ?? 0) >= 5, bg: "var(--amber)" },
+  { key: "early_bird", label: "Early Bird", desc: "Sealed 24h+ before kickoff", check: (s) => (s.early_birds ?? 0) >= 1, bg: "#FFD84D" },
+  { key: "ten_seals", label: "Regular", desc: "10 seals", check: (s) => (s.total_seals ?? 0) >= 10, bg: "var(--lilac)" },
+  { key: "fifty_seals", label: "Veteran", desc: "50 seals", check: (s) => (s.total_seals ?? 0) >= 50, bg: "var(--pink)" },
+  { key: "century", label: "Century", desc: "100+ ranked points", check: (s) => (s.total_ranked ?? 0) >= 100, bg: "#5AB8FF" },
+  { key: "oracle", label: "Oracle", desc: "10 exact scores", check: (s) => (s.exact_scores ?? 0) >= 10, bg: "var(--red)" },
+  { key: "streak_3", label: "On Fire", desc: "3-day seal streak", check: (s) => (s.streak ?? 0) >= 3, bg: "#FF6B35" },
+  { key: "streak_7", label: "Iron Will", desc: "7-day seal streak", check: (s) => (s.streak ?? 0) >= 7, bg: "#E63946" },
+];
+
+function PlayerBadges() {
+  const stats = usePlayerStats();
+  if (!stats) return null;
+  const earned = BADGE_DEFS.filter((b) => b.check(stats));
+  if (earned.length === 0) return null;
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span className="eyebrow" style={{ color: "var(--muted)" }}>Badges ({earned.length}/{BADGE_DEFS.length})</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
+        {BADGE_DEFS.map((b) => {
+          const on = earned.includes(b);
+          return (
+            <div key={b.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 6px", borderRadius: 14, background: on ? b.bg : "var(--panel)", border: `2px solid ${on ? "#111" : "var(--line)"}`, opacity: on ? 1 : 0.4, textAlign: "center" }}>
+              <span style={{ fontSize: 20 }}>{on ? "★" : "☆"}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: on ? "#111" : "var(--muted)" }}>{b.label}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: on ? "#4a4436" : "var(--muted)" }}>{b.desc}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

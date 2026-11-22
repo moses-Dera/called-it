@@ -247,10 +247,16 @@ function ImportCard() {
 function ContestsTab({ act }: { act: Act }) {
   const contests = useContests(), fixtures = useFixtures();
   const [title, setTitle] = useState(""), [sponsor, setSponsor] = useState(""), [prize, setPrize] = useState(""), [pick, setPick] = useState<string[]>([]);
+  const [logo, setLogo] = useState(""), [color, setColor] = useState(""), [surl, setSurl] = useState("");
+  const [structure, setStructure] = useState("top3"), [deadline, setDeadline] = useState(""), [desc, setDesc] = useState("");
   async function create() {
     if (!title.trim() || !pick.length) return;
-    if (await act("admin_upsert_contest", { p_id: slug(title), p_title: title, p_sponsor: sponsor, p_prize: Number(prize) || 0, p_fixtures: pick }, "Contest created. It shows on Home."))
-      { setTitle(""); setSponsor(""); setPrize(""); setPick([]); }
+    if (await act("admin_upsert_contest", {
+      p_id: slug(title), p_title: title, p_sponsor: sponsor, p_prize: Number(prize) || 0, p_fixtures: pick,
+      p_sponsor_logo: logo || null, p_sponsor_color: color || null, p_sponsor_url: surl || null,
+      p_prize_structure: structure, p_entry_deadline: deadline ? new Date(deadline).toISOString() : null, p_description: desc || null,
+    }, "Contest created. It shows on Home and /contests."))
+      { setTitle(""); setSponsor(""); setPrize(""); setPick([]); setLogo(""); setColor(""); setSurl(""); setStructure("top3"); setDeadline(""); setDesc(""); }
   }
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
@@ -266,7 +272,7 @@ function ContestsTab({ act }: { act: Act }) {
             {c.winners && (c.winners.length ? c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC</b></div>) : <span style={{ fontSize: 13, color: "#4a4436" }}>Closed with no ranked players.</span>)}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a href={`/contest?c=${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
-              {c.status === "open" && <button style={btn("var(--amber)")} onClick={() => { if (confirm(`Close "${c.title}" and award the prize to the top three?`)) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>}
+              {c.status === "open" && <button style={btn("var(--amber)")} onClick={() => { if (confirm(`Close "${c.title}" and award the prize?`)) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>}
             </div>
           </div>
         ))}
@@ -275,11 +281,32 @@ function ContestsTab({ act }: { act: Act }) {
       <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
         <span className="eyebrow" style={{ color: "#5b6b12" }}>New contest</span>
         <input aria-label="Contest title" placeholder="Matchday 12 Pool" value={title} onChange={(e) => setTitle(e.target.value)} style={field} />
+        <textarea aria-label="Description (optional)" placeholder="Description shown on the contest page (optional)" value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} style={{ ...field, height: "auto", padding: "10px 12px", resize: "vertical" }} />
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8 }}>
-          <input aria-label="Sponsor (optional)" placeholder="Sponsor (optional)" value={sponsor} onChange={(e) => setSponsor(e.target.value)} style={field} />
-          <input aria-label="Prize pot in testnet ZEC" placeholder="Prize ZEC" inputMode="decimal" value={prize} onChange={(e) => setPrize(e.target.value.replace(/[^0-9.]/g, ""))} style={field} />
+          <input aria-label="Sponsor name (optional)" placeholder="Sponsor name" value={sponsor} onChange={(e) => setSponsor(e.target.value)} style={field} />
+          <input aria-label="Prize pot in ZEC" placeholder="Prize ZEC" inputMode="decimal" value={prize} onChange={(e) => setPrize(e.target.value.replace(/[^0-9.]/g, ""))} style={field} />
         </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>The pot is split 50 / 30 / 20 between the top three by ranked points. Keep it below the anchor wallet’s balance.</span>
+        <details style={{ fontSize: 13, fontWeight: 700 }}>
+          <summary style={{ cursor: "pointer", color: "#5b6b12" }}>Sponsor branding (optional)</summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8 }}>
+            <input aria-label="Logo URL" placeholder="Logo image URL" value={logo} onChange={(e) => setLogo(e.target.value)} style={field} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <input aria-label="Brand color" placeholder="Brand color (hex)" value={color} onChange={(e) => setColor(e.target.value)} style={field} />
+              <input aria-label="Sponsor website" placeholder="Sponsor URL" value={surl} onChange={(e) => setSurl(e.target.value)} style={field} />
+            </div>
+          </div>
+        </details>
+        <label style={{ fontSize: 12, fontWeight: 800 }}>Prize structure
+          <select value={structure} onChange={(e) => setStructure(e.target.value)} style={{ ...field, marginTop: 4 }}>
+            <option value="top3">Top 3 (50 / 30 / 20)</option>
+            <option value="top10">Top 10 (tiered)</option>
+            <option value="all_correct">Split among all exact scores</option>
+            <option value="random_draw">Random draw (one winner)</option>
+          </select>
+        </label>
+        <label style={{ fontSize: 12, fontWeight: 800 }}>Entry deadline (optional)
+          <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...field, marginTop: 4 }} />
+        </label>
         <b style={{ fontSize: 13 }}>Fixtures in this contest</b>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {fixtures.map((f) => {

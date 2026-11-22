@@ -2,12 +2,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GUIDES, PLAYERS, art } from "@/lib/data";
-import { cloudReady, useLeaderboard } from "@/lib/cloud";
+import { cloudReady, useLeaderboard, usePlayerStats } from "@/lib/cloud";
 import { short, totals, useStore } from "@/lib/store";
 import { SealStatus } from "./ui";
 
 const MODE: Record<string, string> = { "/seal": "classic", "/waiting": "classic", "/reveal": "classic" };
-const HOW = ["Make your call: a score, a card, a vote or a move.", "It's sealed on your device. Only a fingerprint is sent out.", "At reveal, everyone's seal opens together and is checked."];
+const HOW = ["Make your call: a score, a card, a vote or a move.", "It's sealed on your device. Nobody can peek or change it.", "At reveal, everyone's seal opens together and is checked."];
 const BOTS = [410, 355, 320, 290, 240, 150, 95];
 
 /** Desktop-only side dashboard that fills the space beside the game board on every tab. */
@@ -40,12 +40,14 @@ export function DeskPanel() {
             <div key={k} style={{ background: "#111", color: "var(--paper)", borderRadius: 14, padding: "10px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 26 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
           ))}
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={{ fontSize: 13, fontWeight: 700 }}>Prize balance (testnet)</span><span className="display" style={{ fontSize: 24 }}>{t.available.toFixed(4)} ZEC</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={{ fontSize: 13, fontWeight: 700 }}>Prize balance</span><span className="display" style={{ fontSize: 24 }}>{t.available.toFixed(4)} ZEC</span></div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/vault" className="btn" style={{ flex: 1, minHeight: 44, background: "#111", color: "var(--amber)" }}>Open Vault</Link>
           <Link href="/profile" className="btn btn-paper" style={{ flex: 1, minHeight: 44 }}>{s.profile.address ? "Wallet " + short(s.profile.address) : "Add wallet"}</Link>
         </div>
       </section>
+
+      <CalledItCounter />
 
       <section className="dcard" style={{ background: "var(--panel)", border: "2px solid var(--line)" }}>
         <div className="eyebrow" style={{ color: "var(--lime)" }}>Your recent seals</div>
@@ -70,5 +72,25 @@ export function DeskPanel() {
         ))}
       </section>
     </aside>
+  );
+}
+
+function CalledItCounter() {
+  const stats = usePlayerStats();
+  if (!stats || !stats.called_it) return null;
+  return (
+    <section className="dcard" style={{ background: "var(--lime)", color: "#111", border: "3px solid #111" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div className="eyebrow" style={{ color: "#5b6b12" }}>Called It!</div>
+          <div className="display" style={{ fontSize: 36 }}>{stats.called_it}</div>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>exact score{stats.called_it === 1 ? "" : "s"} nailed</div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <span className="display" style={{ fontSize: 20 }}>{stats.total_seals ?? 0}</span>
+          <span style={{ fontSize: 11, fontWeight: 700 }}>total seals</span>
+        </div>
+      </div>
+    </section>
   );
 }

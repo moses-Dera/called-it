@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CardBack, Flip, Img, TopBar } from "@/components/ui";
 import { fixtureOf } from "@/lib/data";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
-import { claimClassic, cloudReady, signInWithGoogle, useCloud, type Claim } from "@/lib/cloud";
+import { claimClassic, cloudReady, signInWithGoogle, useCloud, useFixtureRevealStats, type Claim } from "@/lib/cloud";
 
-const FINAL = { home: 2, away: 1 }; // demo fixture result; live scores come from the football feed
+const FINAL = { home: 2, away: 1 };
 function score(move: string) {
   const [h, a] = move.split("|")[0].split("-").map(Number);
   const exact = h === FINAL.home && a === FINAL.away;
@@ -16,6 +16,33 @@ function score(move: string) {
   return { exact, result, lines, total: base * 2, h, a };
 }
 const COLS = ["#C6F432", "#FFB547", "#5AB8FF", "#FF8FB1", "#B9A5FF", "#FFD84D"];
+
+function playRevealSound(win: boolean) {
+  try {
+    const ctx = new AudioContext();
+    if (win) {
+      // Rising two-tone chime
+      [440, 660].forEach((freq, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        g.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.12);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+        o.connect(g).connect(ctx.destination);
+        o.start(ctx.currentTime + i * 0.12); o.stop(ctx.currentTime + i * 0.12 + 0.3);
+      });
+    } else {
+      // Descending note
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.setValueAtTime(400, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.25);
+      g.gain.setValueAtTime(0.2, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      o.connect(g).connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + 0.3);
+    }
+    setTimeout(() => ctx.close(), 600);
+  } catch {}
+}
 
 export default function Reveal() {
   const seals = useStore().seals;
@@ -27,6 +54,7 @@ export default function Reveal() {
   const seal = shown ?? pending ?? null;
   const sc = useMemo(() => (seal ? score(seal.move) : null), [seal]);
   const open = !!shown;
+  const revealStats = useFixtureRevealStats(open ? seal?.round ?? null : null);
 
   async function flip() {
     if (!seal || open) return;
@@ -35,18 +63,33 @@ export default function Reveal() {
     if (!c.hashOk) return;
     markRevealed(seal.id);
     if (signedIn) {
-      // Ranked points: the server re-hashes the move and scores it against the official result.
       claimClassic(seal).then(setClaim, (e) => setClaim({ status: "error", message: e instanceof Error ? e.message : "Claim failed" }));
     } else {
       addReward(`${seal.label} · Classic Call (practice)`, score(seal.move).total);
     }
-    if (navigator.vibrate) navigator.vibrate([20, 40, 60]);
+    if (navigator.vibrate) navigator.vibrate([20, 40, 60, 40, 80]);
+    playRevealSound(score(seal.move).total > 0);
   }
+
+  function share() {
+    if (!seal || !sc) return;
+    const f = fixtureOf(seal.round);
+    const text = sc.exact
+      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY. Sealed before kickoff. Called It!`
+      : sc.result
+      ? `I called the right result for ${f.home} vs ${f.away}. Sealed before kickoff.`
+      : `I sealed my call for ${f.home} vs ${f.away} before kickoff. That's the game — nobody can cheat.`;
+    if (navigator.share) { navigator.share({ title: "Called It", text, url: location.origin }).catch(() => {}); }
+    else { navigator.clipboard?.writeText(text + " " + location.origin); }
+  }
+
   const win = !!sc && sc.total > 0;
+  const confettiCount = sc?.exact ? 28 : win ? 16 : 0;
+
   return (
     <main className="screen">
-      {open && win && Array.from({ length: 16 }, (_, i) => (
-        <span key={i} className="pop" style={{ position: "absolute", left: (((i * 61) % 360) / 3.9 + 2) + "%", top: ((i * 43) % 150) + 70, width: 6 + (i % 3) * 3, height: 14, borderRadius: 3, background: COLS[i % 6], border: "1.5px solid #111", transform: `rotate(${(i * 53) % 180}deg)`, animationDelay: i * 25 + "ms" }} />
+      {open && confettiCount > 0 && Array.from({ length: confettiCount }, (_, i) => (
+        <span key={i} className="pop" style={{ position: "absolute", left: (((i * 61) % 360) / 3.9 + 2) + "%", top: ((i * 43) % 200) + 50, width: 6 + (i % 4) * 3, height: 14 + (i % 3) * 4, borderRadius: 3, background: COLS[i % 6], border: "1.5px solid #111", transform: `rotate(${(i * 53) % 180}deg)`, animationDelay: i * 20 + "ms" }} />
       ))}
       <TopBar eyebrow="Full time · demo result" title={`${fixtureOf(seal?.round).home} ${FINAL.home} – ${FINAL.away} ${fixtureOf(seal?.round).away}`} />
       {!seal ? (
@@ -61,12 +104,12 @@ export default function Reveal() {
               <Flip on={open} w={300} h={330}
                 front={<div style={{ width: "100%", height: "100%", position: "relative", borderRadius: 28, overflow: "hidden", border: "3px solid #111", boxShadow: "6px 6px 0 var(--text)" }}><CardBack radius={0} /><span className="display" style={{ position: "absolute", left: 0, right: 0, bottom: 22, fontSize: 18, color: "#111" }}><span style={{ background: "var(--paper)", border: "2px solid #111", borderRadius: 12, padding: "6px 12px" }}>Tap to reveal</span></span></div>}
                 back={<div style={{ width: "100%", height: "100%", borderRadius: 28, background: win ? "var(--lime)" : "var(--pink)", color: "#111", border: "3px solid #111", boxShadow: "6px 6px 0 var(--text)", padding: 22, display: "flex", flexDirection: "column", gap: 10, textAlign: "left" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span className="display" style={{ fontSize: 32 }}>{win ? "CALLED IT!" : "MISSED IT"}</span><Img n="seal" size={54} style={{ transform: "rotate(-10deg)" }} /></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span className="display" style={{ fontSize: 32 }}>{sc?.exact ? "CALLED IT!" : win ? "NICE CALL!" : "MISSED IT"}</span><Img n="seal" size={54} style={{ transform: "rotate(-10deg)" }} /></div>
                   <div className="display" style={{ fontSize: 76, letterSpacing: -2 }}>{sc?.h} – {sc?.a}</div>
                   <span className="chip" style={{ alignSelf: "flex-start", background: "#111", color: win ? "var(--lime)" : "var(--pink)", border: 0 }}>{sc?.exact ? "EXACT SCORE" : sc?.result ? "RIGHT RESULT" : "WRONG RESULT"}</span>
                   <div style={{ flex: 1 }} />
                   <div style={{ borderTop: "2px dashed rgba(17,17,17,.4)", paddingTop: 10, fontSize: 12, fontWeight: 800, display: "flex", justifyContent: "space-between" }}>
-                    <span>{check?.hashOk ? "✓ SEAL VERIFIED" : "✗ SEAL MISMATCH"}</span><span>{check?.anchored ? "✓ IN ANCHORED BATCH" : "NOT ANCHORED YET"}</span>
+                    <span>{check?.hashOk ? "✓ SEAL VERIFIED" : "✗ SEAL MISMATCH"}</span><span>{check?.anchored ? "✓ STAMPED & LOCKED" : "STAMPING…"}</span>
                   </div>
                 </div>} />
             </button>
@@ -75,6 +118,15 @@ export default function Reveal() {
             {sc?.lines.map((l) => <div key={l.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>{l.label}</span><b>+{l.v}</b></div>)}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>Early bird</span><b>x2</b></div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #111", paddingTop: 8 }}><b>Total</b><span className="display" style={{ fontSize: 28 }}>+{sc?.total}</span></div>
+
+            {revealStats && open && (
+              <div style={{ borderTop: "2px dashed #c9bfa6", paddingTop: 8, display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, fontWeight: 700, color: "#4a4436" }}>
+                {revealStats.total_seals > 0 && <span>{revealStats.total_seals} players sealed</span>}
+                {revealStats.exact_scores > 0 && <span>{revealStats.exact_scores} got the exact score</span>}
+                {revealStats.your_percentile != null && <span style={{ color: "#111", fontWeight: 800 }}>Top {revealStats.your_percentile}%</span>}
+              </div>
+            )}
+
             <div role="status" style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", lineHeight: 1.45, borderTop: "2px dashed #c9bfa6", paddingTop: 8 }}>
               {signedIn ? (
                 !claim ? "Checking your seal with the server…"
@@ -88,7 +140,7 @@ export default function Reveal() {
           <div style={{ flex: 1, minHeight: 16 }} />
           <div style={{ padding: "0 20px 28px", display: "flex", gap: 10 }}>
             <Link href="/vault" className="btn btn-quiet" style={{ width: 120 }}>Proof</Link>
-            <button className="btn btn-primary" style={{ flex: 1, minHeight: 56, fontSize: 17, boxShadow: "0 5px 0 var(--text)" }} onClick={() => { if (navigator.share && seal) navigator.share({ title: "Called It", text: `I called ${seal.label}, sealed before kickoff.` }).catch(() => {}); }}>Share reveal card</button>
+            <button className="btn btn-primary" style={{ flex: 1, minHeight: 56, fontSize: 17, boxShadow: "0 5px 0 var(--text)" }} onClick={share}>Share reveal card</button>
           </div>
         </>
       )}

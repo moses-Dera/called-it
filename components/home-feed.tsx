@@ -1,31 +1,65 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Img } from "./ui";
-import { useContests, useFixtures } from "@/lib/cloud";
+import { ErrorBoundary, Img, SkeletonCard, SkeletonFeatured } from "./ui";
+import { sb, useContests, useFixtures, useFixtureSealCounts, useMyContestIds } from "@/lib/cloud";
 
-/** Home's right column: fixtures still open for sealing, then open contests. */
 export function HomeFeed() {
+  return <ErrorBoundary><HomeFeedInner /></ErrorBoundary>;
+}
+
+function HomeFeedInner() {
   const fixtures = useFixtures();
   const contests = useContests().filter((c) => c.status === "open");
-  // "Open" depends on the clock, so decide it after mount (the server renders the full list).
+  const sealCounts = useFixtureSealCounts();
+  const myIds = useMyContestIds();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(Date.now()); }, []);
-  const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now).slice(0, 3);
+
+  const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now);
+  const featured = open.sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
+  const rest = open.filter((f) => f !== featured).slice(0, 3);
+  const liveSealCount = useLiveSealCount(featured?.id ?? null);
+  const featuredCount = liveSealCount ?? sealCounts[featured?.id ?? ""] ?? 0;
+  const loading = now === null;
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <SkeletonFeatured />
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {featured && (
+        <Link href={`/seal?f=${featured.id}`} style={{ display: "block", background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", borderRadius: 22, padding: 16, position: "relative", overflow: "hidden" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span className="eyebrow" style={{ color: "#5b6b12" }}>Featured match</span>
+            {featuredCount > 0 && <span className="chip" style={{ background: "var(--sky)", border: 0 }}>{featuredCount} sealed</span>}
+          </div>
+          <div className="display" style={{ fontSize: 28, margin: "6px 0 4px" }}>{featured.home} vs {featured.away}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#4a4436" }}>Kickoff {featured.when}</div>
+          <Countdown target={featured.kickoff} />
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111", color: "var(--lime)", borderRadius: 14, padding: "11px 14px", fontSize: 14, fontWeight: 700 }}>
+            <span>Seal your call now</span><span>→</span>
+          </div>
+        </Link>
+      )}
+
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
           <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
         </div>
-        {open.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
-        {open.map((f) => (
+        {rest.length === 0 && !featured && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
+        {rest.map((f) => (
           <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
             <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
               <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
-              <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Kickoff {f.when}</div>
+              <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Kickoff {f.when}{sealCounts[f.id] > 0 ? ` · ${sealCounts[f.id]} sealed` : ""}</div>
             </div>
             <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
           </Link>
@@ -40,21 +74,68 @@ export function HomeFeed() {
 
       {contests.length > 0 && (
         <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
-          {contests.slice(0, 3).map((c) => (
-            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", border: "2px solid var(--line)", borderRadius: 16, padding: "12px 14px" }}>
-              <Img n="cover_closest" size={40} style={{ borderRadius: 12, border: "2px solid #111" }} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="display" style={{ fontSize: 17 }}>{c.title}</div>
-                <div style={{ fontSize: 12, color: "#c9d3de", fontWeight: 600 }}>
-                  {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}{c.sponsor ? ` · sponsored by ${c.sponsor}` : ""}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
+            <Link href="/contests" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>View all</Link>
+          </div>
+          {contests.slice(0, 3).map((c) => {
+            const joined = myIds.includes(c.id);
+            return (
+              <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "#111", color: "var(--paper)", border: "2px solid var(--line)", borderRadius: 16, padding: "12px 14px", position: "relative", overflow: "hidden" }}>
+                {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, opacity: 0.5 }} />}
+                <Img n="cover_closest" size={40} style={{ borderRadius: 12, border: "2px solid #111" }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="display" style={{ fontSize: 17 }}>{c.title}</div>
+                  <div style={{ fontSize: 12, color: "#c9d3de", fontWeight: 600 }}>
+                    {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}{c.sponsor ? ` · by ${c.sponsor}` : ""}{joined ? " · joined" : ""}
+                  </div>
                 </div>
-              </div>
-              {c.prize_zec > 0 && <span className="chip" style={{ background: "var(--amber)" }}>{c.prize_zec} ZEC</span>}
-            </Link>
-          ))}
+                {c.prize_zec > 0 && <span className="chip" style={{ background: "var(--amber)" }}>{c.prize_zec} ZEC</span>}
+              </Link>
+            );
+          })}
         </section>
       )}
+
+      <Link href="/how" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "12px 14px" }}>
+        <Img n="seal" size={36} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 800 }}>How your seal works</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Three steps. Zero trust required.</div>
+        </div>
+        <span style={{ fontWeight: 800, color: "var(--lime)" }}>→</span>
+      </Link>
     </div>
   );
+}
+
+function useLiveSealCount(fixtureId: string | null): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!fixtureId) return;
+    const c = sb();
+    if (!c) return;
+    const channel = c.channel(`seals:${fixtureId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "seals", filter: `round=eq.${fixtureId}` }, () => {
+      setCount((prev) => (prev ?? 0) + 1);
+    }).subscribe();
+    return () => { c.removeChannel(channel); };
+  }, [fixtureId]);
+  return count;
+}
+
+function Countdown({ target }: { target: string }) {
+  const [left, setLeft] = useState("");
+  useEffect(() => {
+    function tick() {
+      const ms = Date.parse(target) - Date.now();
+      if (ms <= 0) { setLeft("Starting now"); return; }
+      const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000), s = Math.floor((ms % 60_000) / 1000);
+      setLeft(h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  if (!left) return null;
+  return <div style={{ fontSize: 12, fontWeight: 800, color: "#5b6b12", marginTop: 4 }}>{left} until kickoff</div>;
 }

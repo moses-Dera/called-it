@@ -1,12 +1,57 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { GUIDES, art } from "@/lib/data";
 import type { Seal } from "@/lib/store";
 
 export function Img({ n, size, h, alt = "", style, className }: { n: string; size: number; h?: number; alt?: string; style?: React.CSSProperties; className?: string }) {
-   
   return <img src={art(n)} alt={alt} width={size} height={h ?? size} loading="lazy" decoding="async" className={className} style={{ width: size, height: h ?? size, ...style }} />;
+}
+
+export function Skeleton({ w, h = 20, r = 10, style }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
+  return <div className="skeleton" style={{ width: w ?? "100%", height: h, borderRadius: r, ...style }} />;
+}
+
+export function SkeletonCard({ h = 80 }: { h?: number }) {
+  return (
+    <div style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 18, padding: 14, display: "flex", alignItems: "center", gap: 12, minHeight: h }}>
+      <Skeleton w={40} h={40} r={12} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+        <Skeleton w="70%" h={16} />
+        <Skeleton w="40%" h={12} />
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonFeatured() {
+  return (
+    <div style={{ background: "var(--panel)", border: "3px solid var(--line)", borderRadius: 22, padding: 16, display: "flex", flexDirection: "column", gap: 10, minHeight: 160 }}>
+      <Skeleton w={100} h={12} />
+      <Skeleton w="80%" h={28} r={8} />
+      <Skeleton w={130} h={14} />
+      <div style={{ flex: 1 }} />
+      <Skeleton h={42} r={14} />
+    </div>
+  );
+}
+
+type EBState = { error: Error | null };
+export class ErrorBoundary extends Component<{ fallback?: ReactNode; children: ReactNode }, EBState> {
+  state: EBState = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return this.props.fallback ?? (
+        <div style={{ padding: 20, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 18, display: "flex", flexDirection: "column", gap: 10, alignItems: "center", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--red)" }}>Something went wrong</div>
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>{this.state.error.message}</div>
+          <button onClick={() => this.setState({ error: null })} style={{ minHeight: 40, padding: "0 16px", borderRadius: 12, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 13 }}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 const Back = ({ color }: { color: string }) => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
@@ -56,13 +101,13 @@ export function TopBar({ mode, eyebrow, title, accent = "var(--lime)", light = f
   );
 }
 
-/** Two honest steps: "Sealed" at once, then "On-chain" when the batch is anchored. */
+/** Two honest steps: "Sealed" at once, then "Stamped" when the batch is anchored. */
 export function SealStatus({ seal }: { seal?: Seal | null }) {
   if (!seal) return null;
   const on = seal.status === "onchain";
   return (
     <span className="chip" style={{ background: on ? "var(--lime)" : "var(--amber)" }}>
-      <Lock size={12} />{on ? (seal.mode === "testnet" ? "ON-CHAIN · TESTNET" : "ANCHORED · SIMULATED") : "SEALED · ANCHORING…"}
+      <Lock size={12} />{on ? "SEALED & STAMPED" : "SEALED · STAMPING…"}
     </span>
   );
 }

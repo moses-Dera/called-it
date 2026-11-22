@@ -162,7 +162,13 @@ const fixtureStore = shared<Fixture[]>(async () => {
 export const useFixtures = () => fixtureStore.use();
 export const refreshFixtures = () => fixtureStore.refresh();
 
-export type Contest = { id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[]; status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number }[] | null };
+export type Contest = {
+  id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
+  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number }[] | null;
+  sponsor_logo: string | null; sponsor_color: string | null; sponsor_url: string | null;
+  prize_structure: "top3" | "top10" | "all_correct" | "random_draw";
+  entry_deadline: string | null; description: string | null;
+};
 const contestStore = shared<Contest[]>(async () => {
   const c = sb();
   if (!c) return [];
@@ -172,6 +178,68 @@ const contestStore = shared<Contest[]>(async () => {
 }, []);
 export const useContests = () => contestStore.use();
 export const refreshContests = () => contestStore.refresh();
+
+// ---------- Contest entries (join / leave) ----------
+export async function joinContest(id: string, referrer?: string): Promise<{ joined: boolean; contest: string }> {
+  return cloudRpc("join_contest", { p_id: id, p_referrer: referrer ?? null });
+}
+export async function leaveContest(id: string): Promise<void> {
+  await cloudRpc("leave_contest", { p_id: id });
+}
+export function useMyContestIds(): string[] {
+  const [ids, setIds] = useState<string[]>([]);
+  const uid = useCloud().session?.user.id;
+  useEffect(() => {
+    if (!uid || !sb()) return;
+    let live = true;
+    cloudRpc<string[]>("my_contest_ids").then((r) => live && setIds(r)).catch(() => {});
+    return () => { live = false; };
+  }, [uid]);
+  return ids;
+}
+export function useContestEntryCount(id: string | null): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!id || !sb()) return;
+    let live = true;
+    cloudRpc<number>("contest_entry_count", { p_id: id }).then((n) => live && setCount(Number(n))).catch(() => {});
+    return () => { live = false; };
+  }, [id]);
+  return count;
+}
+export function useFixtureSealCounts(): Record<string, number> {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!sb()) return;
+    let live = true;
+    cloudRpc<{ fixture_id: string; seal_count: number }[]>("fixture_seal_counts")
+      .then((rows) => { if (live) { const m: Record<string, number> = {}; rows.forEach((r) => m[r.fixture_id] = Number(r.seal_count)); setCounts(m); } })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  return counts;
+}
+export function usePlayerStats(): Record<string, number> | null {
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const uid = useCloud().session?.user.id;
+  useEffect(() => {
+    if (!uid || !sb()) return;
+    let live = true;
+    cloudRpc<Record<string, number>>("player_stats").then((r) => live && setStats(r)).catch(() => {});
+    return () => { live = false; };
+  }, [uid]);
+  return stats;
+}
+export function useFixtureRevealStats(fixtureId: string | null): Record<string, number> | null {
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    if (!fixtureId || !sb()) return;
+    let live = true;
+    cloudRpc<Record<string, number>>("fixture_reveal_stats", { p_fixture_id: fixtureId }).then((r) => live && setStats(r)).catch(() => {});
+    return () => { live = false; };
+  }, [fixtureId]);
+  return stats;
+}
 
 /** Contest leaderboard (ranked points from the contest's fixtures). */
 export function useContestBoard(id: string | null): Rank[] | null {
