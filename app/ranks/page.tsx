@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { BottomNav, ErrorBoundary, Img, Skeleton } from "@/components/ui";
 import { SignInPill } from "@/components/account";
+import { TipModal } from "@/components/tip-modal";
 import { PLAYERS, art } from "@/lib/data";
 import { cloudReady, useCloud, useLeaderboard } from "@/lib/cloud";
 import { totals, useStore } from "@/lib/store";
@@ -11,16 +12,17 @@ import { totals, useStore } from "@/lib/store";
 const DEMO = [410, 355, 320, 290, 240, 150, 95];
 const BADGES = ["ORACLE", "EARLY BIRD", "SNIPER", "BOLD CALLER", "ON A STREAK"];
 const POD = [{ rank: 2, size: 64, h: 96, bg: "#9FD8FF", rot: -4 }, { rank: 1, size: 78, h: 128, bg: "var(--lime)", rot: 3 }, { rank: 3, size: 58, h: 74, bg: "var(--amber)", rot: 4 }];
-type Row = { name: string; av: string; pts: number; me: boolean; rank: number };
+type Row = { name: string; av: string; pts: number; me: boolean; rank: number; uid?: string };
 
 export default function Ranks() {
   const [tab, setTab] = useState<"week" | "all">("week");
   const s = useStore();
   const signedIn = !!useCloud().session;
   const board = useLeaderboard(tab);
+  const [tipTarget, setTipTarget] = useState<{ uid: string; name: string } | null>(null);
 
   const rows: Row[] | null = cloudReady
-    ? board.rows && board.rows.map((r) => ({ name: r.me ? `${r.name} (you)` : r.name, av: art(`avatar_${r.avatar}`), pts: r.points, me: r.me, rank: r.rank }))
+    ? board.rows && board.rows.map((r) => ({ name: r.me ? `${r.name} (you)` : r.name, av: art(`avatar_${r.avatar}`), pts: r.points, me: r.me, rank: r.rank, uid: r.user_id }))
     : PLAYERS.map((p, i) => ({ name: i === 0 ? "You" : p.name, av: p.av, me: i === 0, pts: i === 0 ? totals(s).points : DEMO[i - 1], rank: 0 }))
         .sort((a, b) => b.pts - a.pts).map((r, i) => ({ ...r, rank: i + 1 }));
   const pod = rows ? [rows[1], rows[0], rows[2]] : [];
@@ -80,6 +82,7 @@ export default function Ranks() {
             <img src={r.av} alt="" width={38} height={38} style={{ borderRadius: 12, border: "2px solid #111" }} />
             <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div><div style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>{BADGES[i % BADGES.length]}</div></div>
             <span className="display" style={{ fontSize: 20 }}>{r.pts}</span>
+            {signedIn && !r.me && r.uid && <button onClick={() => setTipTarget({ uid: r.uid!, name: r.name })} style={{ padding: "4px 8px", borderRadius: 8, border: "2px solid #111", background: "var(--amber)", fontWeight: 800, fontSize: 11, cursor: "pointer", color: "#111" }}>Tip</button>}
           </div>
         ))}
         {cloudReady && board.hasMore && (
@@ -93,10 +96,14 @@ export default function Ranks() {
             {!signedIn && <SignInPill />}
           </div>
         )}
-        <Link href="/vault" style={{ margin: "12px 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
+        <Link href="/syndicates" style={{ margin: "12px 0 8px", display: "flex", alignItems: "center", gap: 12, background: "var(--sky)", color: "#111", borderRadius: 18, padding: "12px 14px", border: "2px solid #111" }}>
+          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Syndicates</b><div style={{ fontSize: 12, color: "#333" }}>Team up and climb the group leaderboard together.</div></div><span style={{ fontWeight: 800 }}>→</span>
+        </Link>
+        <Link href="/vault" style={{ margin: "0 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
           <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn prizes</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes go to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
         </Link>
       </div>
+      {tipTarget && <TipModal toUser={tipTarget.uid} toName={tipTarget.name} onClose={() => setTipTarget(null)} />}
       <div className="navwrap" style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>
     </main>
   );

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
-import { requestWithdrawal, useCloud } from "@/lib/cloud";
+import { requestWithdrawal, useCloud, useTipHistory } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -18,6 +18,7 @@ export default function Vault() {
   const saved = s.profile.address;
   const [checks, setChecks] = useState<Record<string, string>>({});
   const signedIn = !!useCloud().session;
+  const tips = useTipHistory();
 
   async function withdraw() {
     // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.
@@ -71,6 +72,18 @@ export default function Vault() {
           </div>
         ))}
       </section>
+
+      {tips && tips.length > 0 && (
+        <section style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Tips</h2>
+          {tips.slice(0, 10).map((t) => (
+            <div key={t.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, borderBottom: "1px solid var(--line)", paddingBottom: 6 }}>
+              <span style={{ fontWeight: 600 }}>{t.direction === "sent" ? `To ${t.other_name}` : `From ${t.other_name}`}{t.message ? ` — "${t.message}"` : ""}</span>
+              <b style={{ color: t.direction === "sent" ? "var(--amber)" : "var(--lime)", whiteSpace: "nowrap" }}>{t.direction === "sent" ? "−" : "+"}{Number(t.amount).toFixed(4)}</b>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="vault-proofs" style={{ padding: "20px 20px 16px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 className="display" style={{ margin: 0, fontSize: 22 }}>My proofs</h2><span style={{ fontSize: 12, color: "var(--muted)" }}>Tap to inspect</span></div>

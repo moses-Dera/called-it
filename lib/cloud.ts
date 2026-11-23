@@ -127,7 +127,7 @@ export async function requestWithdrawal(address: string): Promise<{ status: "req
   return data;
 }
 
-export type Rank = { rank: number; name: string; avatar: number; points: number; me: boolean };
+export type Rank = { rank: number; user_id?: string; name: string; avatar: number; points: number; me: boolean };
 const LB_PAGE = 50;
 /** Verified-points leaderboard with pagination. */
 export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; error?: string; loadMore: () => void; hasMore: boolean; loading: boolean } {
@@ -146,7 +146,7 @@ export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; e
     c.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: 0 }).then(({ data, error: err }) => {
       if (!live) return;
       if (err) { setError(err.message); setRows([]); return; }
-      const mapped = (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+      const mapped = (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points), user_id: r.user_id ?? undefined }));
       setRows(mapped);
       setHasMore(mapped.length >= LB_PAGE);
     });
@@ -158,7 +158,7 @@ export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; e
     if (!c || !rows || loading) return;
     setLoading(true);
     Promise.resolve(c.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: rows.length })).then(({ data }) => {
-      const page = (data as Rank[] ?? []).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+      const page = (data as Rank[] ?? []).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points), user_id: r.user_id ?? undefined }));
       setRows([...rows, ...page]);
       setHasMore(page.length >= LB_PAGE);
       setLoading(false);
@@ -175,6 +175,20 @@ export async function cloudRpc<T = unknown>(name: string, args: Record<string, u
   const { data, error } = await c.rpc(name, args);
   if (error) throw new Error(error.message);
   return data as T;
+}
+
+// ---------- Tipping ----------
+export type Tip = { id: string; direction: string; other_name: string; amount: number; message: string | null; created_at: string };
+export function useTipHistory(): Tip[] | null {
+  const [tips, setTips] = useState<Tip[] | null>(null);
+  const uid = useCloud().session?.user.id;
+  useEffect(() => {
+    if (!uid || !sb()) return;
+    let live = true;
+    cloudRpc<Tip[]>("my_tips", { p_limit: 20, p_offset: 0 }).then((r) => live && setTips(r)).catch(() => live && setTips([]));
+    return () => { live = false; };
+  }, [uid]);
+  return tips;
 }
 
 // ---------- Fixtures and contests (public tables) ----------

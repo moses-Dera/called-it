@@ -6,11 +6,12 @@
 -- ══════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION public.leaderboard(p_period text DEFAULT 'week', p_limit int DEFAULT 50, p_offset int DEFAULT 0)
-RETURNS TABLE (rank bigint, name text, avatar int, points bigint, me boolean)
+RETURNS TABLE (rank bigint, user_id uuid, name text, avatar int, points bigint, me boolean)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT
     rank() OVER (ORDER BY
       CASE WHEN p_period = 'week' THEN lc.weekly_points ELSE lc.all_points END DESC),
+    lc.user_id,
     coalesce(nullif(p.name, ''), 'Player'),
     coalesce(p.avatar, 1),
     CASE WHEN p_period = 'week' THEN lc.weekly_points ELSE lc.all_points END,
@@ -18,7 +19,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   FROM public.leaderboard_cache lc
   LEFT JOIN public.profiles p ON p.id = lc.user_id
   WHERE CASE WHEN p_period = 'week' THEN lc.weekly_points ELSE lc.all_points END > 0
-  ORDER BY 4 DESC, 2 ASC
+  ORDER BY 5 DESC, 3 ASC
   LIMIT LEAST(p_limit, 100)
   OFFSET GREATEST(p_offset, 0)
 $$;
