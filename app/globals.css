@@ -56,6 +56,9 @@ button { font-family: inherit; cursor: pointer; }
 .stage { display: contents; }
 .desk { display: none; }
 .dcard { border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Sticky headers on mobile — glass effect over dark bg */
+.home-head, .ranks-head, .vault-title { position: sticky; top: 0; z-index: 10; background: rgba(11, 15, 20, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
 .tabbar { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; transition: transform 260ms cubic-bezier(.3,1.2,.4,1); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
 .tabbar.hide { transform: translateY(150%); }
 .navspace { height: 100px; flex-shrink: 0; }

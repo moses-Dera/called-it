@@ -72,39 +72,55 @@ function HomeFeedInner() {
         <span style={{ fontWeight: 800 }}>→</span>
       </Link>
 
-      {contests.length > 0 && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
-            <Link href="/contests" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>View all</Link>
-          </div>
-          {contests.slice(0, 3).map((c) => {
-            const joined = myIds.includes(c.id);
-            return (
-              <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "#111", color: "var(--paper)", border: "2px solid var(--line)", borderRadius: 16, padding: "12px 14px", position: "relative", overflow: "hidden" }}>
-                {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, opacity: 0.5 }} />}
-                <Img n="cover_closest" size={40} style={{ borderRadius: 12, border: "2px solid #111" }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="display" style={{ fontSize: 17 }}>{c.title}</div>
-                  <div style={{ fontSize: 12, color: "#c9d3de", fontWeight: 600 }}>
-                    {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}{c.sponsor ? ` · by ${c.sponsor}` : ""}{joined ? " · joined" : ""}
-                  </div>
-                </div>
-                {c.prize_zec > 0 && <span className="chip" style={{ background: "var(--amber)" }}>{c.prize_zec} ZEC</span>}
-              </Link>
-            );
-          })}
-        </section>
-      )}
-
-      <Link href="/how" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "12px 14px" }}>
-        <Img n="seal" size={36} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>How your seal works</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Three steps. Zero trust required.</div>
+      <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
+          <Link href="/contests" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>View all</Link>
         </div>
-        <span style={{ fontWeight: 800, color: "var(--lime)" }}>→</span>
-      </Link>
+        {contests.length === 0 && (
+          <Link href="/contests" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--amber)", color: "#111", border: "3px solid #111", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+            <Img n="cover_closest" size={40} style={{ borderRadius: 12, border: "2px solid #111" }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="display" style={{ fontSize: 17 }}>Win ZEC prizes</div>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>Free to play. Predict scores, climb the leaderboard, claim real prizes.</div>
+            </div>
+            <span style={{ fontWeight: 800, fontSize: 18 }}>→</span>
+          </Link>
+        )}
+        {contests.slice(0, 3).map((c) => {
+          const joined = myIds.includes(c.id);
+          return (
+            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+              {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, opacity: 0.5 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="display" style={{ fontSize: 19 }}>{c.title}</div>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>
+                  {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}{c.sponsor ? ` · by ${c.sponsor}` : ""}{joined ? " · joined" : ""}
+                </div>
+              </div>
+              {c.prize_zec > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <span className="display" style={{ fontSize: 24 }}>{c.prize_zec}</span>
+                  <span style={{ fontSize: 11, fontWeight: 800 }}>ZEC</span>
+                </div>
+              )}
+            </Link>
+          );
+        })}
+      </section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <Link href="/how" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
+          <Img n="seal" size={32} />
+          <div style={{ fontSize: 14, fontWeight: 800 }}>How your seal works</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Three steps. Zero trust required.</div>
+        </Link>
+        <Link href="/syndicates" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
+          <Img n="cover_arcade" size={32} style={{ borderRadius: 8 }} />
+          <div style={{ fontSize: 14, fontWeight: 800 }}>Syndicates</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Team up. Compete as a group.</div>
+        </Link>
+      </div>
     </div>
   );
 }
