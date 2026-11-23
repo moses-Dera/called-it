@@ -47,8 +47,8 @@ export async function GET() {
           id,
           home: m.homeTeam.shortName || m.homeTeam.name,
           away: m.awayTeam.shortName || m.awayTeam.name,
-          home_goals: m.score.fullTime.home,
-          away_goals: m.score.fullTime.away,
+          home_goals: m.score.fullTime.home!,
+          away_goals: m.score.fullTime.away!,
           status: m.status,
         });
         log.push(`⚡ ${id} ${m.score.fullTime.home}-${m.score.fullTime.away} (${m.status})`);
