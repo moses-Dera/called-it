@@ -13,9 +13,11 @@ type Match = { id: number; utcDate: string; status: string; homeTeam: { name: st
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 501 });
   const token = new URL(req.url).searchParams.get("token");
-  if (token !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
+  const isVercelCron = req.headers.get("user-agent") === "vercel-cron/1.0";
+  if (!isVercelCron && (!secret || (token !== secret && authHeader !== secret)))
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const fdKey = process.env.FOOTBALL_DATA_KEY;
   if (!fdKey) return NextResponse.json({ error: "FOOTBALL_DATA_KEY not set" }, { status: 501 });
