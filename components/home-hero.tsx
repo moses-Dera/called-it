@@ -47,8 +47,7 @@ export function HomeHero() {
   const score = hasResult ? `${f.homeGoals}–${f.awayGoals}` : isLive ? "vs" : "vs";
 
   return (
-    <Link href={href} className="home-hero" style={{ display: "block", color: "var(--text)", borderRadius: 26, background: isLive ? "#1e7a47" : "var(--panel)", border: "2px solid #111", boxShadow: "5px 5px 0 var(--lime)", padding: 16, position: "relative", overflow: "hidden" }}>
-      <Img n="cover_arena" size={170} style={{ position: "absolute", right: -40, top: -40, opacity: 0.15, transform: "rotate(12deg)" }} />
+    <Link href={href} className="home-hero" style={{ display: "block", color: "var(--text)", borderRadius: 26, background: isLive ? "#1e7a47" : "var(--panel)", border: "2px solid #111", boxShadow: "5px 5px 0 var(--lime)", padding: 16, position: "relative", overflow: "hidden", maxHeight: 260 }}>
       <span className="chip" style={{ background: chipBg, border: 0 }}>
         {isLive && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#111", display: "inline-block", marginRight: 4 }} />}
         {chipText}

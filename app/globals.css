@@ -96,7 +96,7 @@ button { font-family: inherit; cursor: pointer; }
   .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 18px !important; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 24px !important; }
   .home-games .tiles span { font-size: 14px !important; }
-  .home-hero { min-height: 250px; }
+  .home-hero { min-height: 200px; max-height: 280px; align-self: start; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */
   .hub { max-width: 720px; margin: 0 auto; gap: 24px; }
