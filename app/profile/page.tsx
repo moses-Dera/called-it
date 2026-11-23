@@ -32,6 +32,13 @@ export default function Profile() {
           </div>
         </section>
 
+        {streak >= 3 && (
+          <div style={{ background: "rgba(255,107,53,.12)", border: "2px solid #FF6B35", borderRadius: 14, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#FF6B35" }}>
+            Streak bonus active: {streak >= 14 ? "3x" : streak >= 7 ? "2x" : "1.5x"} multiplier on all scored points!
+            {streak < 7 ? ` Reach 7 days for 2x.` : streak < 14 ? ` Reach 14 days for 3x.` : ""}
+          </div>
+        )}
+
         <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks. Practice points come from games against bots. Contest winners earn prizes. Your sealed moves follow your account to any device where you sign in.</div>
 
         <PlayerBadges />
@@ -88,8 +95,11 @@ const BADGE_DEFS: { key: string; label: string; desc: string; check: (s: Record<
   { key: "fifty_seals", label: "Veteran", desc: "50 seals", check: (s) => (s.total_seals ?? 0) >= 50, bg: "var(--pink)" },
   { key: "century", label: "Century", desc: "100+ ranked points", check: (s) => (s.total_ranked ?? 0) >= 100, bg: "#5AB8FF" },
   { key: "oracle", label: "Oracle", desc: "10 exact scores", check: (s) => (s.exact_scores ?? 0) >= 10, bg: "var(--red)" },
-  { key: "streak_3", label: "On Fire", desc: "3-day seal streak", check: (s) => (s.streak ?? 0) >= 3, bg: "#FF6B35" },
-  { key: "streak_7", label: "Iron Will", desc: "7-day seal streak", check: (s) => (s.streak ?? 0) >= 7, bg: "#E63946" },
+  { key: "streak_3", label: "On Fire", desc: "3-day streak (1.5x)", check: (s) => (s.streak ?? 0) >= 3, bg: "#FF6B35" },
+  { key: "streak_7", label: "Iron Will", desc: "7-day streak (2x)", check: (s) => (s.streak ?? 0) >= 7, bg: "#E63946" },
+  { key: "streak_14", label: "Unstoppable", desc: "14-day streak (3x)", check: (s) => (s.streak ?? 0) >= 14, bg: "#9B2335" },
+  { key: "streak_30", label: "Month King", desc: "30-day streak", check: (s) => (s.streak ?? 0) >= 30, bg: "#FFD700" },
+  { key: "hundred_seals", label: "Legend", desc: "100 seals", check: (s) => (s.total_seals ?? 0) >= 100, bg: "#C6F432" },
 ];
 
 function PlayerBadges() {

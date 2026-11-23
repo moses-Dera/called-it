@@ -4,8 +4,9 @@ import * as webpush from "web-push";
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 501 });
   const token = new URL(req.url).searchParams.get("token");
-  if (secret && token !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (token !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;

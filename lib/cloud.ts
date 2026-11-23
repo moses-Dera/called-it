@@ -34,21 +34,44 @@ export async function accessToken() { return (await sb()?.auth.getSession())?.da
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
+const PAGE = 500;
+async function pullAll<T>(c: SupabaseClient, table: string, uid: string, order: string) {
+  const rows: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await c.from(table).select("*").eq("user_id", uid)
+      .order(order, { ascending: false }).range(offset, offset + PAGE - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    rows.push(...(data as T[]));
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return rows;
+}
+
 async function pull(uid: string) {
   const c = sb()!;
-  const [p, se, re] = await Promise.all([
-    c.from("profiles").select("name, avatar, address, withdrawn").eq("id", uid).maybeSingle(),
-    c.from("seals").select("*").eq("user_id", uid).order("sealed_at", { ascending: false }).limit(200),
-    c.from("rewards").select("*").eq("user_id", uid).order("at", { ascending: false }).limit(200),
+  const p = await c.from("profiles").select("name, avatar, address, withdrawn").eq("id", uid).maybeSingle();
+  if (p.error) throw new Error(p.error.message);
+
+  const [seRaw, reRaw] = await Promise.all([
+    pullAll<Record<string, unknown>>(c, "seals", uid, "sealed_at"),
+    pullAll<Record<string, unknown>>(c, "rewards", uid, "at"),
   ]);
-  const err = p.error ?? se.error ?? re.error;
-  if (err) throw new Error(err.message);
-  const seals: Seal[] = (se.data ?? []).map((r) => ({
-    id: r.id, game: r.game, round: r.round, label: r.label, move: "", salt: "", commitment: r.commitment,
-    sealedAt: Date.parse(r.sealed_at), status: r.status, root: r.root ?? undefined, proof: r.proof ?? undefined,
-    txid: r.txid ?? undefined, height: r.height ?? undefined, mode: r.mode ?? undefined, revealed: r.revealed, remote: true,
+
+  const seals: Seal[] = seRaw.map((r) => ({
+    id: r.id as string, game: r.game as string, round: r.round as string, label: r.label as string,
+    move: "", salt: "", commitment: r.commitment as string,
+    sealedAt: Date.parse(r.sealed_at as string), status: r.status as "sealed" | "onchain",
+    root: (r.root as string) ?? undefined, proof: (r.proof as string[]) ?? undefined,
+    txid: (r.txid as string) ?? undefined, height: (r.height as number) ?? undefined,
+    mode: (r.mode as "bitcoin" | "simulated") ?? undefined, revealed: r.revealed as boolean, remote: true,
   }));
-  const ledger: Reward[] = (re.data ?? []).map((r) => ({ id: r.id, label: r.label, points: r.points, zec: Number(r.zec), at: Date.parse(r.at), verified: !!r.verified }));
+  const ledger: Reward[] = reRaw.map((r) => ({
+    id: r.id as string, label: r.label as string, points: r.points as number,
+    zec: Number(r.zec), at: Date.parse(r.at as string), verified: !!r.verified,
+  }));
   mergeCloud({ profile: p.data ?? undefined, withdrawn: Number(p.data?.withdrawn ?? 0), seals, ledger });
 }
 
@@ -83,7 +106,7 @@ async function sync(first = false) {
 /** Push local changes now (used before a claim, so the server has the seal). */
 export async function syncNow() { if (timer) clearTimeout(timer); await sync(); }
 
-export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; final?: string; id?: string; message?: string };
+export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; final?: string; id?: string; message?: string; streak?: number; streak_mult?: number };
 /** Reveal a Classic Call to the server, which re-hashes it and scores it against the official result. */
 export async function claimClassic(seal: Seal): Promise<Claim> {
   const c = sb();
@@ -105,22 +128,44 @@ export async function requestWithdrawal(address: string): Promise<{ status: "req
 }
 
 export type Rank = { rank: number; name: string; avatar: number; points: number; me: boolean };
-/** Verified-points leaderboard. null while loading; [] when nobody has ranked points yet. */
-export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; error?: string } {
-  const [state, setState] = useState<{ key: string; rows: Rank[] | null; error?: string }>({ key: "", rows: null });
+const LB_PAGE = 50;
+/** Verified-points leaderboard with pagination. */
+export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; error?: string; loadMore: () => void; hasMore: boolean; loading: boolean } {
+  const [rows, setRows] = useState<Rank[] | null>(null);
+  const [error, setError] = useState<string | undefined>();
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
   const uid = useCloud().session?.user.id ?? "";
   const key = period + uid;
+
   useEffect(() => {
     const c = sb();
     if (!c) return;
     let live = true;
-    c.rpc("leaderboard", { p_period: period }).then(({ data, error }) => {
+    setRows(null); setHasMore(false);
+    c.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: 0 }).then(({ data, error: err }) => {
       if (!live) return;
-      setState({ key, rows: error ? [] : (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) })), error: error?.message });
+      if (err) { setError(err.message); setRows([]); return; }
+      const mapped = (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+      setRows(mapped);
+      setHasMore(mapped.length >= LB_PAGE);
     });
     return () => { live = false; };
   }, [key, period]);
-  return state.key === key ? state : { rows: null };
+
+  function loadMore() {
+    const c = sb();
+    if (!c || !rows || loading) return;
+    setLoading(true);
+    Promise.resolve(c.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: rows.length })).then(({ data }) => {
+      const page = (data as Rank[] ?? []).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+      setRows([...rows, ...page]);
+      setHasMore(page.length >= LB_PAGE);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }
+
+  return { rows, error, loadMore, hasMore, loading };
 }
 
 /** Call a database function; throws with its message on error. */
@@ -164,10 +209,11 @@ export const refreshFixtures = () => fixtureStore.refresh();
 
 export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
-  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number }[] | null;
+  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: "pending" | "paid"; txid?: string | null }[] | null;
   sponsor_logo: string | null; sponsor_color: string | null; sponsor_url: string | null;
-  prize_structure: "top3" | "top10" | "all_correct" | "random_draw";
+  prize_structure: "top3" | "top5" | "top10" | "top20" | "all_correct" | "random_draw" | "custom" | "equal_split";
   entry_deadline: string | null; description: string | null;
+  custom_shares?: number[] | null;
 };
 const contestStore = shared<Contest[]>(async () => {
   const c = sb();
@@ -241,18 +287,41 @@ export function useFixtureRevealStats(fixtureId: string | null): Record<string, 
   return stats;
 }
 
-/** Contest leaderboard (ranked points from the contest's fixtures). */
-export function useContestBoard(id: string | null): Rank[] | null {
-  const [state, setState] = useState<{ id: string | null; rows: Rank[] | null }>({ id: null, rows: null });
+/** Contest leaderboard with pagination. */
+export function useContestBoard(id: string | null): { rows: Rank[] | null; loadMore: () => void; hasMore: boolean; loading: boolean } {
+  const [rows, setRows] = useState<Rank[] | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [curId, setCurId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id || !sb()) return;
     let live = true;
-    cloudRpc<Rank[]>("contest_leaderboard", { p_id: id })
-      .then((rows) => live && setState({ id, rows: rows.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) })) }))
-      .catch(() => live && setState({ id, rows: [] }));
+    setCurId(id); setRows(null); setHasMore(false);
+    cloudRpc<Rank[]>("contest_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: 0 })
+      .then((data) => {
+        if (!live) return;
+        const mapped = data.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+        setRows(mapped);
+        setHasMore(mapped.length >= LB_PAGE);
+      })
+      .catch(() => live && setRows([]));
     return () => { live = false; };
   }, [id]);
-  return state.id === id ? state.rows : null;
+
+  function loadMore() {
+    if (!id || !rows || loading) return;
+    setLoading(true);
+    cloudRpc<Rank[]>("contest_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: rows.length })
+      .then((data) => {
+        const page = data.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+        setRows([...rows, ...page]);
+        setHasMore(page.length >= LB_PAGE);
+        setLoading(false);
+      }).catch(() => setLoading(false));
+  }
+
+  return { rows: curId === id ? rows : null, loadMore, hasMore, loading };
 }
 
 // ---------- Automatic claiming ----------

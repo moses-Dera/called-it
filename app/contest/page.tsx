@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
+import { BoostPotModal } from "@/components/boost-pot-modal";
 import { art } from "@/lib/data";
 import { joinContest, leaveContest, useCloud, useContestBoard, useContestEntryCount, useContests, useFixtures, useMyContestIds } from "@/lib/cloud";
 
@@ -16,13 +17,14 @@ export default function ContestPage() {
   const session = useCloud().session;
   const signedIn = !!session;
   const c = contests.find((x) => x.id === id);
-  const board = useContestBoard(c ? c.id : null);
+  const { rows: board, loadMore: boardMore, hasMore: boardHasMore, loading: boardLoading } = useContestBoard(c ? c.id : null);
   const entryCount = useContestEntryCount(c ? c.id : null);
   const myIds = useMyContestIds();
   const joined = c ? myIds.includes(c.id) : false;
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
   const [joining, setJoining] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [boostOpen, setBoostOpen] = useState(false);
 
   async function handleJoin() {
     if (!c || joining) return;
@@ -63,8 +65,28 @@ export default function ContestPage() {
             </div>
             <h1 className="display" style={{ margin: 0, fontSize: 36 }}>{c.title}</h1>
             {c.description && <p style={{ margin: 0, fontSize: 14, fontWeight: 600, lineHeight: 1.4 }}>{c.description}</p>}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
+              </div>
+              <button
+                onClick={() => setBoostOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: 14,
+                  background: "#111",
+                  color: "var(--lime)",
+                  border: "2px solid #111",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                ⚡ Boost Pot
+              </button>
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
               {STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. Seal before each kickoff while signed in.
@@ -126,11 +148,17 @@ export default function ContestPage() {
                 <span className="display" style={{ fontSize: 20 }}>{r.points}</span>
               </div>
             ))}
+            {boardHasMore && (
+              <button onClick={boardMore} disabled={boardLoading} style={{ margin: "8px 0", padding: "8px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800, fontSize: 13 }}>
+                {boardLoading ? "Loading…" : "Load more"}
+              </button>
+            )}
             {!signedIn && <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", fontSize: 13, fontWeight: 700, color: "#4a4436" }}><span style={{ flex: 1 }}>Sign in to enter.</span><SignInPill /></div>}
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0 16px" }}><Img n="seal" size={32} /><span style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Every call is sealed and stamped before kickoff — nobody can change their answer.</span></div>
           </section>
         </div>
       )}
+      {boostOpen && c && <BoostPotModal contest={c} onClose={() => setBoostOpen(false)} />}
       <BottomNav active="/" />
     </main>
   );

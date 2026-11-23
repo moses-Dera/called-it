@@ -5,6 +5,7 @@ import { CardBack, Flip, Img, TopBar } from "@/components/ui";
 import { fixtureOf } from "@/lib/data";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
 import { claimClassic, cloudReady, signInWithGoogle, useCloud, useFixtureRevealStats, type Claim } from "@/lib/cloud";
+import { useTelegram } from "@/lib/telegram";
 
 const FINAL = { home: 2, away: 1 };
 function score(move: string) {
@@ -49,6 +50,8 @@ export default function Reveal() {
   const [shown, setShown] = useState<Seal | null>(null);
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
   const [claim, setClaim] = useState<Claim | { status: "error"; message: string } | null>(null);
+  const [shareMsg, setShareMsg] = useState("");
+  const { haptic, shareToTelegram } = useTelegram();
   const signedIn = !!useCloud().session;
   const pending = seals.find((s) => s.game === "classic" && !s.revealed && !!s.move);
   const seal = shown ?? pending ?? null;
@@ -67,20 +70,46 @@ export default function Reveal() {
     } else {
       addReward(`${seal.label} · Classic Call (practice)`, score(seal.move).total);
     }
-    if (navigator.vibrate) navigator.vibrate([20, 40, 60, 40, 80]);
+    haptic(score(seal.move).exact ? "success" : "medium");
     playRevealSound(score(seal.move).total > 0);
   }
 
-  function share() {
-    if (!seal || !sc) return;
+  function getSharePayload() {
+    if (!seal || !sc) return { text: "", url: "" };
     const f = fixtureOf(seal.round);
+    const resultType = sc.exact ? "exact" : sc.result ? "correct" : "wrong";
+    const ogUrl = `${location.origin}/api/og?type=reveal&home=${encodeURIComponent(f.home)}&away=${encodeURIComponent(f.away)}&h=${sc.h}&a=${sc.a}&result=${resultType}`;
     const text = sc.exact
-      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY. Sealed before kickoff. Called It!`
+      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY on @CalledItApp! 🎯 Sealed on-chain before kickoff. Can you beat my calls?`
       : sc.result
-      ? `I called the right result for ${f.home} vs ${f.away}. Sealed before kickoff.`
-      : `I sealed my call for ${f.home} vs ${f.away} before kickoff. That's the game — nobody can cheat.`;
-    if (navigator.share) { navigator.share({ title: "Called It", text, url: location.origin }).catch(() => {}); }
-    else { navigator.clipboard?.writeText(text + " " + location.origin); }
+      ? `I called the right result for ${f.home} vs ${f.away} on @CalledItApp! ⚡ Sealed before kickoff.`
+      : `I sealed my call for ${f.home} vs ${f.away} on @CalledItApp before kickoff. Fair play guaranteed.`;
+    return { text, url: ogUrl };
+  }
+
+  function share() {
+    const { text, url } = getSharePayload();
+    if (!text) return;
+    if (navigator.share) {
+      navigator.share({ title: "Called It Reveal", text, url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(`${text} ${url}`);
+      setShareMsg("Card link copied!");
+      setTimeout(() => setShareMsg(""), 3000);
+    }
+  }
+
+  function shareX() {
+    const { text, url } = getSharePayload();
+    if (!text) return;
+    const xUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(xUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function shareTG() {
+    const { text, url } = getSharePayload();
+    if (!text) return;
+    shareToTelegram(text, url);
   }
 
   const win = !!sc && sc.total > 0;
@@ -117,7 +146,13 @@ export default function Reveal() {
           <div className="paper" style={{ margin: "22px 20px 0", borderRadius: 22, border: 0, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8, opacity: open ? 1 : 0, transform: open ? "none" : "translateY(20px)", transition: "opacity 400ms 500ms, transform 400ms 500ms" }}>
             {sc?.lines.map((l) => <div key={l.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>{l.label}</span><b>+{l.v}</b></div>)}
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 600 }}><span>Early bird</span><b>x2</b></div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #111", paddingTop: 8 }}><b>Total</b><span className="display" style={{ fontSize: 28 }}>+{sc?.total}</span></div>
+            {claim && claim.status === "scored" && claim.streak_mult && claim.streak_mult > 1 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700, color: "#c66200" }}>
+                <span>Streak bonus ({claim.streak}-day)</span>
+                <b>x{claim.streak_mult}</b>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "2px solid #111", paddingTop: 8 }}><b>Total</b><span className="display" style={{ fontSize: 28 }}>+{claim && claim.status === "scored" && claim.points ? claim.points : sc?.total}</span></div>
 
             {revealStats && open && (
               <div style={{ borderTop: "2px dashed #c9bfa6", paddingTop: 8, display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, fontWeight: 700, color: "#4a4436" }}>
@@ -138,9 +173,53 @@ export default function Reveal() {
             </div>
           </div>
           <div style={{ flex: 1, minHeight: 16 }} />
-          <div style={{ padding: "0 20px 28px", display: "flex", gap: 10 }}>
-            <Link href="/vault" className="btn btn-quiet" style={{ width: 120 }}>Proof</Link>
-            <button className="btn btn-primary" style={{ flex: 1, minHeight: 56, fontSize: 17, boxShadow: "0 5px 0 var(--text)" }} onClick={share}>Share reveal card</button>
+          <div style={{ padding: "0 20px 28px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {open && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button
+                  onClick={shareX}
+                  className="btn"
+                  style={{
+                    background: "#000",
+                    color: "#fff",
+                    border: "2px solid #111",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    minHeight: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  𝕏 Share on X
+                </button>
+                <button
+                  onClick={shareTG}
+                  className="btn"
+                  style={{
+                    background: "#229ED9",
+                    color: "#fff",
+                    border: "2px solid #111",
+                    fontWeight: 800,
+                    fontSize: 13,
+                    minHeight: 44,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                  }}
+                >
+                  ✈️ Telegram
+                </button>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <Link href="/vault" className="btn btn-quiet" style={{ width: 110 }}>Proof</Link>
+              <button className="btn btn-primary" style={{ flex: 1, minHeight: 52, fontSize: 16, boxShadow: "0 4px 0 var(--text)" }} onClick={share}>
+                {shareMsg || "Share Flex Card"}
+              </button>
+            </div>
           </div>
         </>
       )}

@@ -5,7 +5,7 @@ import { sha256Hex, verifyProof } from "./merkle";
 export type Seal = {
   id: string; game: string; round: string; label: string; move: string; salt: string;
   commitment: string; sealedAt: number; status: "sealed" | "onchain";
-  root?: string; proof?: string[]; txid?: string; height?: number; mode?: "testnet" | "simulated";
+  root?: string; proof?: string[]; txid?: string; height?: number; mode?: "bitcoin" | "simulated";
   revealed?: boolean;
   remote?: boolean; // synced from another device: the move and salt stay there unless the encrypted backup brings them in
   player?: string; // the per-device player id the commitment was made with

@@ -82,6 +82,11 @@ export default function Ranks() {
             <span className="display" style={{ fontSize: 20 }}>{r.pts}</span>
           </div>
         ))}
+        {cloudReady && board.hasMore && (
+          <button onClick={board.loadMore} disabled={board.loading} style={{ margin: "10px 0", padding: "10px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800, fontSize: 13 }}>
+            {board.loading ? "Loading…" : "Load more"}
+          </button>
+        )}
         {cloudReady && rows && !meRanked && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", fontSize: 13, fontWeight: 700, color: "#4a4436" }}>
             <span style={{ flex: 1 }}>{signedIn ? "You're not ranked yet. Bot games are practice; only server-checked calls count." : "Sign in to get on the leaderboard."}</span>

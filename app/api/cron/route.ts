@@ -13,8 +13,9 @@ type Match = { id: number; utcDate: string; status: string; homeTeam: { name: st
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 501 });
   const token = new URL(req.url).searchParams.get("token");
-  if (secret && token !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (token !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const fdKey = process.env.FOOTBALL_DATA_KEY;
   if (!fdKey) return NextResponse.json({ error: "FOOTBALL_DATA_KEY not set" }, { status: 501 });
@@ -56,6 +57,43 @@ export async function GET(req: Request) {
     } catch (e) {
       log.push(`! ${comp}: ${e instanceof Error ? e.message : "failed"}`);
     }
+  }
+
+  // Weekly leaderboard cache reset (idempotent — only updates rows from prior weeks)
+  try {
+    const { error: resetErr } = await sb.rpc("leaderboard_weekly_reset");
+    if (!resetErr) log.push("leaderboard weekly reset ok");
+  } catch (e) {
+    log.push(`! Leaderboard reset: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Auto-settle completed contests: when all matches in a contest finish, rank winners automatically.
+  // Funds are NOT sent automatically — they await manual or cloud release by the admin/sponsor.
+  try {
+    const { data: openContests } = await sb
+      .from("contests")
+      .select("id, title, fixture_ids")
+      .eq("status", "open");
+
+    for (const c of openContests ?? []) {
+      if (!c.fixture_ids || c.fixture_ids.length === 0) continue;
+      const { data: finished } = await sb
+        .from("fixtures")
+        .select("id")
+        .in("id", c.fixture_ids)
+        .not("home_goals", "is", null);
+
+      if (finished && finished.length === c.fixture_ids.length) {
+        const { error: closeErr } = await sb.rpc("admin_close_contest", { p_id: c.id });
+        if (!closeErr) {
+          log.push(`🏁 Auto-settled contest: "${c.title}" (${c.id})`);
+        } else {
+          log.push(`! Failed to auto-settle contest ${c.id}: ${closeErr.message}`);
+        }
+      }
+    }
+  } catch (e) {
+    log.push(`! Contest auto-settle check error: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   return NextResponse.json({ ok: true, log, at: new Date().toISOString() });

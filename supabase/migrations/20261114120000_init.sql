@@ -22,7 +22,7 @@ create table if not exists public.seals (
   sealed_at timestamptz not null,
   status text not null default 'sealed' check (status in ('sealed', 'onchain')),
   root text, proof jsonb, txid text, height int,
-  mode text check (mode in ('testnet', 'simulated')),
+  mode text check (mode in ('bitcoin', 'simulated')),
   revealed boolean not null default false,
   primary key (user_id, id)
 );

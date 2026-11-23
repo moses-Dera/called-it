@@ -1,0 +1,60 @@
+name: Zcash Prize Payouts
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: "Zcash Network"
+        required: true
+        default: "mainnet"
+        type: choice
+        options:
+          - mainnet
+          - testnet
+      contest_id:
+        description: "Contest ID (optional, leave blank to pay all requested withdrawals)"
+        required: false
+        default: ""
+      rank:
+        description: "Rank to pay (optional: 1, 2, or 3. Leave blank for all winners)"
+        required: false
+        default: ""
+  schedule:
+    # Optional scheduled run: daily at 00:00 UTC
+    - cron: "0 0 * * *"
+
+jobs:
+  payout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: "services/anchor/package-lock.json"
+
+      - name: Install dependencies
+        working-directory: services/anchor
+        run: npm ci
+
+      - name: Run Zcash Payouts
+        working-directory: services/anchor
+        env:
+          ZCASH_NETWORK: ${{ github.event.inputs.network || 'mainnet' }}
+          ANCHOR_MNEMONIC: ${{ secrets.ZCASH_MNEMONIC }}
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CONTEST_ID: ${{ github.event.inputs.contest_id }}
+          WINNER_RANK: ${{ github.event.inputs.rank }}
+        run: |
+          if [ -n "$CONTEST_ID" ]; then
+            echo "Processing payout for contest: $CONTEST_ID on $ZCASH_NETWORK (rank: $WINNER_RANK)"
+            node cli.mjs contest-payout "$CONTEST_ID" "$WINNER_RANK"
+          else
+            echo "Processing all pending payouts on $ZCASH_NETWORK"
+            node cli.mjs payouts
+          fi

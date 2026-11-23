@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Bricolage_Grotesque, Inter } from "next/font/google";
 import "./globals.css";
 import { Shell } from "@/components/shell";
@@ -20,6 +21,9 @@ export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width"
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" translate="no" suppressHydrationWarning className={`${display.variable} ${inter.variable}`}>
+      <head>
+        <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
+      </head>
       <body><Shell>{children}</Shell></body>
     </html>
   );

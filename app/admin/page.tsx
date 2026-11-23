@@ -8,7 +8,7 @@ import { short } from "@/lib/store";
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
 type Txs = { anchors: { txid: string; height: number | null; root: string; seals: number; players: number; last_seal: string }[]; payouts: { txid: string | null; amount: number; address: string; created_at: string; name: string }[] };
 type Act = (name: string, args: Record<string, unknown>, ok: string) => Promise<boolean>;
-const TABS = ["Overview", "Fixtures", "Contests", "Payouts", "Transactions"] as const;
+const TABS = ["Overview", "Fixtures", "Contests", "Payouts", "Credit", "Transactions"] as const;
 type Tab = (typeof TABS)[number];
 
 const field: React.CSSProperties = { height: 46, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 15, fontWeight: 600, minWidth: 0, width: "100%" };
@@ -84,8 +84,9 @@ export default function Admin() {
           <div style={{ padding: "8px 0 28px" }}>
             {tab === "Overview" && <OverviewTab ov={ov} txs={txs} act={act} go={setTab} />}
             {tab === "Fixtures" && <FixturesTab act={act} />}
-            {tab === "Contests" && <ContestsTab act={act} />}
-            {tab === "Payouts" && <PayoutsTab ov={ov} act={act} />}
+            {tab === "Contests" && <ContestsTab act={act} onReload={load} />}
+            {tab === "Payouts" && <PayoutsTab ov={ov} act={act} onReload={load} />}
+            {tab === "Credit" && <CreditTab act={act} />}
             {tab === "Transactions" && <TransactionsTab txs={txs} />}
           </div>
         </>
@@ -288,17 +289,31 @@ function ImportCard() {
   );
 }
 
-function ContestsTab({ act }: { act: Act }) {
+function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   const contests = useContests(), fixtures = useFixtures();
+  const [contestMsg, setContestMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [title, setTitle] = useState(""), [sponsor, setSponsor] = useState(""), [prize, setPrize] = useState(""), [pick, setPick] = useState<string[]>([]);
   const [logo, setLogo] = useState(""), [color, setColor] = useState(""), [surl, setSurl] = useState("");
   const [structure, setStructure] = useState("top3"), [deadline, setDeadline] = useState(""), [desc, setDesc] = useState("");
+  const [customSharesStr, setCustomSharesStr] = useState("50, 30, 20");
+  const [equalCount, setEqualCount] = useState("5");
   async function create() {
     if (!title.trim() || !pick.length) return;
+    let customShares: number[] | null = null;
+    if (structure === "custom") {
+      customShares = customSharesStr.split(",").map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
+      if (!customShares.length) {
+        setContestMsg({ text: "Enter at least one percentage share (e.g. 50, 30, 20)", bad: true });
+        return;
+      }
+    } else if (structure === "equal_split") {
+      customShares = [Number(equalCount) || 5];
+    }
     if (await act("admin_upsert_contest", {
       p_id: slug(title), p_title: title, p_sponsor: sponsor, p_prize: Number(prize) || 0, p_fixtures: pick,
       p_sponsor_logo: logo || null, p_sponsor_color: color || null, p_sponsor_url: surl || null,
       p_prize_structure: structure, p_entry_deadline: deadline ? new Date(deadline).toISOString() : null, p_description: desc || null,
+      p_custom_shares: customShares,
     }, "Contest created. It shows on Home and /contests."))
       { setTitle(""); setSponsor(""); setPrize(""); setPick([]); setLogo(""); setColor(""); setSurl(""); setStructure("top3"); setDeadline(""); setDesc(""); }
   }
@@ -306,6 +321,11 @@ function ContestsTab({ act }: { act: Act }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
+        {contestMsg && (
+          <div role="status" style={{ padding: "8px 12px", borderRadius: 10, background: contestMsg.bad ? "#ffefef" : "#f0fadc", border: `1px solid ${contestMsg.bad ? "#ffb3b3" : "#c4e680" }`, color: contestMsg.bad ? "#9a2d1d" : "#2d5200", fontSize: 13, fontWeight: 700 }}>
+            {contestMsg.text}
+          </div>
+        )}
         {contests.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>No contests yet. Create one on the right.</p>}
         {contests.map((c) => (
           <div key={c.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2 }}>
@@ -313,10 +333,96 @@ function ContestsTab({ act }: { act: Act }) {
               <div><div className="display" style={{ fontSize: 18 }}>{c.title}</div><div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{c.sponsor ? `Sponsored by ${c.sponsor} · ` : ""}{c.prize_zec} ZEC pot · {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}</div></div>
               <Chip text={c.status === "open" ? "OPEN" : "CLOSED"} bg={c.status === "open" ? "var(--sky)" : "var(--lime)"} />
             </div>
-            {c.winners && (c.winners.length ? c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC</b></div>) : <span style={{ fontSize: 13, color: "#4a4436" }}>Closed with no ranked players.</span>)}
+            {c.winners && (c.winners.length ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase" }}>Winners & Payouts</div>
+                {c.winners.map((w) => (
+                  <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, gap: 8, flexWrap: "wrap", borderBottom: "1px dashed #d8cfb8", paddingBottom: 6 }}>
+                    <div>
+                      <span><b>#{w.rank} {w.name}</b> · {w.points} pts</span>
+                      {w.address ? <div style={{ fontSize: 11, color: "var(--muted)" }} className="mono">{short(w.address)}</div> : null}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <b style={{ color: "var(--lime)" }}>{w.zec} ZEC</b>
+                      {w.status === "paid" ? (
+                        <span className="chip" style={{ background: "var(--lime)", fontSize: 11, padding: "2px 8px" }}>PAID ✓ {w.txid ? short(w.txid) : ""}</span>
+                      ) : (
+                        <>
+                          <span className="chip" style={{ background: "var(--amber)", fontSize: 11, padding: "2px 8px" }}>PENDING</span>
+                          {w.address ? (
+                            <a
+                              href={`zcash:${w.address}?amount=${w.zec}&memo=${encodeURIComponent(`Called It: ${c.title} (#${w.rank})`)}`}
+                              title={`Pay ${w.zec} ZEC to ${w.address}`}
+                              style={{ ...btn("var(--lime)"), minHeight: 28, padding: "0 8px", fontSize: 11, display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+                            >
+                              Pay in Wallet ↗
+                            </a>
+                          ) : null}
+                          <button
+                            style={{ ...btn("#111", "var(--lime)"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
+                            onClick={async () => {
+                              if (!confirm(`Release payout for #${w.rank} (${w.name}) on mainnet?`)) return;
+                              setContestMsg({ text: `Dispatching cloud payout for #${w.rank}…` });
+                              try {
+                                const tok = await accessToken();
+                                const res = await fetch("/api/admin/payouts", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+                                  body: JSON.stringify({ contest_id: c.id, rank: w.rank, network: "mainnet" }),
+                                });
+                                const data = await res.json();
+                                setContestMsg({ text: data.message || data.error, bad: !res.ok || data.ok === false });
+                                if (onReload) onReload();
+                              } catch (e) {
+                                setContestMsg({ text: String(e), bad: true });
+                              }
+                            }}
+                          >
+                            ⚡ Release #{w.rank}
+                          </button>
+                          <button
+                            style={{ ...btn("#fff"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
+                            onClick={() => {
+                              const tx = prompt("Transaction ID of the payout (optional)") ?? "";
+                              act("admin_mark_contest_winner_paid", { p_contest_id: c.id, p_rank: w.rank, p_txid: tx }, `Rank #${w.rank} marked paid.`);
+                            }}
+                          >
+                            Mark paid
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <span style={{ fontSize: 13, color: "#4a4436" }}>Closed with no ranked players.</span>)}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a href={`/contest?c=${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
               {c.status === "open" && <button style={btn("var(--amber)")} onClick={() => { if (confirm(`Close "${c.title}" and award the prize?`)) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>}
+              {c.status === "closed" && c.winners && c.winners.some((w) => w.zec > 0) && (
+                <button
+                  style={btn("#111", "var(--lime)")}
+                  onClick={async () => {
+                    if (!confirm(`Run automated cloud payout for "${c.title}"?`)) return;
+                    setContestMsg({ text: "Triggering cloud payout runner…" });
+                    try {
+                      const tok = await accessToken();
+                      const res = await fetch("/api/admin/payouts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+                        body: JSON.stringify({ contest_id: c.id, network: "mainnet" }),
+                      });
+                      const data = await res.json();
+                      setContestMsg({ text: data.message || data.error, bad: !res.ok || data.ok === false });
+                      if (onReload) onReload();
+                    } catch (e) {
+                      setContestMsg({ text: String(e), bad: true });
+                    }
+                  }}
+                >
+                  ⚡ Release contest payouts
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -343,11 +449,38 @@ function ContestsTab({ act }: { act: Act }) {
         <label style={{ fontSize: 12, fontWeight: 800 }}>Prize structure
           <select value={structure} onChange={(e) => setStructure(e.target.value)} style={{ ...field, marginTop: 4 }}>
             <option value="top3">Top 3 (50 / 30 / 20)</option>
-            <option value="top10">Top 10 (tiered)</option>
+            <option value="top5">Top 5 (40 / 25 / 15 / 10 / 10)</option>
+            <option value="top10">Top 10 (Tiered)</option>
+            <option value="top20">Top 20 (Deep Pool)</option>
+            <option value="custom">Custom % shares per rank</option>
+            <option value="equal_split">Equal split (Top N winners)</option>
             <option value="all_correct">Split among all exact scores</option>
             <option value="random_draw">Random draw (one winner)</option>
           </select>
         </label>
+        {structure === "custom" && (
+          <label style={{ fontSize: 12, fontWeight: 800 }}>Custom shares (% per rank, comma-separated)
+            <input
+              placeholder="e.g. 50, 25, 15, 10 or 60, 25, 15"
+              value={customSharesStr}
+              onChange={(e) => setCustomSharesStr(e.target.value)}
+              style={{ ...field, marginTop: 4 }}
+            />
+          </label>
+        )}
+        {structure === "equal_split" && (
+          <label style={{ fontSize: 12, fontWeight: 800 }}>Number of equal winners
+            <input
+              placeholder="e.g. 5 or 10"
+              type="number"
+              min="1"
+              max="50"
+              value={equalCount}
+              onChange={(e) => setEqualCount(e.target.value)}
+              style={{ ...field, marginTop: 4 }}
+            />
+          </label>
+        )}
         <label style={{ fontSize: 12, fontWeight: 800 }}>Entry deadline (optional)
           <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...field, marginTop: 4 }} />
         </label>
@@ -368,21 +501,107 @@ function ContestsTab({ act }: { act: Act }) {
   );
 }
 
-function PayoutsTab({ ov, act }: { ov: Overview | null; act: Act }) {
+function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onReload?: () => void }) {
+  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet");
+  const [running, setRunning] = useState(false);
+  const [cloudMsg, setCloudMsg] = useState<{ text: string; bad?: boolean } | null>(null);
+
+  const triggerCloudPayouts = async () => {
+    setRunning(true);
+    setCloudMsg({ text: `Dispatching automated ${network} payouts…` });
+    try {
+      const tok = await accessToken();
+      const res = await fetch("/api/admin/payouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ network }),
+      });
+      const data = await res.json();
+      setCloudMsg({ text: data.message || data.error || "Done", bad: !res.ok || data.ok === false });
+      if (onReload) onReload();
+    } catch (e) {
+      setCloudMsg({ text: String(e), bad: true });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 900 }}>
-      <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Payout requests</h2>
-      <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Run <span className="mono">npm run payouts</span> in services/anchor to pay every request from the anchor wallet (it marks them paid with the transaction id), or mark one by hand.</p>
+    <section style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 900 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h2 className="display" style={{ margin: 0, fontSize: 24 }}>Payout requests</h2>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+            Release prize winnings directly to players’ shielded Zcash addresses.
+          </p>
+        </div>
+
+        {/* Network & Automated Cloud Trigger */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", borderRadius: 12, border: "2px solid #111", overflow: "hidden", background: "#fff" }}>
+            <button
+              onClick={() => setNetwork("mainnet")}
+              style={{
+                padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
+                background: network === "mainnet" ? "var(--lime)" : "#fff",
+                color: "#111", cursor: "pointer",
+              }}
+            >
+              Mainnet (ZEC)
+            </button>
+            <button
+              onClick={() => setNetwork("testnet")}
+              style={{
+                padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
+                background: network === "testnet" ? "var(--amber)" : "#fff",
+                color: "#111", cursor: "pointer",
+              }}
+            >
+              Testnet (TAZ)
+            </button>
+          </div>
+
+          <button
+            style={btn("#111", "var(--lime)")}
+            disabled={running}
+            onClick={triggerCloudPayouts}
+          >
+            {running ? "Dispatching…" : "⚡ Run automated payouts"}
+          </button>
+        </div>
+      </div>
+
+      {cloudMsg && (
+        <div
+          role="status"
+          style={{
+            padding: "10px 14px", borderRadius: 12,
+            background: cloudMsg.bad ? "#ffefef" : "#f0fadc",
+            border: `2px solid ${cloudMsg.bad ? "#ffb3b3" : "#c4e680"}`,
+            color: cloudMsg.bad ? "#9a2d1d" : "#2d5200",
+            fontSize: 13, fontWeight: 700,
+          }}
+        >
+          {cloudMsg.text}
+        </div>
+      )}
+
       {ov && ov.withdrawals.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>No requests yet.</p>}
       {ov?.withdrawals.map((w) => (
-        <div key={w.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2, flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+        <div key={w.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div className="display" style={{ fontSize: 18 }}>{w.name} · {Number(w.amount).toFixed(4)} ZEC</div>
+            <div className="display" style={{ fontSize: 18 }}>{w.name} · {Number(w.amount).toFixed(4)} {network === "mainnet" ? "ZEC" : "TAZ"}</div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>to <span className="mono">{short(w.address)}</span> · {time(w.created_at)} · tx <Tx id={w.txid} /></div>
           </div>
           <Chip text={w.status.toUpperCase()} bg={w.status === "paid" ? "var(--lime)" : w.status === "rejected" ? "var(--pink)" : "var(--amber)"} />
           {w.status === "requested" && (
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href={`zcash:${w.address}?amount=${w.amount}&memo=${encodeURIComponent(`Called It Prize Payout`)}`}
+                style={{ ...btn("var(--lime)"), display: "inline-flex", alignItems: "center", fontSize: 12, textDecoration: "none" }}
+              >
+                Pay in Wallet ↗
+              </a>
               <button style={btn("#111", "var(--lime)")} onClick={() => { const tx = prompt("Transaction id of the payout (optional)") ?? ""; act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>Mark paid</button>
               <button style={btn("var(--pink)")} onClick={() => act("admin_mark_withdrawal", { p_id: w.id, p_status: "rejected", p_txid: null }, "Rejected.")}>Reject</button>
             </div>
@@ -390,6 +609,174 @@ function PayoutsTab({ ov, act }: { ov: Overview | null; act: Act }) {
         </div>
       ))}
     </section>
+  );
+}
+
+function CreditTab({ act }: { act: Act }) {
+  const [search, setSearch] = useState("");
+  const [players, setPlayers] = useState<{ id: string; name: string; address: string; avatar: number; ranked_points: number; earned_zec: number }[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [zec, setZec] = useState("");
+  const [points, setPoints] = useState("");
+  const [label, setLabel] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
+
+  const loadPlayers = useCallback(async (q: string) => {
+    try {
+      const list = await cloudRpc<typeof players>("admin_list_all_players", { p_search: q || null });
+      setPlayers(list || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadPlayers(search); }, [loadPlayers, search]);
+
+  const toggleAll = () => {
+    if (selected.size === players.length && players.length > 0) setSelected(new Set());
+    else setSelected(new Set(players.map((p) => p.id)));
+  };
+
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  const credit = async () => {
+    if (selected.size === 0) return setMsg({ text: "Select at least one player to credit", bad: true });
+    const amountZec = Number(zec) || 0;
+    const amountPts = Number(points) || 0;
+    if (amountZec <= 0 && amountPts <= 0) return setMsg({ text: "Enter ZEC amount or points to award", bad: true });
+
+    setBusy(true);
+    setMsg({ text: `Crediting ${selected.size} player(s)…` });
+    try {
+      const ok = await act("admin_credit_players_batch", {
+        p_user_ids: Array.from(selected),
+        p_zec: amountZec,
+        p_points: amountPts,
+        p_label: label.trim() || "Admin Award",
+      }, `Awarded ${selected.size} player(s) successfully!`);
+      if (ok) {
+        setZec("");
+        setPoints("");
+        setLabel("");
+        setSelected(new Set());
+        loadPlayers(search);
+      }
+    } catch (e) {
+      setMsg({ text: String(e), bad: true });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div>
+          <h2 className="display" style={{ margin: 0, fontSize: 24 }}>Credit Players</h2>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+            Select any player or group of players to directly grant ZEC prize balances or points.
+          </p>
+        </div>
+
+        <input
+          placeholder="Search players by name or address…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={field}
+        />
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
+            {players.length} player(s) · {selected.size} selected
+          </span>
+          <button onClick={toggleAll} style={{ background: "none", border: 0, color: "var(--lime)", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+            {selected.size === players.length && players.length > 0 ? "Deselect All" : "Select All"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 420, overflowY: "auto" }}>
+          {players.map((p) => {
+            const on = selected.has(p.id);
+            return (
+              <div
+                key={p.id}
+                onClick={() => toggleOne(p.id)}
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                  padding: "10px 14px", borderRadius: 14, border: `2px solid ${on ? "var(--lime)" : "var(--line)"}`,
+                  background: on ? "var(--panel)" : "#fff", cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="checkbox" checked={on} onChange={() => {}} style={{ width: 18, height: 18, cursor: "pointer" }} />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14 }}>{p.name}</div>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{p.address ? short(p.address) : "no wallet"}</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 12, fontWeight: 700 }}>
+                  <div>{p.ranked_points} pts</div>
+                  <div style={{ color: "var(--lime)" }}>{Number(p.earned_zec).toFixed(4)} ZEC</div>
+                </div>
+              </div>
+            );
+          })}
+          {players.length === 0 && <p style={{ fontSize: 13, color: "var(--muted)" }}>No players found.</p>}
+        </div>
+      </section>
+
+      <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
+        <span className="eyebrow" style={{ color: "#5b6b12" }}>Grant Prize / Credit</span>
+
+        <label style={{ fontSize: 12, fontWeight: 800 }}>Prize in ZEC (withdrawable)
+          <input
+            placeholder="e.g. 0.50"
+            inputMode="decimal"
+            value={zec}
+            onChange={(e) => setZec(e.target.value.replace(/[^0-9.]/g, ""))}
+            style={{ ...field, marginTop: 4 }}
+          />
+        </label>
+
+        <label style={{ fontSize: 12, fontWeight: 800 }}>Ranked Points (optional)
+          <input
+            placeholder="e.g. 100"
+            inputMode="numeric"
+            value={points}
+            onChange={(e) => setPoints(e.target.value.replace(/[^0-9]/g, ""))}
+            style={{ ...field, marginTop: 4 }}
+          />
+        </label>
+
+        <label style={{ fontSize: 12, fontWeight: 800 }}>Reason / Award Label
+          <input
+            placeholder="e.g. Sponsor Bonus Award"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            style={{ ...field, marginTop: 4 }}
+          />
+        </label>
+
+        {msg && (
+          <div role="status" style={{ padding: "8px 12px", borderRadius: 10, background: msg.bad ? "#ffefef" : "#f0fadc", border: `1px solid ${msg.bad ? "#ffb3b3" : "#c4e680"}`, color: msg.bad ? "#9a2d1d" : "#2d5200", fontSize: 13, fontWeight: 700 }}>
+            {msg.text}
+          </div>
+        )}
+
+        <button
+          className="btn btn-primary"
+          style={{ minHeight: 52, boxShadow: "0 5px 0 #111" }}
+          disabled={busy || selected.size === 0}
+          onClick={credit}
+        >
+          {busy ? "Crediting…" : `⚡ Credit ${selected.size} Player(s)`}
+        </button>
+      </section>
+    </div>
   );
 }
 
@@ -437,9 +824,10 @@ const ICON: Record<Tab, string> = {
   Fixtures: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM12 7l4 3-1.5 4.5h-5L8 10z",
   Contests: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3",
   Payouts: "M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM12 9.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  Credit: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   Transactions: "M4 7h13l-3-3M20 17H7l3 3",
 };
-const LABEL: Record<Tab, string> = { Overview: "Overview", Fixtures: "Fixtures", Contests: "Contests", Payouts: "Payouts", Transactions: "Txs" };
+const LABEL: Record<Tab, string> = { Overview: "Overview", Fixtures: "Fixtures", Contests: "Contests", Payouts: "Payouts", Credit: "Credit", Transactions: "Txs" };
 function AdminTabBar({ tab, setTab, pending }: { tab: Tab; setTab: (t: Tab) => void; pending: number }) {
   return (
     <>

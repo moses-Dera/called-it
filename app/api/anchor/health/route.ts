@@ -1,19 +1,22 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function GET() {
-  const url = process.env.ANCHOR_URL?.replace(/\/$/, "");
-  const token = process.env.ANCHOR_TOKEN;
-  if (!url) return NextResponse.json({ error: "ANCHOR_URL not set" }, { status: 501 });
+export async function GET(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.replace(/^Bearer /i, "");
+  if (!token) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return NextResponse.json({ ok: false, mode: "simulated", error: "SUPABASE_SERVICE_ROLE_KEY not set — running in simulated mode" }, { status: 200 });
 
   try {
-    const r = await fetch(`${url}/health`, {
-      headers: { authorization: `Bearer ${token ?? ""}` },
-      signal: AbortSignal.timeout(10_000),
-      cache: "no-store",
-    });
-    if (!r.ok) return NextResponse.json({ error: `Anchor service returned ${r.status}` }, { status: 502 });
-    return NextResponse.json(await r.json());
-  } catch {
-    return NextResponse.json({ error: "Could not reach anchor service" }, { status: 502 });
+    const db = createClient(url, key, { auth: { persistSession: false } });
+    const { data, error } = await db.from("ots_proofs").select("status").limit(500);
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 502 });
+    const queued = data.filter((r) => r.status === "queued").length;
+    const mined  = data.filter((r) => r.status === "mined").length;
+    return NextResponse.json({ ok: true, mode: "bitcoin", queued, mined });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: String(e) }, { status: 502 });
   }
 }
