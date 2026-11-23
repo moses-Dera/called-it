@@ -19,7 +19,7 @@ function HomeFeedInner() {
 
   const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
     .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
-  const rest = open.slice(0, 5);
+  const rest = open.slice(0, 6);
   const loading = now === null;
 
   if (loading) {
@@ -38,7 +38,7 @@ function HomeFeedInner() {
           <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
         </div>
         {rest.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
-        {rest.map((f) => (
+        <div className="fixture-grid">{rest.map((f) => (
           <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
             <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
               <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
@@ -46,7 +46,7 @@ function HomeFeedInner() {
             </div>
             <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
           </Link>
-        ))}
+        ))}</div>
       </section>
 
       <Link href="/rooms" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--lilac)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 18, padding: "12px 14px" }}>
