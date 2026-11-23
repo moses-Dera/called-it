@@ -10,8 +10,6 @@ type Match = {
   score: { fullTime: { home: number | null; away: number | null } };
 };
 
-export const revalidate = 60;
-
 export async function GET() {
   const fdKey = process.env.FOOTBALL_DATA_KEY;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
