@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fixtureOf, Fixture } from "@/lib/data";
 import { useFixtures } from "@/lib/cloud";
-import { Img, Lock, SealStatus, TopBar } from "@/components/ui";
+import { Img, Lock, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
 import { useTelegram } from "@/lib/telegram";
@@ -122,14 +122,14 @@ function ChallengeContent() {
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-              <Img n="crest_home" size={42} h={48} alt={fx.home} />
+              <TeamBadge name={fx.home} size={42} side="home" />
               <b style={{ fontSize: 14 }}>{fx.home}</b>
             </div>
             <div className="display" style={{ fontSize: 44, color: "#111", background: "var(--lime)", padding: "4px 18px", borderRadius: 16, border: "2px solid #111" }}>
               {challengerHome} : {challengerAway}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-              <Img n="crest_away" size={42} h={48} alt={fx.away} />
+              <TeamBadge name={fx.away} size={42} side="away" />
               <b style={{ fontSize: 14 }}>{fx.away}</b>
             </div>
           </div>

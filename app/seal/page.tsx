@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fixtureOf } from "@/lib/data";
 import { useCloud, useFixtures } from "@/lib/cloud";
-import { Img, Lock, SealStatus, TopBar } from "@/components/ui";
+import { Img, Lock, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
 import { useTelegram } from "@/lib/telegram";
@@ -88,7 +88,7 @@ export default function SealPage() {
         <div style={{ background: closed ? "var(--pink)" : "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}>{closed ? <><b>Sealing closed.</b> This match kicked off {fx.when}.</> : <><b>Early bird x2</b> if sealed a day before kickoff · Kickoff {fx.when}</>}</div>
         <div className="paper" style={{ borderRadius: 28, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around" }}>
-            <Img n="crest_home" size={56} h={65} alt={`${fx.home} crest`} /><span className="eyebrow" style={{ color: "#6b6455" }}>Final score</span><Img n="crest_away" size={56} h={65} alt={`${fx.away} crest`} />
+            <TeamBadge name={fx.home} size={56} side="home" /><span className="eyebrow" style={{ color: "#6b6455" }}>Final score</span><TeamBadge name={fx.away} size={56} side="away" />
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
             <Wheel v={home} set={setHome} name={fx.home} /><span className="display" style={{ fontSize: 50 }}>:</span><Wheel v={away} set={setAway} name={fx.away} />

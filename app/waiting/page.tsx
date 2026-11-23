@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { CardBack, Img, SealStatus, TopBar } from "@/components/ui";
+import { CardBack, Img, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { PLAYERS, fixtureOf } from "@/lib/data";
 import { useStore } from "@/lib/store";
 
@@ -15,7 +15,7 @@ export default function Waiting() {
       <TopBar eyebrow="Naija Ballers · 8" title={`${fixtureOf(mine?.round).home} vs ${fixtureOf(mine?.round).away}`} />
       <div style={{ margin: "6px 20px 0", borderRadius: 26, background: "var(--lime)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div><div className="eyebrow">Reveal at full time</div><div className="display" style={{ fontSize: 48 }}>5d 21h</div></div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}><Img n="crest_home" size={40} h={47} alt="Reds" /><b style={{ fontSize: 11 }}>vs</b><Img n="crest_away" size={40} h={47} alt="Blues" /></div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}><TeamBadge name={fixtureOf(mine?.round).home} size={40} side="home" /><b style={{ fontSize: 11 }}>vs</b><TeamBadge name={fixtureOf(mine?.round).away} size={40} side="away" /></div>
       </div>
       <div style={{ padding: "20px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div className="display" style={{ fontSize: 20 }}>{count} of 8 sealed</div><span style={{ fontSize: 12, color: "var(--muted)" }}>Calls stay face down</span>

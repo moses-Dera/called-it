@@ -8,6 +8,24 @@ export function Img({ n, size, h, alt = "", style, className }: { n: string; siz
   return <img src={art(n)} alt={alt} width={size} height={h ?? size} loading="lazy" decoding="async" className={className} style={{ width: size, height: h ?? size, ...style }} />;
 }
 
+const BADGE_COLORS = ["#e63946","#1d3557","#2a9d8f","#e9c46a","#f4a261","#264653","#6a4c93","#1982c4","#8ac926","#ff595e"];
+export function TeamBadge({ name, size = 56, side }: { name: string; size?: number; side?: "home" | "away" }) {
+  const abbr = name.slice(0, 3).toUpperCase();
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  const idx = Math.abs(hash) % BADGE_COLORS.length;
+  const bg = side === "away" ? BADGE_COLORS[(idx + 5) % BADGE_COLORS.length] : BADGE_COLORS[idx];
+  const fs = size * 0.32;
+  return (
+    <div style={{ width: size, height: size * 1.15, position: "relative", flexShrink: 0 }}>
+      <svg viewBox="0 0 56 65" width={size} height={size * 1.15} style={{ display: "block" }}>
+        <path d="M28 2 L52 12 L52 38 Q52 56 28 63 Q4 56 4 38 L4 12 Z" fill={bg} stroke="#111" strokeWidth="3" />
+      </svg>
+      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", paddingBottom: size * 0.08, fontWeight: 800, fontSize: fs, color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.4)", letterSpacing: 0.5 }}>{abbr}</span>
+    </div>
+  );
+}
+
 export function Skeleton({ w, h = 20, r = 10, style }: { w?: number | string; h?: number; r?: number; style?: React.CSSProperties }) {
   return <div className="skeleton" style={{ width: w ?? "100%", height: h, borderRadius: r, ...style }} />;
 }
