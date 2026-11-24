@@ -95,9 +95,10 @@ button { font-family: inherit; cursor: pointer; }
   .home-right { display: flex; flex-direction: column; gap: 16px; }
   .home-head { padding: 0 0 6px !important; grid-column: 1 / -1; }
   .home-head > .display { visibility: hidden; }
-  .home-games .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 14px !important; }
+  .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 14px !important; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 20px !important; }
   .home-games .tiles span { font-size: 13px !important; }
+  .home-games { grid-column: 1 / -1; }
   .home-hero { align-self: start; }
   .fixture-grid { display: flex; flex-direction: column; gap: 10px; }
 

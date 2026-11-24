@@ -1,22 +1,40 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Img, SealStatus, TopBar } from "@/components/ui";
+import { Img, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { addReward, createSeal, useStore } from "@/lib/store";
+import { useFixtures } from "@/lib/cloud";
 
-// Demo match feed. In production these come from the live football data service.
 const QS = [
-  { q: "Goal in the next 10 minutes?", a: ["Yes", "No"], right: 0, split: [62, 38], event: "GOAL! 67' · Home XI" },
-  { q: "Next card: which team?", a: ["Home XI", "Away XI"], right: 1, split: [44, 56], event: "Yellow card · Away XI" },
-  { q: "Corner before the 75th minute?", a: ["Yes", "No"], right: 0, split: [71, 29], event: "Corner · Home XI" },
+  { q: "Goal in the next 10 minutes?", a: ["Yes", "No"], right: 0, split: [62, 38] },
+  { q: "Next card: which team?", a: ["{home}", "{away}"], right: 1, split: [44, 56] },
+  { q: "Corner before the 75th minute?", a: ["Yes", "No"], right: 0, split: [71, 29] },
 ];
 type Done = { q: string; you: string; ok: boolean };
 
 export default function Arena() {
+  const fixtures = useFixtures();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); }, []);
+
+  // Find the best live or most recent match
+  const live = fixtures.find((f) => f.id.startsWith("fd-") && now && Date.parse(f.kickoff) <= now && f.homeGoals == null);
+  const recent = fixtures.filter((f) => f.id.startsWith("fd-") && f.homeGoals != null).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff))[0];
+  const upcoming = fixtures.filter((f) => f.id.startsWith("fd-") && now && Date.parse(f.kickoff) > now).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
+  const match = live ?? recent ?? upcoming;
+
+  const home = match?.home ?? "Home";
+  const away = match?.away ?? "Away";
+  const isLive = !!live;
+  const hasResult = match?.homeGoals != null;
+  const score = hasResult ? `${match!.homeGoals}–${match!.awayGoals}` : "vs";
+  const label = isLive ? "LIVE" : hasResult ? "Full time" : "Next up";
+
   const [n, setN] = useState(0), [secs, setSecs] = useState(15), [pick, setPick] = useState<number | null>(null);
   const [settled, setSettled] = useState(false), [combo, setCombo] = useState(0), [done, setDone] = useState<Done[]>([]);
   const [sealId, setSealId] = useState<string | null>(null);
   const seal = useStore().seals.find((s) => s.id === sealId);
-  const Q = QS[n % QS.length];
+  const rawQ = QS[n % QS.length];
+  const Q = { ...rawQ, q: rawQ.q, a: rawQ.a.map((a) => a.replace("{home}", home).replace("{away}", away)) };
 
   useEffect(() => {
     if (settled) return;
@@ -26,7 +44,7 @@ export default function Arena() {
   useEffect(() => {
     if (secs > 0 || settled) return;
     const t = setTimeout(() => {
-      const ok = pick === Q.right;
+      const ok = pick === rawQ.right;
       setSettled(true);
       setCombo((c) => (ok ? c + 1 : 0));
       setDone((d) => [{ q: Q.q, you: pick === null ? "No pick" : Q.a[pick], ok }, ...d].slice(0, 3));
@@ -48,10 +66,13 @@ export default function Arena() {
   return (
     <main className="screen">
       <div style={{ background: "#1e7a47", borderBottom: "3px solid #111", position: "relative", overflow: "hidden" }}>
-        <Img n="cover_arena" size={190} style={{ position: "absolute", right: -50, top: -30, opacity: 0.22, transform: "rotate(12deg)" }} />
-        <TopBar mode="arena" eyebrow="Live 63' · demo feed" title="Matchday Arena" accent="#111" />
+        <TopBar mode="arena" eyebrow={`${label} · Matchday Arena`} title={`${home} vs ${away}`} accent="#111" />
         <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}><Img n="crest_ng" size={46} h={54} alt="Home XI" /><span className="display" style={{ fontSize: 52 }}>1–0</span><Img n="crest_gh" size={46} h={54} alt="Away XI" /></div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <TeamBadge name={home} size={46} side="home" />
+            <span className="display" style={{ fontSize: 52 }}>{score}</span>
+            <TeamBadge name={away} size={46} side="away" />
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ flex: 1, height: 12, borderRadius: 99, background: "#111", overflow: "hidden" }}><div style={{ width: Math.min(100, combo * 25) + "%", height: "100%", background: "var(--amber)", transition: "width 400ms" }} /></div>
             <span className="chip" style={{ background: "var(--amber)", fontSize: 13 }}>COMBO x{combo}</span>
@@ -69,14 +90,14 @@ export default function Arena() {
         <div className="display" style={{ fontSize: 28 }}>{Q.q}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
           {Q.a.map((label, i) => (
-            <button key={label} onClick={() => choose(i)} className="display" style={{ position: "relative", height: 76, borderRadius: 20, border: "3px solid #111", background: settled && i === Q.right ? "var(--lime)" : pick === i ? "var(--amber)" : "#fff", boxShadow: "0 5px 0 #111", color: "#111", fontSize: 20, overflow: "hidden" }}>
-              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: locked || settled ? Q.split[i] + "%" : 0, background: "rgba(17,17,17,.12)", transition: "width 500ms" }} />
-              <span style={{ position: "relative" }}>{label}{locked || settled ? ` ${Q.split[i]}%` : ""}</span>
+            <button key={label} onClick={() => choose(i)} className="display" style={{ position: "relative", height: 76, borderRadius: 20, border: "3px solid #111", background: settled && i === rawQ.right ? "var(--lime)" : pick === i ? "var(--amber)" : "#fff", boxShadow: "0 5px 0 #111", color: "#111", fontSize: 20, overflow: "hidden" }}>
+              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: locked || settled ? rawQ.split[i] + "%" : 0, background: "rgba(17,17,17,.12)", transition: "width 500ms" }} />
+              <span style={{ position: "relative" }}>{label}{locked || settled ? ` ${rawQ.split[i]}%` : ""}</span>
             </button>
           ))}
         </div>
         <div role="status" style={{ fontSize: 13, fontWeight: 700, color: "#4a4436", textAlign: "center", minHeight: 20 }}>
-          {settled ? `${Q.event} · ${pick === Q.right ? "You called it!" : pick === null ? "No pick this time." : "Missed it."}` : locked ? "Locked. Crowd split revealed." : "Your pick locks instantly."}
+          {settled ? `${pick === rawQ.right ? "You called it!" : pick === null ? "No pick this time." : "Missed it."}` : locked ? "Locked. Crowd split revealed." : "Your pick locks instantly."}
         </div>
         {seal && <div style={{ textAlign: "center" }}><SealStatus seal={seal} /></div>}
         {settled && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={next}>Next call</button>}
