@@ -5,6 +5,44 @@ import { useEffect, useState } from "react";
 import { ErrorBoundary, Img, SkeletonCard, TeamBadge } from "./ui";
 import { sb, useContests, useFixtures, useFixtureSealCounts, useMyContestIds } from "@/lib/cloud";
 
+/* ── Left column: fixture grid ── */
+export function HomeFixtures() {
+  return <ErrorBoundary><HomeFixturesInner /></ErrorBoundary>;
+}
+
+function HomeFixturesInner() {
+  const fixtures = useFixtures();
+  const sealCounts = useFixtureSealCounts();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); }, []);
+
+  const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const list = open.slice(0, 8);
+
+  if (now === null) return <><SkeletonCard /><SkeletonCard /></>;
+
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
+      </div>
+      {list.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
+      <div className="fixture-grid">{list.map((f) => (
+        <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
+          <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
+            <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
+            <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Kickoff {f.when}{sealCounts[f.id] > 0 ? ` · ${sealCounts[f.id]} sealed` : ""}</div>
+          </div>
+          <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
+        </Link>
+      ))}</div>
+    </section>
+  );
+}
+
+/* ── Right column: featured + contests + discovery ── */
 export function HomeFeed() {
   return <ErrorBoundary><HomeFeedInner /></ErrorBoundary>;
 }
@@ -20,21 +58,13 @@ function HomeFeedInner() {
   const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
     .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
   const featured = open[0];
-  const rest = open.slice(1, 7);
   const liveSealCount = useLiveSealCount(featured?.id ?? null);
   const featuredCount = liveSealCount ?? sealCounts[featured?.id ?? ""] ?? 0;
-  const loading = now === null;
 
-  if (loading) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <SkeletonCard /><SkeletonCard /><SkeletonCard />
-      </div>
-    );
-  }
+  if (now === null) return <SkeletonCard />;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {featured && (
         <Link href={`/seal?f=${featured.id}`} className="home-featured" style={{ display: "flex", flexDirection: "column", gap: 10, background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", borderRadius: 22, padding: 16, overflow: "hidden" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -59,23 +89,6 @@ function HomeFeedInner() {
           </div>
         </Link>
       )}
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
-        </div>
-        {rest.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
-        <div className="fixture-grid">{rest.map((f) => (
-          <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
-            <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
-              <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
-              <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Kickoff {f.when}{sealCounts[f.id] > 0 ? ` · ${sealCounts[f.id]} sealed` : ""}</div>
-            </div>
-            <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
-          </Link>
-        ))}</div>
-      </section>
 
       <Link href="/rooms" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--lilac)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 18, padding: "12px 14px" }}>
         <Img n="cover_arcade" size={44} style={{ borderRadius: 12, border: "2px solid #111" }} />

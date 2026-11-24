@@ -89,16 +89,17 @@ button { font-family: inherit; cursor: pointer; }
   .guide > .sheet { border-radius: 28px !important; }
 
   /* Home */
-  .home-body { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px !important; align-content: start; align-items: start; padding: 16px 0 0 !important; }
-  .home-head { padding: 0 0 6px !important; }
+  .home-body { display: block !important; padding: 16px 0 0 !important; }
+  .home-body { display: grid !important; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px !important; align-content: start; align-items: start; }
+  .home-left { display: flex; flex-direction: column; gap: 18px; }
+  .home-right { display: flex; flex-direction: column; gap: 16px; }
+  .home-head { padding: 0 0 6px !important; grid-column: 1 / -1; }
   .home-head > .display { visibility: hidden; }
-  .home-games { grid-column: 1 / -1; }
-  .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 18px !important; }
-  .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 24px !important; }
-  .home-games .tiles span { font-size: 14px !important; }
+  .home-games .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 14px !important; }
+  .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 20px !important; }
+  .home-games .tiles span { font-size: 13px !important; }
   .home-hero { align-self: start; }
-  .home-featured { align-self: start; }
-  .fixture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fixture-grid { display: flex; flex-direction: column; gap: 10px; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */
   .hub { max-width: 720px; margin: 0 auto; gap: 24px; }
