@@ -88,18 +88,16 @@ button { font-family: inherit; cursor: pointer; }
   .guide { align-items: center !important; padding: 24px; }
   .guide > .sheet { border-radius: 28px !important; }
 
-  /* Home */
-  .home-body { display: block !important; padding: 16px 0 0 !important; }
-  .home-body { display: grid !important; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px !important; align-content: start; align-items: start; }
-  .home-left { display: flex; flex-direction: column; gap: 18px; }
-  .home-right { display: flex; flex-direction: column; gap: 16px; }
+  /* Home — desktop: 2-col grid with explicit placement */
+  .home-body { display: grid !important; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 24px !important; padding: 16px 0 0 !important; align-content: start; align-items: start; }
   .home-head { padding: 0 0 6px !important; grid-column: 1 / -1; }
   .home-head > .display { visibility: hidden; }
+  .home-feed { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+  .home-fixtures { grid-column: 1; grid-row: 1; }
+  .home-games { grid-column: 1; grid-row: 2; }
   .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 14px !important; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 20px !important; }
   .home-games .tiles span { font-size: 13px !important; }
-  .home-games { grid-column: 1 / -1; }
-  .home-hero { align-self: start; }
   .fixture-grid { display: flex; flex-direction: column; gap: 10px; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */

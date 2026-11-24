@@ -2,7 +2,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { addReward, getState, markRevealed, mergeCloud, subscribe, type Reward, type Seal } from "./store";
-import { FIXTURES, whenOf, type Fixture } from "./data";
+import { FIXTURES, phaseOf, whenOf, type Fixture } from "./data";
 
 // Optional cloud account (Supabase + Google sign-in). Without the two env vars the app stays guest-only.
 // What syncs: profile, the rewards ledger, and each seal's commitment and proof.
@@ -193,33 +193,88 @@ export function useTipHistory(): Tip[] | null {
 
 // ---------- Fixtures and contests (public tables) ----------
 type Listener = () => void;
+export type LoadState = "loading" | "ready" | "error";
 function shared<T>(load: () => Promise<T>, initial: T) {
-  let value = initial, loaded = false, loading = false;
+  let value = initial, state: LoadState = "loading", loading = false;
   const subs = new Set<Listener>();
   const refresh = async () => {
     if (loading) return;
     loading = true;
-    try { value = await load(); loaded = true; subs.forEach((l) => l()); } catch { /* keep the last value */ }
+    // After a successful load, a failed refresh keeps showing the last good data.
+    try { value = await load(); state = "ready"; } catch { if (state !== "ready") state = "error"; }
     loading = false;
+    subs.forEach((l) => l());
   };
+  const sub = (l: Listener) => { subs.add(l); if (state !== "ready") refresh(); return () => { subs.delete(l); }; };
   return {
     refresh,
     get: () => value,
     use(): T {
-      return useSyncExternalStore((l) => { subs.add(l); if (!loaded) refresh(); return () => subs.delete(l); }, () => value, () => initial);
+      return useSyncExternalStore(sub, () => value, () => initial);
+    },
+    useLoadState(): LoadState {
+      return useSyncExternalStore(sub, () => state, () => "loading");
     },
   };
+}
+
+const nowSubs = new Set<Listener>();
+let nowTick: ReturnType<typeof setInterval> | null = null;
+const roundNow = () => Math.floor(Date.now() / 30_000) * 30_000;
+/** Current time in 30s steps; null during SSR and hydration so server and client render the same. */
+export function useNow(): number | null {
+  return useSyncExternalStore((l) => {
+    nowSubs.add(l);
+    nowTick ??= setInterval(() => nowSubs.forEach((s) => s()), 30_000);
+    return () => { nowSubs.delete(l); if (!nowSubs.size && nowTick) { clearInterval(nowTick); nowTick = null; } };
+  }, roundNow, () => null);
 }
 
 const fixtureStore = shared<Fixture[]>(async () => {
   const c = sb();
   if (!c) return FIXTURES;
-  const { data, error } = await c.from("fixtures").select("id, home, away, kickoff, home_goals, away_goals").order("kickoff");
-  if (error) throw error;
-  return (data ?? []).map((f) => ({ id: f.id, home: f.home, away: f.away, kickoff: f.kickoff, when: whenOf(f.kickoff), homeGoals: f.home_goals, awayGoals: f.away_goals }));
+  const base = "id, home, away, kickoff, home_goals, away_goals";
+  let res: { data: unknown[] | null; error: unknown } = await c.from("fixtures").select(`${base}, status, live_home, live_away`).order("kickoff");
+  // Databases without the live-score migration lack those columns; fall back to the base set.
+  if (res.error) res = await c.from("fixtures").select(base).order("kickoff");
+  if (res.error) throw res.error;
+  return ((res.data ?? []) as Record<string, unknown>[]).map((f) => ({
+    id: f.id as string, home: f.home as string, away: f.away as string, kickoff: f.kickoff as string, when: whenOf(f.kickoff as string),
+    homeGoals: f.home_goals as number | null, awayGoals: f.away_goals as number | null,
+    status: (f.status as string | null) ?? null, liveHome: (f.live_home as number | null) ?? null, liveAway: (f.live_away as number | null) ?? null,
+  }));
 }, FIXTURES);
 export const useFixtures = () => fixtureStore.use();
+export const useFixturesState = () => fixtureStore.useLoadState();
 export const refreshFixtures = () => fixtureStore.refresh();
+
+// Realtime and live polling, browser only.
+if (typeof window !== "undefined") {
+  let started = false;
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  const refreshSoon = () => { if (debounce) clearTimeout(debounce); debounce = setTimeout(() => fixtureStore.refresh(), 500); };
+  // Only poll the score feed when this tab is visible and a match is in play or about to start.
+  const matchNear = () => {
+    const now = Date.now();
+    return fixtureStore.get().some((f) => phaseOf(f, now) === "live" || (phaseOf(f, now) === "upcoming" && Date.parse(f.kickoff) - now < 5 * 60_000));
+  };
+  const poll = async () => {
+    if (document.visibilityState !== "visible") return;
+    if (matchNear()) { try { await fetch("/api/live"); } catch { /* the server throttles and reports its own errors */ } }
+    refreshSoon();
+  };
+  const startLive = () => {
+    if (started) return;
+    started = true;
+    sb()?.channel("fixtures-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "fixtures" }, refreshSoon)
+      .subscribe();
+    setInterval(poll, 60_000);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") poll(); });
+  };
+  if (document.readyState === "complete") startLive();
+  else window.addEventListener("load", startLive, { once: true });
+}
 
 export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];

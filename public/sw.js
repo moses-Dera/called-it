@@ -1,5 +1,7 @@
 // Called It service worker: push notifications + offline app shell caching.
-const CACHE = "calledit-v1";
+const CACHE = "calledit-v2";
+// Dev chunk names don't change with their contents, so cache-first would serve stale code.
+const DEV = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const SHELL = ["/", "/seal", "/reveal", "/ranks", "/vault", "/profile", "/contests", "/how",
   "/icon-192.png", "/icon-512.png"];
 const ASSET_RE = /^\/(a\/|_next\/static\/|icon-|manifest)/;
@@ -20,7 +22,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || DEV) return;
 
   // Assets: cache-first (they're fingerprinted or versioned)
   if (ASSET_RE.test(url.pathname)) {

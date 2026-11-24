@@ -1,34 +1,87 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { ErrorBoundary, Img, TeamBadge } from "./ui";
+import { refreshFixtures, useContests, useFixtures, useFixturesState, useFixtureSealCounts, useMyContestIds, useNow } from "@/lib/cloud";
+import { phaseOf, type Fixture } from "@/lib/data";
 
-import { ErrorBoundary, Img, SkeletonCard, TeamBadge } from "./ui";
-import { sb, useContests, useFixtures, useFixtureSealCounts, useMyContestIds } from "@/lib/cloud";
-
-/* ── Left column: fixture grid ── */
+/* ── Fixture grid: only upcoming (not kicked off yet) ── */
 export function HomeFixtures() {
   return <ErrorBoundary><HomeFixturesInner /></ErrorBoundary>;
 }
 
+const GREEN = "linear-gradient(135deg, #1e7a47 0%, #145a34 100%)";
+
+function Featured({ f, kind, sealed }: { f: Fixture; kind: "live" | "next" | "result"; sealed: number }) {
+  const href = kind === "next" ? `/seal?f=${f.id}` : "/play/arena";
+  const score = f.homeGoals != null ? `${f.homeGoals}–${f.awayGoals}` : kind === "live" && f.liveHome != null ? `${f.liveHome}–${f.liveAway}` : "vs";
+  const chip = kind === "live" ? "LIVE" : kind === "next" ? `Next up · ${f.when}` : "FULL TIME";
+  const chipBg = kind === "live" ? "var(--red)" : kind === "next" ? "var(--lime)" : "var(--amber)";
+  const cta = kind === "next" ? ["Seal your prediction", "Seal →"] : kind === "live" ? ["Quick calls are open", "Enter →"] : ["See how it played out", "→"];
+  return (
+    <Link href={href} className="featured" style={{ display: "flex", flexDirection: "column", gap: 12, color: "#fff", borderRadius: 22, background: GREEN, border: "3px solid #111", boxShadow: "4px 4px 0 var(--lime)", padding: "16px 18px" }}>
+      <span className="chip" style={{ background: chipBg, color: "#111", border: 0, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {kind === "live" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff", animation: "sealPulse 1s infinite" }} />}
+        {chip}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <TeamBadge name={f.home} size={52} side="home" />
+          <b style={{ fontSize: 14, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.home}</b>
+        </div>
+        <span className="display" style={{ fontSize: score !== "vs" ? 44 : 30 }}>{score}</span>
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <TeamBadge name={f.away} size={52} side="away" />
+          <b style={{ fontSize: 14, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.away}</b>
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", borderRadius: 12, padding: "10px 14px", fontSize: 14, fontWeight: 700 }}>
+        <span>{cta[0]}{sealed > 0 ? ` · ${sealed} sealed` : ""}</span>
+        <span style={{ color: "var(--lime)" }}>{cta[1]}</span>
+      </div>
+    </Link>
+  );
+}
+
 function HomeFixturesInner() {
   const fixtures = useFixtures();
+  const state = useFixturesState();
+  const now = useNow();
   const sealCounts = useFixtureSealCounts();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => { setNow(Date.now()); }, []);
 
-  const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
-    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
-  const list = open.slice(0, 8);
+  if (state === "error") {
+    return (
+      <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 22, padding: 18 }}>
+        <div className="display" style={{ fontSize: 20 }}>Couldn&apos;t load fixtures</div>
+        <div style={{ fontSize: 13, color: "var(--muted)" }}>Check your connection and try again.</div>
+        <button className="btn" style={{ width: "auto", padding: "0 18px" }} onClick={() => refreshFixtures()}>Try again</button>
+      </section>
+    );
+  }
+  if (state === "loading" || now == null) {
+    return (
+      <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ height: 210, borderRadius: 22, background: GREEN, border: "3px solid #111", opacity: 0.6 }} />
+        {[0, 1, 2].map((i) => <div key={i} style={{ height: 64, borderRadius: 16, background: "var(--paper)", opacity: 0.15 }} />)}
+      </section>
+    );
+  }
 
-  if (now === null) return <><SkeletonCard /><SkeletonCard /></>;
+  const byKickoff = (a: Fixture, b: Fixture) => Date.parse(a.kickoff) - Date.parse(b.kickoff);
+  const live = fixtures.filter((f) => phaseOf(f, now) === "live").sort(byKickoff)[0];
+  const open = fixtures.filter((f) => phaseOf(f, now) === "upcoming").sort(byKickoff);
+  const recent = fixtures.filter((f) => phaseOf(f, now) === "final").sort((a, b) => byKickoff(b, a))[0];
+  const featured = live ?? open[0] ?? recent;
+  const kind = live ? "live" : open[0] ? "next" : "result";
+  const list = open.filter((f) => f !== featured).slice(0, 8);
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+    <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {featured && <Featured f={featured} kind={kind} sealed={sealCounts[featured.id] ?? 0} />}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
       </div>
-      {list.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
+      {open.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
       <div className="fixture-grid">{list.map((f) => (
         <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
           <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
@@ -42,54 +95,17 @@ function HomeFixturesInner() {
   );
 }
 
-/* ── Right column: featured + contests + discovery ── */
+/* ── Feed: play with friends, contests, discovery ── */
 export function HomeFeed() {
   return <ErrorBoundary><HomeFeedInner /></ErrorBoundary>;
 }
 
 function HomeFeedInner() {
-  const fixtures = useFixtures();
   const contests = useContests().filter((c) => c.status === "open");
-  const sealCounts = useFixtureSealCounts();
   const myIds = useMyContestIds();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t); }, []);
-
-  const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
-    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
-  const featured = open[0];
-  const liveSealCount = useLiveSealCount(featured?.id ?? null);
-  const featuredCount = liveSealCount ?? sealCounts[featured?.id ?? ""] ?? 0;
-
-  if (now === null) return <SkeletonCard />;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {featured && (
-        <Link href={`/seal?f=${featured.id}`} className="home-featured" style={{ display: "flex", flexDirection: "column", gap: 10, background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", borderRadius: 22, padding: 16, overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <span className="eyebrow" style={{ color: "#5b6b12" }}>Featured match</span>
-            {featuredCount > 0 && <span className="chip" style={{ background: "var(--sky)", border: 0 }}>{featuredCount} sealed</span>}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <TeamBadge name={featured.home} size={40} side="home" />
-              <b style={{ fontSize: 12, maxWidth: 90, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{featured.home}</b>
-            </div>
-            <span className="display" style={{ fontSize: 20 }}>vs</span>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <TeamBadge name={featured.away} size={40} side="away" />
-              <b style={{ fontSize: 12, maxWidth: 90, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{featured.away}</b>
-            </div>
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#4a4436", textAlign: "center" }}>Kickoff {featured.when}</div>
-          <Countdown target={featured.kickoff} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111", color: "var(--lime)", borderRadius: 14, padding: "11px 14px", fontSize: 14, fontWeight: 700 }}>
-            <span>Seal your call now</span><span>→</span>
-          </div>
-        </Link>
-      )}
-
+    <div className="home-feed" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Link href="/rooms" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--lilac)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 18, padding: "12px 14px" }}>
         <Img n="cover_arcade" size={44} style={{ borderRadius: 12, border: "2px solid #111" }} />
         <div style={{ flex: 1 }}><div className="display" style={{ fontSize: 18 }}>Play with friends</div><div style={{ fontSize: 12, fontWeight: 700 }}>Pick your opponents. Every move sealed, opened together.</div></div>
@@ -147,35 +163,4 @@ function HomeFeedInner() {
       </div>
     </div>
   );
-}
-
-function useLiveSealCount(fixtureId: string | null): number | null {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!fixtureId) return;
-    const c = sb();
-    if (!c) return;
-    const channel = c.channel(`seals:${fixtureId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "seals", filter: `round=eq.${fixtureId}` }, () => {
-      setCount((prev) => (prev ?? 0) + 1);
-    }).subscribe();
-    return () => { c.removeChannel(channel); };
-  }, [fixtureId]);
-  return count;
-}
-
-function Countdown({ target }: { target: string }) {
-  const [left, setLeft] = useState("");
-  useEffect(() => {
-    function tick() {
-      const ms = Date.parse(target) - Date.now();
-      if (ms <= 0) { setLeft("Starting now"); return; }
-      const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000), s = Math.floor((ms % 60_000) / 1000);
-      setLeft(h > 0 ? `${h}h ${m}m until kickoff` : `${m}m ${s}s until kickoff`);
-    }
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [target]);
-  if (!left) return null;
-  return <div style={{ fontSize: 13, fontWeight: 800, color: "#5b6b12", textAlign: "center" }}>{left}</div>;
 }

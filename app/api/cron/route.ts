@@ -49,8 +49,8 @@ export async function GET(req: Request) {
         for (const m of body.matches ?? []) {
           if (m.score.fullTime.home == null) continue;
           const id = `fd-${m.id}`;
-          const { data: existing } = await sb.from("fixtures").select("id, home_goals").eq("id", id).maybeSingle();
-          if (existing && existing.home_goals == null) {
+          const { data: existing } = await sb.from("fixtures").select("id, home_goals, away_goals").eq("id", id).maybeSingle();
+          if (existing && (existing.home_goals !== m.score.fullTime.home || existing.away_goals !== m.score.fullTime.away)) {
             await sb.from("fixtures").update({ home_goals: m.score.fullTime.home, away_goals: m.score.fullTime.away }).eq("id", id);
             log.push(`✓ ${id} ${m.score.fullTime.home}-${m.score.fullTime.away}`);
           }

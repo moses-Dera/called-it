@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { MODES } from "@/lib/data";
 import { HomeFeed, HomeFixtures } from "@/components/home-feed";
-import { HomeHero } from "@/components/home-hero";
 import { BottomNav, ErrorBoundary, Img } from "@/components/ui";
 import { HomeBadge } from "@/components/home-badge";
 import { Onboarding } from "@/components/onboarding";
@@ -17,24 +16,19 @@ export default function Home() {
       </header>
 
       <div className="home-body" style={{ padding: "10px 20px 16px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
-        <div className="home-left">
-          <HomeHero />
-          <ErrorBoundary><HomeFixtures /></ErrorBoundary>
-          <section className="home-games" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Pick a game</h2>
-            <div className="tiles" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-              {MODES.map((m) => (
-                <Link key={m.key} href={m.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text)" }}>
-                  <Img n={m.img} size={76} style={{ borderRadius: 18, border: "2px solid #111", boxShadow: "3px 3px 0 var(--text)", transform: `rotate(${m.r}deg)`, maxWidth: "100%", height: "auto", aspectRatio: "1" }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.name}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </div>
-        <div className="home-right">
-          <ErrorBoundary><HomeFeed /></ErrorBoundary>
-        </div>
+        <ErrorBoundary><HomeFixtures /></ErrorBoundary>
+        <ErrorBoundary><HomeFeed /></ErrorBoundary>
+        <section className="home-games" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Pick a game</h2>
+          <div className="tiles" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+            {MODES.map((m) => (
+              <Link key={m.key} href={m.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text)" }}>
+                <Img n={m.img} size={76} style={{ borderRadius: 18, border: "2px solid #111", boxShadow: "3px 3px 0 var(--text)", transform: `rotate(${m.r}deg)`, maxWidth: "100%", height: "auto", aspectRatio: "1" }} />
+                <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
       <BottomNav active="/" />
     </main>

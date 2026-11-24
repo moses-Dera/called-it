@@ -1,7 +1,22 @@
 export const art = (n: string) => `/a/${n}.webp`;
 /** Fallback fixtures (used before the database answers, or without accounts). The live list comes
  * from the `fixtures` table, which admins manage at /admin. */
-export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null };
+export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null; status?: string | null; liveHome?: number | null; liveAway?: number | null };
+
+const LIVE_STATUSES = ["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"];
+const OFF_STATUSES = ["POSTPONED", "CANCELLED", "SUSPENDED"];
+// Without a feed status, assume a match is live for this long after kickoff.
+const LIVE_WINDOW_MS = 150 * 60_000;
+export type Phase = "upcoming" | "live" | "final" | "off";
+export function phaseOf(f: Fixture, now: number): Phase {
+  if (f.homeGoals != null) return "final";
+  if (f.status && LIVE_STATUSES.includes(f.status)) return "live";
+  if (f.status && OFF_STATUSES.includes(f.status)) return "off";
+  const k = Date.parse(f.kickoff);
+  if (Number.isNaN(k)) return "off";
+  if (k > now) return "upcoming";
+  return now - k < LIVE_WINDOW_MS ? "live" : "off";
+}
 export const FIXTURES: Fixture[] = [
   { id: "reds-blues-2026-11-21", home: "Reds", away: "Blues", kickoff: "2026-11-21T17:30:00Z", when: "Sat 21 Nov · 17:30" },
   { id: "lagos-derby-2026-11-22", home: "Lagos Reds", away: "Lagos Blues", kickoff: "2026-11-22T16:00:00Z", when: "Sun 22 Nov · 16:00" },

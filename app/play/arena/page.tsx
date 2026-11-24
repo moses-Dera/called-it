@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { Img, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { addReward, createSeal, useStore } from "@/lib/store";
-import { useFixtures } from "@/lib/cloud";
+import { useFixtures, useNow } from "@/lib/cloud";
+import { phaseOf, type Fixture } from "@/lib/data";
 
 const QS = [
   { q: "Goal in the next 10 minutes?", a: ["Yes", "No"], right: 0, split: [62, 38] },
@@ -13,21 +14,21 @@ type Done = { q: string; you: string; ok: boolean };
 
 export default function Arena() {
   const fixtures = useFixtures();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => { setNow(Date.now()); }, []);
+  const now = useNow();
 
-  // Find the best live or most recent match
-  const live = fixtures.find((f) => f.id.startsWith("fd-") && now && Date.parse(f.kickoff) <= now && f.homeGoals == null);
-  const recent = fixtures.filter((f) => f.id.startsWith("fd-") && f.homeGoals != null).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff))[0];
-  const upcoming = fixtures.filter((f) => f.id.startsWith("fd-") && now && Date.parse(f.kickoff) > now).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
+  const byKickoff = (a: Fixture, b: Fixture) => Date.parse(a.kickoff) - Date.parse(b.kickoff);
+  const real = now == null ? [] : fixtures.filter((f) => f.id.startsWith("fd-"));
+  const live = real.filter((f) => phaseOf(f, now!) === "live").sort(byKickoff)[0];
+  const recent = real.filter((f) => phaseOf(f, now!) === "final").sort((a, b) => byKickoff(b, a))[0];
+  const upcoming = real.filter((f) => phaseOf(f, now!) === "upcoming").sort(byKickoff)[0];
   const match = live ?? recent ?? upcoming;
 
   const home = match?.home ?? "Home";
   const away = match?.away ?? "Away";
   const isLive = !!live;
   const hasResult = match?.homeGoals != null;
-  const score = hasResult ? `${match!.homeGoals}–${match!.awayGoals}` : "vs";
-  const label = isLive ? "LIVE" : hasResult ? "Full time" : "Next up";
+  const score = hasResult ? `${match!.homeGoals}–${match!.awayGoals}` : isLive && match!.liveHome != null ? `${match!.liveHome}–${match!.liveAway}` : "vs";
+  const label = now == null ? "Loading" : isLive ? "LIVE" : hasResult ? "Full time" : "Next up";
 
   const [n, setN] = useState(0), [secs, setSecs] = useState(15), [pick, setPick] = useState<number | null>(null);
   const [settled, setSettled] = useState(false), [combo, setCombo] = useState(0), [done, setDone] = useState<Done[]>([]);
