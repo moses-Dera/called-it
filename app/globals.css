@@ -97,6 +97,7 @@ button { font-family: inherit; cursor: pointer; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 24px !important; }
   .home-games .tiles span { font-size: 14px !important; }
   .home-hero { align-self: start; }
+  .home-featured { align-self: start; }
   .fixture-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */

@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { ErrorBoundary, Img, SkeletonCard } from "./ui";
-import { useContests, useFixtures, useFixtureSealCounts, useMyContestIds } from "@/lib/cloud";
+import { ErrorBoundary, Img, SkeletonCard, TeamBadge } from "./ui";
+import { sb, useContests, useFixtures, useFixtureSealCounts, useMyContestIds } from "@/lib/cloud";
 
 export function HomeFeed() {
   return <ErrorBoundary><HomeFeedInner /></ErrorBoundary>;
@@ -15,11 +15,14 @@ function HomeFeedInner() {
   const sealCounts = useFixtureSealCounts();
   const myIds = useMyContestIds();
   const [now, setNow] = useState<number | null>(null);
-  useEffect(() => { setNow(Date.now()); }, []);
+  useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(t); }, []);
 
   const open = fixtures.filter((f) => now === null || Date.parse(f.kickoff) > now)
     .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
-  const rest = open.slice(0, 6);
+  const featured = open[0];
+  const rest = open.slice(1, 7);
+  const liveSealCount = useLiveSealCount(featured?.id ?? null);
+  const featuredCount = liveSealCount ?? sealCounts[featured?.id ?? ""] ?? 0;
   const loading = now === null;
 
   if (loading) {
@@ -32,6 +35,31 @@ function HomeFeedInner() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {featured && (
+        <Link href={`/seal?f=${featured.id}`} className="home-featured" style={{ display: "flex", flexDirection: "column", gap: 10, background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", borderRadius: 22, padding: 16, overflow: "hidden" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span className="eyebrow" style={{ color: "#5b6b12" }}>Featured match</span>
+            {featuredCount > 0 && <span className="chip" style={{ background: "var(--sky)", border: 0 }}>{featuredCount} sealed</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <TeamBadge name={featured.home} size={40} side="home" />
+              <b style={{ fontSize: 12, maxWidth: 90, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{featured.home}</b>
+            </div>
+            <span className="display" style={{ fontSize: 20 }}>vs</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <TeamBadge name={featured.away} size={40} side="away" />
+              <b style={{ fontSize: 12, maxWidth: 90, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{featured.away}</b>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#4a4436", textAlign: "center" }}>Kickoff {featured.when}</div>
+          <Countdown target={featured.kickoff} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#111", color: "var(--lime)", borderRadius: 14, padding: "11px 14px", fontSize: 14, fontWeight: 700 }}>
+            <span>Seal your call now</span><span>→</span>
+          </div>
+        </Link>
+      )}
+
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
@@ -108,3 +136,33 @@ function HomeFeedInner() {
   );
 }
 
+function useLiveSealCount(fixtureId: string | null): number | null {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!fixtureId) return;
+    const c = sb();
+    if (!c) return;
+    const channel = c.channel(`seals:${fixtureId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "seals", filter: `round=eq.${fixtureId}` }, () => {
+      setCount((prev) => (prev ?? 0) + 1);
+    }).subscribe();
+    return () => { c.removeChannel(channel); };
+  }, [fixtureId]);
+  return count;
+}
+
+function Countdown({ target }: { target: string }) {
+  const [left, setLeft] = useState("");
+  useEffect(() => {
+    function tick() {
+      const ms = Date.parse(target) - Date.now();
+      if (ms <= 0) { setLeft("Starting now"); return; }
+      const h = Math.floor(ms / 3_600_000), m = Math.floor((ms % 3_600_000) / 60_000), s = Math.floor((ms % 60_000) / 1000);
+      setLeft(h > 0 ? `${h}h ${m}m until kickoff` : `${m}m ${s}s until kickoff`);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  if (!left) return null;
+  return <div style={{ fontSize: 13, fontWeight: 800, color: "#5b6b12", textAlign: "center" }}>{left}</div>;
+}
