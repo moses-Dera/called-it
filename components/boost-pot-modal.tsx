@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Contest } from "@/lib/cloud";
 
-// Default public foundation / community prize funding address (unified address)
-const DEFAULT_ZCASH_FUND_ADDRESS =
-  process.env.NEXT_PUBLIC_ZCASH_FUND_ADDRESS ||
-  "u1y6u39vjrv5q2qfl2a752r9v78w6y37j7kux85kfq2t4h336n7q52s8swnh3qj79j936z5x26j22y8v8e5033c4nssw60r2m03p84x64t5n57q4pvgq4982y44h4z0f";
+// The operator's own prize-fund wallet. With none configured, boosting is switched off rather than
+// sending donations to an address nobody here controls.
+export const FUND_ADDRESS = process.env.NEXT_PUBLIC_ZCASH_FUND_ADDRESS?.trim() || null;
 
 const PRESET_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 
@@ -37,7 +36,7 @@ export function BoostPotModal({
 
   const activeAmount = custom ? parseFloat(custom) || 0.1 : amount;
   const memoText = `boost:${contest.id}`;
-  const address = DEFAULT_ZCASH_FUND_ADDRESS;
+  const address = FUND_ADDRESS ?? "";
   const zip321Uri = toZip321(address, activeAmount, memoText);
 
   useEffect(() => {
@@ -132,7 +131,7 @@ export function BoostPotModal({
         </div>
 
         <p style={{ margin: 0, fontSize: 13, color: "#423820", lineHeight: 1.45, fontWeight: 600 }}>
-          Make <b>{contest.title}</b> even bigger! Anyone can boost the prize pot directly via shielded Zcash. 100% of contributions are added to this contest&apos;s payout pool.
+          Make <b>{contest.title}</b> even bigger! Anyone can boost the prize pot with shielded ZEC. The organiser adds every boost to this contest&apos;s prize pot, so the total updates after it arrives.
         </p>
 
         {/* Amount Selector */}

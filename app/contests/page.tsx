@@ -18,6 +18,7 @@ export default function ContestsPage() {
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Contests</h1>
+        <Link href="/sponsor" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>Sponsor a contest →</Link>
         <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)" }}>FREE TO PLAY</span>
       </div>
       <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "var(--muted)", lineHeight: 1.5 }}>

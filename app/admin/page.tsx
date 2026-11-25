@@ -289,6 +289,36 @@ function ImportCard() {
   );
 }
 
+type SponsorRequest = { id: number; brand: string; contact: string; budget_zec: number | null; matches: string; message: string; status: "new" | "handled"; created_at: string };
+function SponsorRequests() {
+  const [list, setList] = useState<SponsorRequest[] | null>(null), [err, setErr] = useState("");
+  const load = useCallback(() => { cloudRpc<SponsorRequest[]>("admin_sponsor_requests").then(setList).catch((e) => setErr(e instanceof Error ? e.message : "Could not load requests")); }, []);
+  useEffect(() => { load(); }, [load]);
+  async function mark(id: number, status: "new" | "handled") {
+    try { await cloudRpc("admin_mark_sponsor_request", { p_id: id, p_status: status }); load(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not update"); }
+  }
+  const open = list?.filter((r) => r.status === "new") ?? [];
+  return (
+    <section style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+      <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Sponsor requests {open.length > 0 && <span className="chip" style={{ background: "var(--lime)", fontSize: 12, verticalAlign: "middle" }}>{open.length} new</span>}</h2>
+      {err && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</div>}
+      {list && list.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>No requests yet. Brands send them from the Sponsor a contest page (/sponsor).</p>}
+      {list?.map((r) => (
+        <div key={r.id} style={{ background: "var(--panel)", border: `2px solid ${r.status === "new" ? "var(--lime)" : "var(--line)"}`, borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 4, opacity: r.status === "new" ? 1 : 0.65 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+            <b style={{ fontSize: 15 }}>{r.brand}</b>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(r.created_at).toLocaleDateString()}</span>
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, overflowWrap: "anywhere" }}>{r.contact}{r.budget_zec ? ` · ${r.budget_zec} ZEC budget` : ""}</span>
+          {r.matches && <span style={{ fontSize: 13 }}>Matches: {r.matches}</span>}
+          {r.message && <span style={{ fontSize: 13, color: "#c9d3de", whiteSpace: "pre-wrap" }}>{r.message}</span>}
+          <button className="btn btn-quiet" style={{ alignSelf: "flex-start", width: "auto", minHeight: 36, padding: "0 12px", marginTop: 4 }} onClick={() => mark(r.id, r.status === "new" ? "handled" : "new")}>{r.status === "new" ? "Mark handled" : "Mark as new"}</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   const contests = useContests(), fixtures = useFixtures();
   const [contestMsg, setContestMsg] = useState<{ text: string; bad?: boolean } | null>(null);
@@ -320,6 +350,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <SponsorRequests />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
           <div role="status" style={{ padding: "8px 12px", borderRadius: 10, background: contestMsg.bad ? "#ffefef" : "#f0fadc", border: `1px solid ${contestMsg.bad ? "#ffb3b3" : "#c4e680" }`, color: contestMsg.bad ? "#9a2d1d" : "#2d5200", fontSize: 13, fontWeight: 700 }}>

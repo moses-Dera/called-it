@@ -177,6 +177,18 @@ export async function cloudRpc<T = unknown>(name: string, args: Record<string, u
   return data as T;
 }
 
+/** Counts up every `ms` while the page is visible, and once more when it becomes visible again. */
+export function useVisibleTick(ms: number): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const bump = () => { if (document.visibilityState === "visible") setTick((t) => t + 1); };
+    const t = setInterval(bump, ms);
+    document.addEventListener("visibilitychange", bump);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", bump); };
+  }, [ms]);
+  return tick;
+}
+
 // ---------- Verified tipster profiles ----------
 export type TipsterTip = {
   fixture_id: string; home: string; away: string; kickoff: string; home_goals: number; away_goals: number;
@@ -192,16 +204,19 @@ export type Tipster = {
 /** A public tipster record: undefined while loading, null when the handle is unknown or private. */
 export function useTipster(handle: string | null): { tipster: Tipster | null | undefined; error?: string } {
   const [state, setState] = useState<{ handle: string | null; tipster: Tipster | null | undefined; error?: string }>({ handle: null, tipster: undefined });
+  const tick = useVisibleTick(60_000);
   useEffect(() => {
     const c = sb();
     if (!handle) return;
     if (!c) { setState({ handle, tipster: null, error: "Accounts are not configured." }); return; }
     let live = true;
     c.rpc("tipster_profile", { p_handle: handle }).then(({ data, error }) => {
-      if (live) setState({ handle, tipster: error ? null : (data as Tipster | null), error: error?.message });
+      if (!live) return;
+      // A failed background refresh keeps what is already on screen.
+      setState((prev) => error && prev.handle === handle && prev.tipster ? prev : { handle, tipster: error ? null : (data as Tipster | null), error: error?.message });
     });
     return () => { live = false; };
-  }, [handle]);
+  }, [handle, tick]);
   return state.handle === handle ? state : { tipster: undefined };
 }
 export async function followTipster(handle: string, follow: boolean) {
@@ -363,12 +378,13 @@ export function useMyContestIds(): string[] {
 }
 export function useContestEntryCount(id: string | null): number | null {
   const [count, setCount] = useState<number | null>(null);
+  const tick = useVisibleTick(30_000);
   useEffect(() => {
     if (!id || !sb()) return;
     let live = true;
     cloudRpc<number>("contest_entry_count", { p_id: id }).then((n) => live && setCount(Number(n))).catch(() => {});
     return () => { live = false; };
-  }, [id]);
+  }, [id, tick]);
   return count;
 }
 export function useFixtureSealCounts(): Record<string, number> {
@@ -426,6 +442,24 @@ export function useContestBoard(id: string | null): { rows: Rank[] | null; loadM
       .catch(() => live && setRows([]));
     return () => { live = false; };
   }, [id]);
+
+  // Keep the first page current while the page is open; leave it alone once more pages are loaded.
+  const tick = useVisibleTick(30_000);
+  const firstPageOnly = !rows || rows.length <= LB_PAGE;
+  useEffect(() => {
+    if (!tick || !id || !sb() || !firstPageOnly) return;
+    let live = true;
+    cloudRpc<Rank[]>("contest_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: 0 })
+      .then((data) => {
+        if (!live) return;
+        const mapped = data.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+        setRows(mapped);
+        setHasMore(mapped.length >= LB_PAGE);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, id]);
 
   function loadMore() {
     if (!id || !rows || loading) return;

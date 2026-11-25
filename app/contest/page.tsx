@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { BoostPotModal } from "@/components/boost-pot-modal";
+import { BoostPotModal, FUND_ADDRESS } from "@/components/boost-pot-modal";
 import { art } from "@/lib/data";
 import { joinContest, leaveContest, useCloud, useContestBoard, useContestEntryCount, useContests, useFixtures, useMyContestIds } from "@/lib/cloud";
 
@@ -69,7 +69,7 @@ export default function ContestPage() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
               </div>
-              <button
+              {FUND_ADDRESS && c.status === "open" && <button
                 onClick={() => setBoostOpen(true)}
                 style={{
                   display: "inline-flex",
@@ -86,7 +86,7 @@ export default function ContestPage() {
                 }}
               >
                 ⚡ Boost Pot
-              </button>
+              </button>}
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
               {STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. Seal before each kickoff while signed in.
@@ -158,7 +158,7 @@ export default function ContestPage() {
           </section>
         </div>
       )}
-      {boostOpen && c && <BoostPotModal contest={c} onClose={() => setBoostOpen(false)} />}
+      {boostOpen && c && FUND_ADDRESS && <BoostPotModal contest={c} onClose={() => setBoostOpen(false)} />}
       <BottomNav active="/" />
     </main>
   );
