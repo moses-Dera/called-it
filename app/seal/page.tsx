@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { fixtureOf } from "@/lib/data";
+import { fixtureOf, phaseOf } from "@/lib/data";
 import { useCloud, useFixtures } from "@/lib/cloud";
 import { Img, Lock, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
@@ -53,7 +53,9 @@ export default function SealPage() {
   const session = useCloud().session;
   const userName = tgUser?.first_name || session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "A Player";
 
-  const fx = fixtureOf(fid, fixtures);
+  // No fixture in the link (or an unknown one): default to the next match that can still be sealed.
+  const nextOpen = now == null ? undefined : fixtures.filter((f) => phaseOf(f, now) === "upcoming").sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
+  const fx = (fid ? fixtures.find((f) => f.id === fid) : undefined) ?? nextOpen ?? fixtureOf(fid, fixtures);
   const closed = now !== null && Date.parse(fx.kickoff) <= now; // sealing ends at kickoff
   // Which fixture: /seal?f=<fixture id>. Read on the client so the page stays static.
   useEffect(() => { setFid(new URLSearchParams(location.search).get("f")); setNow(Date.now()); }, []);

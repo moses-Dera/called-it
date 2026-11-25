@@ -50,7 +50,7 @@ export default function HowPage() {
             <span className="display" style={{ fontSize: 18 }}>Powered by Zcash</span>
           </div>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--muted)", lineHeight: 1.5 }}>
-            Seal batches are anchored on the Zcash blockchain — a permanent, public ledger nobody controls. This means even we can't tamper with the timestamps after the fact. Think of it like a notary stamp that lives forever on a public record.
+            Seal batches are anchored on the Zcash blockchain — a permanent, public ledger nobody controls. This means even we can&apos;t tamper with the timestamps after the fact. Think of it like a notary stamp that lives forever on a public record.
           </p>
           <details style={{ fontSize: 12, color: "var(--muted)" }}>
             <summary style={{ cursor: "pointer", fontWeight: 800, color: "var(--lime)" }}>Technical details</summary>

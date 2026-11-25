@@ -70,7 +70,7 @@ export async function anchorPending() {
         const s = read();
         write({ ...s, seals: s.seals.map((x) => {
           const i = fresh.findIndex((p) => p.id === x.id);
-          return i < 0 ? x : { ...x, root: j.root, proof: j.proofs[i], mode: j.mode, ...(j.txid ? { status: "onchain", txid: j.txid, height: j.height } : {}) };
+          return i < 0 ? x : { ...x, root: j.root, proof: j.proofs[i], mode: j.mode, ...(j.status === "mined" ? { status: "onchain", txid: j.txid, height: j.height } : {}) };
         }) });
       }
     }
@@ -79,10 +79,10 @@ export async function anchorPending() {
       const r = await fetch(`/api/anchor?root=${root}`);
       if (!r.ok) continue;
       const j = await r.json();
-      if (!j.txid && j.status !== "failed") continue;
+      if (j.status !== "mined" && j.status !== "failed") continue;
       const s = read();
       write({ ...s, seals: s.seals.map((x) => x.root !== root || x.status !== "sealed" ? x
-        : j.txid ? { ...x, status: "onchain", txid: j.txid, height: j.height, mode: j.mode }
+        : j.status === "mined" ? { ...x, status: "onchain", txid: j.txid, height: j.height, mode: j.mode }
         : { ...x, root: undefined, proof: undefined }) }); // failed: start again in a new batch
     }
   } catch {}

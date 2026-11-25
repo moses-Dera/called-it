@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { buildTree } from "@/lib/merkle";
 import { stampRoot, checkRoot } from "@/lib/ots";
 
+// Calendar calls run in parallel with a 12s timeout each.
+export const maxDuration = 30;
+
 const rateMap = new Map<string, number[]>();
 function rateOk(key: string, max: number, windowMs: number): boolean {
   const now = Date.now();

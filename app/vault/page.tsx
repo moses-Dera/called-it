@@ -97,7 +97,7 @@ export default function Vault() {
             {open === x.id && (
               <div className="mono" style={{ fontSize: 11, color: "#4a4436", lineHeight: 1.7, marginTop: 8, overflowWrap: "anywhere" }}>
                 sealed {new Date(x.sealedAt).toISOString().slice(0, 19).replace("T", " ")} UTC<br />fingerprint {short(x.commitment)}
-                {x.root && <><br />batch {short(x.root)} · {x.proof?.length ?? 0} proof steps<br />block {x.height?.toLocaleString()} · tx {short(x.txid)}</>}
+                {x.root && <><br />batch {short(x.root)} · {x.proof?.length ?? 0} proof steps<br />Bitcoin block {x.height?.toLocaleString() ?? "pending"}{x.txid ? <> · tx {short(x.txid)}</> : null}</>}
                 <br /><button onClick={() => verify(x)} style={{ marginTop: 6, minHeight: 36, padding: "0 12px", borderRadius: 10, border: "2px solid #111", background: "var(--lime)", fontWeight: 800, fontSize: 12 }}>Verify now</button>
                 {checks[x.id] && <div style={{ marginTop: 6, fontWeight: 700 }}>{checks[x.id]}</div>}
               </div>

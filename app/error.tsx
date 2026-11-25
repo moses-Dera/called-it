@@ -23,6 +23,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <button onClick={reset} style={{ minHeight: 48, padding: "0 24px", borderRadius: 14, border: "2px solid #111", background: "#C6F432", color: "#111", fontWeight: 800, fontSize: 15, cursor: "pointer", boxShadow: "3px 3px 0 #111" }}>
           Try again
         </button>
+        {/* Full reload on purpose: it clears whatever state crashed the app. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" style={{ minHeight: 48, padding: "0 24px", borderRadius: 14, border: "2px solid #2a3444", background: "transparent", color: "#f2f5f7", fontWeight: 800, fontSize: 15, display: "flex", alignItems: "center", textDecoration: "none" }}>
           Go home
         </a>

@@ -7,6 +7,12 @@ export async function GET(req: Request) {
   if (!token) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const publicKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (url && publicKey) {
+    const asCaller = createClient(url, publicKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } });
+    const { data: isAdmin } = await asCaller.rpc("is_admin");
+    if (!isAdmin) return NextResponse.json({ error: "admin access required" }, { status: 403 });
+  }
   if (!url || !key) return NextResponse.json({ ok: false, mode: "simulated", error: "SUPABASE_SERVICE_ROLE_KEY not set — running in simulated mode" }, { status: 200 });
 
   try {
