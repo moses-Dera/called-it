@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BottomNav, Img, Lock, TopBar } from "@/components/ui";
 import { followTipster, useCloud, useTipster, type TipsterTip } from "@/lib/cloud";
 import { describePick } from "@/lib/data";
+import { usePush } from "@/components/notifications";
 import { short } from "@/lib/store";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -53,6 +54,7 @@ export default function TipsterPage() {
   useEffect(() => { setHandle(new URLSearchParams(location.search).get("h")); }, []);
   const { tipster: t } = useTipster(handle);
   const signedIn = !!useCloud().session;
+  const push = usePush();
   const [follow, setFollow] = useState<{ on: boolean; count: number } | null>(null);
   const [followMsg, setFollowMsg] = useState("");
   const f = follow ?? (t ? { on: t.following, count: t.followers } : null);
@@ -104,7 +106,15 @@ export default function TipsterPage() {
                   : <Link href="/profile" className="btn btn-quiet" style={{ width: "auto", padding: "0 18px" }}>Sign in to follow</Link>}
             </section>
             {followMsg && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)", marginTop: -8 }}>{followMsg}</div>}
-            {f?.on && <span style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>You&apos;ll get a notification when @{t.handle} seals a tip, if notifications are on for this device.</span>}
+            {f?.on && (
+              push.on ? <span style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>You&apos;ll get a notification on this device when @{t.handle} seals a tip.</span>
+              : push.supported && !push.denied ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--panel)", border: "2px solid var(--lime)", borderRadius: 14, padding: "10px 12px", marginTop: -8 }}>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Get told when @{t.handle} seals a tip</span>
+                  <button className="btn" disabled={push.busy} onClick={push.enable} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--lime)", color: "#111" }}>Turn on</button>
+                </div>
+              ) : <span style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>{push.denied ? "Notifications are blocked for this site in your browser settings." : "Notifications aren't available on this device."} Check this page for new tips.</span>
+            )}
 
             <section style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--lime)", color: "#111", border: "3px solid #111", borderRadius: 16, padding: "10px 14px" }}>
               <Lock size={22} />
