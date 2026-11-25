@@ -26,11 +26,11 @@ create index if not exists tip_results_user_settled on public.tip_results (user_
 alter table public.tip_results enable row level security;
 -- No policies: only the service role writes, and the public reads through tipster_profile().
 
--- Anyone who has ever had a public record cannot delete Classic Call or tip seals: deleting a losing tip
+-- Anyone who has ever had a public record cannot delete Classic Call seals: deleting a losing tip
 -- before full time would otherwise keep it off the record.
 create or replace function public.seals_no_delete_for_tipsters() returns trigger language plpgsql as $$
 begin
-  if old.game in ('classic', 'tip') and exists (select 1 from public.profiles where id = old.user_id and public_since is not null) then
+  if old.game = 'classic' and exists (select 1 from public.profiles where id = old.user_id and public_since is not null) then
     raise exception 'tips on a public record cannot be deleted';
   end if;
   return old;
@@ -70,49 +70,6 @@ end $$;
 drop trigger if exists profiles_guard_public on public.profiles;
 create trigger profiles_guard_public before insert or update on public.profiles
   for each row execute function public.profiles_guard_public();
-
--- Follows: a player follows a tipster to hear when they seal a tip.
-create table if not exists public.follows (
-  follower   uuid not null references auth.users on delete cascade,
-  tipster    uuid not null references auth.users on delete cascade,
-  created_at timestamptz not null default now(),
-  primary key (follower, tipster),
-  check (follower <> tipster)
-);
-create index if not exists follows_tipster on public.follows (tipster);
-alter table public.follows enable row level security;
-drop policy if exists "own follows read" on public.follows;
-drop policy if exists "own follows add" on public.follows;
-drop policy if exists "own follows remove" on public.follows;
-create policy "own follows read" on public.follows for select to authenticated using ((select auth.uid()) = follower);
-create policy "own follows add" on public.follows for insert to authenticated with check ((select auth.uid()) = follower);
-create policy "own follows remove" on public.follows for delete to authenticated using ((select auth.uid()) = follower);
-
--- Follow or unfollow by handle; returns whether the caller now follows.
-create or replace function public.follow_tipster(p_handle text, p_follow boolean)
-returns boolean language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); t uuid;
-begin
-  if uid is null then raise exception 'sign in to follow'; end if;
-  select id into t from public.profiles where handle = lower(p_handle) and public_record;
-  if t is null then raise exception 'no public tipster with that handle'; end if;
-  if t = uid then raise exception 'you cannot follow yourself'; end if;
-  if p_follow then insert into public.follows (follower, tipster) values (uid, t) on conflict do nothing;
-  else delete from public.follows where follower = uid and tipster = t; end if;
-  return p_follow;
-end $$;
-revoke all on function public.follow_tipster(text, boolean) from public, anon;
-grant execute on function public.follow_tipster(text, boolean) to authenticated;
-
--- Which tips have already been announced to followers (written by the server only).
-create table if not exists public.tip_announcements (
-  user_id    uuid not null references auth.users on delete cascade,
-  fixture_id text not null,
-  seal_id    text not null,
-  sent_at    timestamptz not null default now(),
-  primary key (user_id, fixture_id)
-);
-alter table public.tip_announcements enable row level security;
 
 -- Claim a handle and turn the public record on or off.
 create or replace function public.set_tipster_profile(p_handle text, p_bio text, p_public boolean)
@@ -155,7 +112,7 @@ returns jsonb language sql stable security definer set search_path = public as $
     from public.seals s
     join p on p.id = s.user_id
     join public.fixtures f on f.id = s.round
-    where s.game in ('classic', 'tip') and s.received_at < f.kickoff and f.home_goals is null
+    where s.game = 'classic' and s.received_at < f.kickoff and f.home_goals is null
       and not exists (select 1 from public.tip_results t where t.user_id = s.user_id and t.fixture_id = s.round)
     order by s.round, s.received_at
   )
@@ -165,9 +122,6 @@ returns jsonb language sql stable security definer set search_path = public as $
     'avatar', (select avatar from p),
     'bio', (select bio from p),
     'public_since', (select public_since from p),
-    'followers', (select count(*) from public.follows fo join p on p.id = fo.tipster),
-    'following', exists (select 1 from public.follows fo join p on p.id = fo.tipster where fo.follower = auth.uid()),
-    'is_me', exists (select 1 from p where p.id = auth.uid()),
     'settled', (select count(*) from r),
     'won', (select count(*) from r where outcome = 'won'),
     'exact', (select count(*) from r where exact),
