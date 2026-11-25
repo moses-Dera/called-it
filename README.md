@@ -100,14 +100,13 @@ none; no other way to add an admin exists in the app). From there:
   withdraw from the Vault.
 - **Prize fund wallet:** your own shielded address, stored in `app_settings`. Boost the Pot and sponsor funding pay
   it through ZIP-321 payment QR codes (`lib/zip321.ts`). Boost the Pot stays hidden until it is set.
-- **Sponsors:** grant the sponsor role by the person's sign-in email (they must sign in once first). Sponsors open
-  `/sponsor` to reach their dashboard, where they create contests, schedule when they go public, pause joining,
-  watch entries and seals per match live, and fund the prize. Contests go public without approval; the admin can
-  hide any contest. Once players join, the matches, prize and deadline are locked.
+- **Sponsors (self-serve):** anyone signed in opens `/sponsor`, types a brand name and gets a dashboard at once,
+  with no request or approval. Sponsors create contests, schedule when they go public, pause joining, watch
+  entries and seals per match live, and fund the prize. Each sponsor runs at most 5 open contests at a time. Once
+  players join, the matches, prize and deadline are locked. The admin can block a sponsor and hide any contest.
 - **Funding ledger:** sponsors pay the prize wallet with memo `fund:<contest id>`; the admin records the amount
   received against that contest. A sponsor's contest only auto-settles once fully funded, and hidden contests never
-  auto-settle. Contest pages show "Prize funded" when the ledger covers the prize.
-- **Sponsor requests:** brands that aren't sponsors yet send a request from `/sponsor`; requests appear here.
+  auto-settle. Contest pages show "Prize funded" or "Prize not funded yet" so players can tell.
 - **Network:** mainnet (real ZEC, the default) or testnet for a practice run with test coins. The whole app
   follows it: address checks, the prize wallet (cleared on every switch) and the payout tool, which refuses to
   run on the other network. Players see a test-mode banner on testnet.
