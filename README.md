@@ -1,16 +1,22 @@
 # Called It
 
-Seal your call now. Prove it later. A free-to-play social game app where every prediction,
-vote and game move is sealed before the outcome is known, so nobody can cheat or change their answer.
+Seal your call now. Prove it later. A free-to-play football prediction and social game app where every
+prediction, vote and game move is sealed before the outcome is known, so nobody can cheat or change their answer.
+Tipsters publish records nobody can fake, sponsors run contests with ZEC prize pools, and winners are paid in
+shielded ZEC.
 
 ## How sealing works
 
-1. **On your device:** the app hashes `player + round + move + random salt` (SHA-256). Only the hash leaves the phone.
-2. **Batching:** `/api/anchor` collects hashes into a Merkle tree and anchors the single root in a shielded Zcash memo.
-3. **Reveal:** the move and salt are re-hashed and the Merkle proof is checked against the anchored root.
+1. **On your device:** the app hashes `calledit:v1|player|round|move|salt` (SHA-256). Only this fingerprint is timestamped.
+2. **Batching:** `/api/anchor` collects fingerprints into a Merkle tree and submits the root to the public
+   OpenTimestamps calendars, which commit it into a Bitcoin block (`lib/ots.ts`). The proof is stored as a
+   standard `.ots` file in the `ots_proofs` table and served at `/api/anchor/proof?root=…`.
+3. **Confirming:** the browser asks `/api/anchor?root=…` until the calendars return the Bitcoin attestation;
+   the seal then shows its block height. Check any proof yourself with `ots verify -d <root> proof.ots`.
+4. **Reveal:** the move and salt are re-hashed and the Merkle proof is checked against the timestamped root.
 
-Anchoring runs in **simulated mode** unless `ANCHOR_URL` (and `ANCHOR_TOKEN`) point at the anchor
-service (zcash.js on Zcash testnet). The hashing, Merkle proofs and verification are real in both modes.
+Without `SUPABASE_SERVICE_ROLE_KEY` the app runs in **simulated mode** and labels seals as simulated. Hashing,
+Merkle proofs and verification are real in both modes.
 
 ## Accounts (Supabase + Google sign-in)
 
@@ -30,7 +36,7 @@ Sealed moves follow the account through a **reveal escrow** (`/api/escrow`): eac
 `SEAL_ESCROW_KEY`, a key held only in the server environment, stored in the player's own rows, and
 decrypted only for that player, so they can reveal from any device with nothing to remember. Other players
 can never read moves early. Trade-off: whoever runs the server could; nobody can change a move, because
-its hash is already sealed and anchored on Zcash. Set `SEAL_ESCROW_KEY` (`openssl rand -base64 32`) on
+its hash is already sealed and timestamped on Bitcoin. Set `SEAL_ESCROW_KEY` (`openssl rand -base64 32`) on
 Vercel. Points are score only; ZEC comes from contest prizes.
 
 ## Ranked points, fixtures and payouts
@@ -42,10 +48,10 @@ Vercel. Points are score only; ZEC comes from contest prizes.
   result in the `fixtures` table. The leaderboard (`leaderboard()`) and the prize balance count only these.
 - **Fixtures** live in the `fixtures` table. Enter a final score in the Supabase SQL editor once a match ends:
   `update fixtures set home_goals = 2, away_goals = 1 where id = 'reds-blues-2026-11-21';`
-- **Withdrawals**: signed-in players request a payout from the Vault (`request_withdrawal()`, testnet
-  `utest1…` addresses only). Pay them from the anchor wallet with
-  `SUPABASE_URL=… SUPABASE_SECRET_KEY=… npm run payouts` in `services/anchor`. The secret key is for that
-  script only; never put it in the web app or on Vercel.
+- **Withdrawals**: signed-in players request a payout from the Vault (`request_withdrawal()`). Only
+  mainnet shielded addresses are accepted (`u1…` or `zs1…`); the app checks the address checksum
+  (`lib/zaddr.ts`) so typos and partial pastes are caught, and requests are serialised per player so one
+  balance can't be withdrawn twice. Payouts go out from the admin Payouts tab (`services/anchor`).
 
 ## Play with friends (real players)
 
@@ -55,29 +61,50 @@ true answer), a group Time Capsule (opens on a chosen date), Bluff Vault (2-6 pl
 the same seven cards, one sealed per round), Fog of War (1 vs 1; sealed unit positions and volleys,
 reports re-checked at the end) and Werewolf (5-8 players; a sealed role deal opened and checked at the end).
 
-Each move is sealed on the device (only the hash reaches the server, and it is also anchored on Zcash).
+Each move is sealed on the device (only the hash reaches the server, and it is also timestamped on Bitcoin).
 When everyone has sealed, each device reveals its move and salt; the server re-hashes them against the
 seals and settles the round. Moves stay hidden until then, even from players who already revealed.
 Anyone who doesn't reveal within 10 minutes forfeits. Wins give ranked points but no ZEC. Rooms update
 live through Supabase Realtime.
 
+## Verified tipster records
+
+Any signed-in player can publish a public record at `/tipster?h=<handle>` (Profile > Public tipster record).
+Tipsters seal Classic Calls or market tips at `/tip` (match result, over/under 2.5 goals, both teams to score).
+The record can't be cherry-picked:
+
+- Only tips sealed **after** the record went public count, and only the **first** tip on each match.
+- The server settles every tip itself a few hours after full time (`lib/tipsters.ts`, run from `/api/cron` and
+  `/api/live`), decrypting it from the reveal escrow. A tip whose escrowed copy is missing or doesn't match its
+  seal counts as lost.
+- Once a record has been public, its Classic Call and tip seals can't be deleted, even after going private.
+- Open tips show only that a tip exists; the pick is revealed after full time. Each settled tip links to its
+  Bitcoin `.ots` proof.
+
+Players follow tipsters (`follow_tipster()`) and get a push notification, without the pick, when a followed
+tipster seals a tip (`/api/tipsters/announce`).
+
 ## Admin, contests and sponsors
 
-Open `/admin` while signed in. The first account to press **Claim admin** becomes the admin (only while
-there is none), and an Admin link then appears in its sidebar. From there:
+Open `/admin` while signed in. The first account to press **Claim admin** becomes the admin (only while there is
+none; no other way to add an admin exists in the app). From there:
 
-- **Fixtures:** add matches (or "Demo match in 10 min" to try the full flow), and enter final scores.
-  Signed-in players who sealed a fixture are scored automatically the next time they open the app.
-- **Contests and sponsors:** group fixtures into a contest with an optional sponsor, branding (logo,
-  colour, URL), a description, an entry deadline, and a ZEC prize pot. Players opt in at
-  `/contest?c=<id>` (join/leave). Prize structures: **top3** (50/30/20), **top10**, **all_correct**
-  (split among exact-score winners), or **random_draw** (one lucky winner). Closing a contest
-  distributes prizes as verified rewards the winners can withdraw from the Vault.
-- **Real fixtures:** with `FOOTBALL_DATA_KEY` set (a free key from football-data.org), "Import next
-  10 days" adds real matches for a chosen competition and "Fetch results" enters their final scores.
-  The key stays on the server (`/api/football`, admin-only).
-- **Payout requests:** see every request, mark paid or rejected (or run `npm run payouts`).
-- **Transaction record:** every anchor transaction (block, seals, players) and every payout, with ids to copy.
+- **Fixtures:** import real fixtures and results from football-data.org (`FOOTBALL_DATA_KEY`), or add a match by hand.
+- **Contests:** group fixtures into a contest with branding (logo, colour, URL), a description, an entry deadline,
+  a ZEC prize pot and a prize split (top 3/5/10/20, custom percentages, equal split, all exact scores, random draw).
+  Contests settle automatically when their last match finishes (`/api/cron`); winners get verified rewards they
+  withdraw from the Vault.
+- **Prize fund wallet:** your own shielded address, stored in `app_settings`. Boost the Pot and sponsor funding pay
+  it through ZIP-321 payment QR codes (`lib/zip321.ts`). Boost the Pot stays hidden until it is set.
+- **Sponsors:** grant the sponsor role by the person's sign-in email (they must sign in once first). Sponsors open
+  `/sponsor` to reach their dashboard, where they create contests, schedule when they go public, pause joining,
+  watch entries and seals per match live, and fund the prize. Contests go public without approval; the admin can
+  hide any contest. Once players join, the matches, prize and deadline are locked.
+- **Funding ledger:** sponsors pay the prize wallet with memo `fund:<contest id>`; the admin records the amount
+  received against that contest. A sponsor's contest only auto-settles once fully funded, and hidden contests never
+  auto-settle. Contest pages show "Prize funded" when the ledger covers the prize.
+- **Sponsor requests:** brands that aren't sponsors yet send a request from `/sponsor`; requests appear here.
+- **Payouts and Credit:** pay winners and withdrawals in shielded ZEC, and award verified points.
 
 ### Auto fixture pipeline (cron)
 
@@ -94,7 +121,7 @@ Set up a cron job (Vercel Cron, Railway, or plain `curl`) to hit each every 30 m
 
 ### Push notifications
 
-Players tap the bell icon on the home screen to subscribe. The service worker (`public/sw.js`)
+Players tap the bell icon on the home screen to subscribe, and new followers of a tipster are offered a one-tap prompt. The service worker (`public/sw.js`)
 handles push events and caches the app shell for offline use.
 
 Required env vars:
@@ -129,49 +156,16 @@ fixture count and entry status. Players can share a contest link with a referral
 
 The root `app/opengraph-image.tsx` generates the default OG image for the site.
 
-## Zcash testnet anchoring
+## Prize payouts (services/anchor)
 
-`services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/)
-(`@zcashlabs/zcash.js` 0.1.2, installed from its GitHub release because npm still has 0.1.1). It talks to the public light-wallet server `testnet.zec.rocks`, so there is
-no full node and nothing to compile. Each anchor is a shielded Ironwood transaction to the wallet's
-own address with the memo `CI1|<root>` (up to 7 roots share one transaction). The wallet lives on
-disk, so the service runs on a normal machine or VPS, not on Vercel.
+`services/anchor/` is a small Node service built on [zcash.js](https://zcashlabs.github.io/zcashjs/), a Zcash light
+client (no full node). It pays contest winners and withdrawals in shielded ZEC with a memo. Run it with
+`ZCASH_NETWORK=mainnet node cli.mjs payouts` (or `contest-payout <id>`), or connect GitHub Actions
+(`GITHUB_REPO`, `GITHUB_PAT`) so the admin Payouts tab can trigger `.github/workflows/payouts.yml` with one click.
+The wallet's 24-word phrase lives in `~/.called-it/anchor-wallet/mnemonic.txt` (or `ANCHOR_MNEMONIC`); keep it safe.
+`services/anchor` also ships a `Dockerfile` and `docker-compose.yml` for an always-on server.
 
-```bash
-cd services/anchor
-npm install
-npm run init-wallet   # creates the testnet wallet once and prints the address to fund
-```
-
-1. Fund the printed `utest1…` address from a testnet faucet
-   ([fauzec.com](https://fauzec.com/) or [zcashfaucet.jinolabs.xyz](https://zcashfaucet.jinolabs.xyz/)).
-   Check it arrived with `npm run balance` (3 confirmations before it is spendable).
-2. Start the service. Either `npm run online`, which starts it plus a free Cloudflare quick tunnel
-   (`cloudflared` must be installed) and prints the `ANCHOR_URL` and token for Vercel, or
-   `ANCHOR_TOKEN=<long random secret> npm start` on a server you expose yourself.
-3. Point the app at it with `ANCHOR_URL=http://127.0.0.1:8787` and the same `ANCHOR_TOKEN` in `.env.local`.
-   For the deployed app, the service has to be reachable from the internet (a small VPS or a tunnel).
-
-Notes on the SDK (handled automatically):
-
-- The built-in testnet preset stops at NU6.3, so `wallet.mjs` defines testnet with NU7 (block 4,465,026,
-  from librustzcash `zcash_protocol`).
-- `npm install` runs `patch-sdk.mjs`, which accepts light-server protocol v0.6.0 (upstream PR #28) and
-  stops standing transparent-address polls from blocking every send.
-
-**Deploying on an always-on server (recommended for launch).** `services/anchor` ships a `Dockerfile`
-and a `docker-compose.yml` that runs the service behind Caddy with automatic HTTPS. Any small Linux
-server works (a $5 VPS, or Oracle Cloud's Always Free tier). Steps are at the top of
-`docker-compose.yml`: set `ANCHOR_DOMAIN` and `ANCHOR_TOKEN` in `.env`, run `init` once, fund the
-address, `docker compose up -d`, then point `ANCHOR_URL` in Vercel at `https://<domain>`.
-
-The wallet's 24-word phrase is saved in `~/.called-it/anchor-wallet/mnemonic.txt` (or supply
-`ANCHOR_MNEMONIC`). It is a testnet wallet; never send real ZEC to it.
-
-Other settings: `ANCHOR_ZATS` (amount sent to itself per anchor, default 10000 zats; only the fee is
-spent), `ANCHOR_WAIT_MS` (wait for the first confirmation, default 90000), `ANCHOR_DATA_DIR`,
-`ZCASH_SERVER`, `PORT`. Without `ANCHOR_URL` (a local demo) the app labels seals "simulated". With `ANCHOR_URL` set, seals made while the service is down stay pending
-("SEALED · ANCHORING…") and the browser retries every minute, so they are anchored once it is back. zcash.js is an experimental 0.1.x release: fine for testnet, not for real funds.
+Seal timestamps no longer use this service: they go to Bitcoin through OpenTimestamps (see How sealing works).
 
 ## Onboarding, streaks and badges
 
@@ -187,8 +181,8 @@ Iron Will (7-day streak). Stats come from the `player_stats()` database function
 
 ## Screens
 
-Home, Seal (Classic Call), Waiting room, Reveal, Ranks, Vault, Contests, How It Works,
-Profile, and eight game modes under `/play`: Live Arena, Closest Wins, Secret Vote, Bluff Vault,
+Home, Seal (Classic Call), Seal a tip, Waiting room, Reveal, Ranks, Vault, Contests, Contest, Sponsor
+(request form or sponsor dashboard), Tipster profile, How It Works, Profile, Admin, and eight game modes under `/play`: Live Arena, Closest Wins, Secret Vote, Bluff Vault,
 Fog of War, Werewolf Night, Fair-Play Arcade, Time Capsule. Each game has a "?" how-to-play
 guide that opens on first visit.
 
@@ -204,17 +198,18 @@ npm run build && npm start
 
 Next.js (App Router) + TypeScript, installable as a PWA with offline support (service worker),
 push notifications (Web Push / VAPID), optional Supabase accounts (Google sign-in), auto fixture
-pipeline (football-data.org), sponsor contests with flexible prize structures, and a Zcash anchor
-service for tamper-proof seal timestamps.
+pipeline (football-data.org), verified tipster records, sponsor-run contests with flexible prize
+structures, Bitcoin timestamps through OpenTimestamps, and shielded ZEC payouts with zcash.js.
 
 ## Layout
 
-- `app/` screens, `/api/anchor` route, `/api/cron` auto fixtures, `/api/notify` push, `/api/og` OG images
+- `app/` screens, `/api/anchor` stamping and proofs, `/api/live` live scores, `/api/tipsters/announce` follower alerts, `/api/cron` auto fixtures, `/api/notify` push, `/api/og` OG images
 - `lib/store.ts` sealing, verification and local rewards ledger
-- `lib/merkle.ts` Merkle tree and proofs, `lib/zcash.ts` anchor client
+- `lib/merkle.ts` Merkle tree and proofs, `lib/ots.ts` OpenTimestamps stamping and proof upgrades
+- `lib/tipsters.ts` tipster settlement, `lib/zip321.ts` payment links, `lib/zaddr.ts` address checksums
 - `lib/cloud.ts` Supabase sign-in, sync, contest hooks and player stats
 - `supabase/migrations/` tables, RLS, scoring functions and contest logic
-- `services/anchor/` the Zcash anchor service
+- `services/anchor/` the shielded ZEC payout service
 - `components/ui.tsx` shared components, `components/notifications.tsx` push bell, `components/onboarding.tsx`
 - `public/sw.js` service worker (push + offline cache)
 - `public/a/` optimised artwork, `design-assets/` original PNGs
