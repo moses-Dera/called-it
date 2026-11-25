@@ -98,6 +98,8 @@ button { font-family: inherit; cursor: pointer; }
   .home-games .tiles span { font-size: 13px !important; }
   @container (min-width: 600px) { .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; } }
   .fixture-grid { display: flex; flex-direction: column; gap: 10px; }
+  /* Line up with the page title, which sits flush left on wide screens */
+  .screen.wide .sponsor-body { padding-left: 0 !important; padding-right: 0 !important; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */
   .hub { max-width: 720px; margin: 0 auto; gap: 24px; }

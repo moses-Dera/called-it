@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { BoostPotModal } from "@/components/boost-pot-modal";
+import { inkOn } from "@/lib/data";
 import { art } from "@/lib/data";
 import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
 
-const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top10: "Top 10 share the pot", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
+const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top5: "Top 5 share: 40 / 25 / 15 / 10 / 10", top10: "Top 10 share the pot", top20: "Top 20 share the pot", custom: "Prize split set by the sponsor", equal_split: "Top winners share equally", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
 export default function ContestPage() {
   const [id, setId] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
@@ -59,7 +60,7 @@ export default function ContestPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start", paddingBottom: 24 }}>
-          <section style={{ background: accent, color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", borderRadius: 26, padding: 20, display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden" }}>
+          <section style={{ background: accent, color: inkOn(c.sponsor_color) === "#111" || !c.sponsor_color ? "#111" : "var(--paper)", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", borderRadius: 26, padding: 20, display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden" }}>
             {c.sponsor_logo && <img src={c.sponsor_logo} alt={c.sponsor || ""} style={{ position: "absolute", right: 16, top: 16, height: 32, opacity: 0.8 }} />}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span className="eyebrow">{c.status === "open" ? "Open contest" : "Finished"}</span>
@@ -95,6 +96,7 @@ export default function ContestPage() {
             </div>
             {entryCount !== null && <div style={{ fontSize: 13, fontWeight: 800 }}>{entryCount} player{entryCount === 1 ? "" : "s"} entered</div>}
             {c.prize_zec > 0 && (c.funded_zec ?? 0) >= c.prize_zec && <div style={{ fontSize: 13, fontWeight: 800 }}>✓ Prize funded: {c.prize_zec} ZEC is set aside for this contest</div>}
+            {c.owner_id && c.prize_zec > 0 && (c.funded_zec ?? 0) < c.prize_zec && <div style={{ fontSize: 13, fontWeight: 800 }}>Prize not funded yet{(c.funded_zec ?? 0) > 0 ? ` (${c.funded_zec} of ${c.prize_zec} ZEC received)` : ""}. Winners are paid once the sponsor funds it.</div>}
             {now && c.opens_at && Date.parse(c.opens_at) > now && <div role="timer" style={{ fontSize: 13, fontWeight: 800 }}>Opens {new Date(c.opens_at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Only you can see it until then.</div>}
             {c.paused && c.status === "open" && <div style={{ fontSize: 13, fontWeight: 800 }}>Joining is paused by the sponsor. Players already in keep playing.</div>}
             {c.hidden && <div style={{ fontSize: 13, fontWeight: 800 }}>Hidden by Called It. Only you can see this page.</div>}

@@ -316,29 +316,28 @@ function ContestControls({ c, act }: { c: Contest; act: Act }) {
   );
 }
 
-type SponsorRow = { email: string; name: string; contests: number; added_at: string };
+type SponsorRow = { email: string; name: string; contests: number; added_at: string; blocked: boolean };
 function Sponsors({ act }: { act: Act }) {
   const [list, setList] = useState<SponsorRow[] | null>(null);
   const [email, setEmail] = useState(""), [name, setName] = useState("");
   const load = useCallback(() => { cloudRpc<SponsorRow[]>("admin_sponsors").then(setList).catch(() => setList([])); }, []);
   useEffect(() => { load(); }, [load]);
   async function set(e: string, n: string, on: boolean) {
-    if (await act("admin_set_sponsor", { p_email: e, p_name: n, p_on: on }, on ? `${n} is now a sponsor. They open /sponsor to reach their dashboard.` : `${e} is no longer a sponsor.`)) { setEmail(""); setName(""); load(); }
+    if (await act("admin_set_sponsor", { p_email: e, p_name: n, p_on: on }, on ? `${n} can sponsor again.` : `${n} is blocked: they can't create or change contests. Hide their contests below if needed.`)) { setEmail(""); setName(""); load(); }
   }
   const f = { height: 40, borderRadius: 10, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 10px", fontSize: 14, flex: "1 1 160px", minWidth: 0 } as const;
   return (
     <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
       <span className="display" style={{ fontSize: 18 }}>Sponsors</span>
-      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Sponsors run their own contests from /sponsor and they go public without approval, so only add people you trust. They must sign in to Called It once before you add them.</span>
+      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Anyone signed in can start sponsoring from /sponsor; their contests go public without approval. Unfunded contests show &ldquo;Prize not funded yet&rdquo; and never pay out automatically. Block a sponsor to stop them creating or changing contests.</span>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <input aria-label="Sponsor sign-in email" placeholder="Their sign-in email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" style={f} />
-        <input aria-label="Sponsor display name" placeholder="Brand name" value={name} onChange={(e) => setName(e.target.value)} style={f} />
-        <button className="btn" disabled={!email.trim() || name.trim().length < 2} onClick={() => set(email, name, true)} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--lime)", color: "#111" }}>Add sponsor</button>
+        <input aria-label="Sponsor sign-in email" placeholder="Block by sign-in email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" style={f} />
+        <button className="btn" disabled={!email.trim()} onClick={() => set(email, name, false)} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--pink)", color: "#111" }}>Block</button>
       </div>
       {list?.map((r) => (
-        <div key={r.email} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flexWrap: "wrap" }}>
-          <b>{r.name}</b><span style={{ color: "var(--muted)", overflowWrap: "anywhere" }}>{r.email} · {r.contests} contest{r.contests === 1 ? "" : "s"}</span>
-          <button className="btn btn-quiet" onClick={() => set(r.email, r.name, false)} style={{ width: "auto", minHeight: 32, padding: "0 10px", marginLeft: "auto", fontSize: 12 }}>Remove</button>
+        <div key={r.email} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flexWrap: "wrap", opacity: r.blocked ? 0.6 : 1 }}>
+          <b>{r.name}</b><span style={{ color: "var(--muted)", overflowWrap: "anywhere" }}>{r.email} · {r.contests} contest{r.contests === 1 ? "" : "s"}{r.blocked ? " · blocked" : ""}</span>
+          <button className="btn btn-quiet" onClick={() => set(r.email, r.name, r.blocked)} style={{ width: "auto", minHeight: 32, padding: "0 10px", marginLeft: "auto", fontSize: 12 }}>{r.blocked ? "Unblock" : "Block"}</button>
         </div>
       ))}
     </section>
@@ -370,36 +369,6 @@ function FundWallet() {
         {current && <button className="btn btn-quiet" disabled={busy} onClick={() => save("")} style={{ width: "auto", minHeight: 40, padding: "0 16px" }}>Clear</button>}
       </div>
       {msg && <div role={msg.bad ? "alert" : "status"} style={{ fontSize: 13, fontWeight: 700, color: msg.bad ? "var(--red)" : "var(--lime)" }}>{msg.text}</div>}
-    </section>
-  );
-}
-
-type SponsorRequest = { id: number; brand: string; contact: string; budget_zec: number | null; matches: string; message: string; status: "new" | "handled"; created_at: string };
-function SponsorRequests() {
-  const [list, setList] = useState<SponsorRequest[] | null>(null), [err, setErr] = useState("");
-  const load = useCallback(() => { cloudRpc<SponsorRequest[]>("admin_sponsor_requests").then(setList).catch((e) => setErr(e instanceof Error ? e.message : "Could not load requests")); }, []);
-  useEffect(() => { load(); }, [load]);
-  async function mark(id: number, status: "new" | "handled") {
-    try { await cloudRpc("admin_mark_sponsor_request", { p_id: id, p_status: status }); load(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not update"); }
-  }
-  const open = list?.filter((r) => r.status === "new") ?? [];
-  return (
-    <section style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-      <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Sponsor requests {open.length > 0 && <span className="chip" style={{ background: "var(--lime)", fontSize: 12, verticalAlign: "middle" }}>{open.length} new</span>}</h2>
-      {err && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</div>}
-      {list && list.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>No requests yet. Brands send them from the Sponsor a contest page (/sponsor).</p>}
-      {list?.map((r) => (
-        <div key={r.id} style={{ background: "var(--panel)", border: `2px solid ${r.status === "new" ? "var(--lime)" : "var(--line)"}`, borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 4, opacity: r.status === "new" ? 1 : 0.65 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
-            <b style={{ fontSize: 15 }}>{r.brand}</b>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>{new Date(r.created_at).toLocaleDateString()}</span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, overflowWrap: "anywhere" }}>{r.contact}{r.budget_zec ? ` · ${r.budget_zec} ZEC budget` : ""}</span>
-          {r.matches && <span style={{ fontSize: 13 }}>Matches: {r.matches}</span>}
-          {r.message && <span style={{ fontSize: 13, color: "#c9d3de", whiteSpace: "pre-wrap" }}>{r.message}</span>}
-          <button className="btn btn-quiet" style={{ alignSelf: "flex-start", width: "auto", minHeight: 36, padding: "0 12px", marginTop: 4 }} onClick={() => mark(r.id, r.status === "new" ? "handled" : "new")}>{r.status === "new" ? "Mark handled" : "Mark as new"}</button>
-        </div>
-      ))}
     </section>
   );
 }
@@ -438,7 +407,6 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <FundWallet />
         <Sponsors act={act} />
-        <SponsorRequests />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
           <div role="status" style={{ padding: "8px 12px", borderRadius: 10, background: contestMsg.bad ? "#ffefef" : "#f0fadc", border: `1px solid ${contestMsg.bad ? "#ffb3b3" : "#c4e680" }`, color: contestMsg.bad ? "#9a2d1d" : "#2d5200", fontSize: 13, fontWeight: 700 }}>

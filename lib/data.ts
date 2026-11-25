@@ -80,3 +80,17 @@ export const GUIDES: Record<string, Guide> = {
   arcade: { title: "Fair-Play Arcade", steps: ["Your opponent's move is sealed first.", "Pick Rock, Paper or Scissors.", "Both moves reveal together and the seal is checked."], scoring: "Win a round +18 rating.", fair: "You can see the opponent's seal before you choose, and it's verified after." },
   capsule: { title: "Time Capsule", steps: ["Choose a letter, voice note or photo.", "Pick the day it opens.", "Seal and bury it. It proves when you made it."], scoring: "No points. It's for the memories.", fair: "Only a fingerprint leaves your phone. Your content stays private until the capsule opens." },
 };
+
+// ---------- Contest display ----------
+export const SPLIT_LABEL: Record<string, string> = {
+  top3: "Top 3 share", top5: "Top 5 share", top10: "Top 10 share", top20: "Top 20 share", custom: "Custom split",
+  equal_split: "Equal split", all_correct: "Exact scores split", random_draw: "Lucky draw",
+};
+/** Dark or light text, whichever reads better on a sponsor's brand colour. */
+export function inkOn(bg: string | null | undefined): string {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((bg ?? "").trim());
+  if (!m) return "var(--paper)";
+  const h = m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.35 ? "#111" : "var(--paper)";
+}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { useContests, useMyContestIds, useFixtures } from "@/lib/cloud";
+import { SPLIT_LABEL, inkOn } from "@/lib/data";
 
 export default function ContestsPage() {
   const contests = useContests(), fixtures = useFixtures(), myIds = useMyContestIds();
@@ -16,9 +17,8 @@ export default function ContestsPage() {
 
   return (
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Contests</h1>
-        <Link href="/sponsor" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>Sponsor a contest →</Link>
         <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)" }}>FREE TO PLAY</span>
       </div>
       <p style={{ margin: "8px 0 0", fontSize: 14, fontWeight: 600, color: "var(--muted)", lineHeight: 1.5 }}>
@@ -32,8 +32,8 @@ export default function ContestsPage() {
       </div>
 
       {list.length === 0 && (
-        <div style={{ padding: "30px 0", textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--muted)" }}>
-          {tab === "open" ? "No open contests right now. Check back soon." : "No past contests yet."}
+        <div style={{ padding: "24px 0 8px", textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--muted)" }}>
+          {tab === "open" ? "No open contests right now. New ones appear here as sponsors launch them." : "No finished contests yet."}
         </div>
       )}
 
@@ -43,7 +43,7 @@ export default function ContestsPage() {
           const fxs = fixtures.filter((f) => c.fixture_ids.includes(f.id));
           const nextKickoff = fxs.filter((f) => now === null || Date.parse(f.kickoff) > now!).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
           return (
-            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", flexDirection: "column", gap: 10, background: c.sponsor_color || "#111", color: "var(--paper)", border: "2px solid var(--line)", borderRadius: 22, padding: 16, position: "relative", overflow: "hidden" }}>
+            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", flexDirection: "column", gap: 10, background: c.sponsor_color || "#111", color: inkOn(c.sponsor_color), border: "2px solid var(--line)", borderRadius: 22, padding: 16, position: "relative", overflow: "hidden" }}>
               {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 12, top: 12, height: 28, opacity: 0.7 }} />}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {joined && <span className="chip" style={{ background: "var(--lime)", color: "#111", border: 0 }}>JOINED</span>}
@@ -55,9 +55,8 @@ export default function ContestsPage() {
                 {c.prize_zec > 0 && <span style={{ background: "var(--amber)", color: "#111", borderRadius: 10, padding: "4px 10px", fontWeight: 800 }}>{c.prize_zec} ZEC</span>}
                 <span>{c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}</span>
                 {c.sponsor && <span>by {c.sponsor}</span>}
-                {c.prize_structure !== "top3" && <span className="chip" style={{ background: "rgba(255,255,255,.15)", border: 0 }}>
-                  {c.prize_structure === "top10" ? "Top 10" : c.prize_structure === "all_correct" ? "All correct split" : "Lucky draw"}
-                </span>}
+                <span className="chip" style={{ background: "rgba(127,127,127,.2)", color: "inherit", border: 0 }}>{SPLIT_LABEL[c.prize_structure] ?? "Top 3 share"}</span>
+                {c.owner_id && c.prize_zec > 0 && (c.funded_zec ?? 0) < c.prize_zec && <span style={{ fontSize: 12, fontWeight: 700, opacity: 0.8 }}>Prize not funded yet</span>}
               </div>
               {nextKickoff && c.status === "open" && <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>Next kickoff: {nextKickoff.when}</div>}
               {c.winners && c.winners.length > 0 && (
@@ -70,7 +69,16 @@ export default function ContestsPage() {
           );
         })}
       </div>
-      <BottomNav active="/" />
+
+      <Link href="/sponsor" style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: "14px 16px", color: "var(--text)", marginBottom: 24 }}>
+        <Img n="cover_closest" size={48} style={{ borderRadius: 14, border: "2px solid #111", flexShrink: 0 }} />
+        <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          <b className="display" style={{ fontSize: 18 }}>Run your own contest</b>
+          <span style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.4 }}>Put up a ZEC prize for your fans or community. Set it up yourself in a few minutes.</span>
+        </span>
+        <span className="btn" style={{ width: "auto", minHeight: 40, padding: "0 16px", background: "var(--lime)", color: "#111", flexShrink: 0 }}>Start</span>
+      </Link>
+      <BottomNav active="/contests" />
     </main>
   );
 }
