@@ -1,6 +1,6 @@
--- Withdrawals: shielded addresses on the app's network only, and one request at a time per player.
+-- Withdrawals: mainnet shielded addresses only, and one request at a time per player.
 -- Before this, two requests sent together could both read the same balance and both be approved,
--- and addresses from the wrong network were accepted.
+-- and testnet addresses were accepted although prizes are paid on mainnet.
 create or replace function public.request_withdrawal(p_address text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -12,9 +12,9 @@ declare
   w public.withdrawals;
 begin
   if uid is null then raise exception 'sign in to withdraw'; end if;
-  -- A shielded address on the network the app runs on (mainnet unless the admin chose testnet).
-  if not public.is_shielded_for(addr, public.app_network()) then
-    raise exception 'use a % shielded Zcash address', public.app_network();
+  -- Mainnet unified (u1…) or Sapling (zs1…) address, Bech32 characters only.
+  if addr !~ '^(u1[02-9ac-hj-np-z]{100,}|zs1[02-9ac-hj-np-z]{70,80})$' then
+    raise exception 'use a mainnet shielded Zcash address (it starts with u1 or zs1)';
   end if;
 
   -- Serialise this player's requests so two at once cannot both spend the same balance.
