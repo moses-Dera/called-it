@@ -1,0 +1,22 @@
+# Every 15 minutes: refresh live scores and settle tipster results through /api/live.
+# This also keeps the Supabase project active, since free projects pause after a week with no activity.
+# GitHub may delay scheduled runs by a few minutes; set the APP_URL repository variable if the domain changes.
+name: Keep live scores fresh
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call /api/live
+        run: |
+          url="${{ vars.APP_URL || 'https://called-it-kappa.vercel.app' }}/api/live"
+          code=$(curl -sS -m 90 -o body.txt -w '%{http_code}' "$url" || echo 000)
+          echo "HTTP $code"; cat body.txt || true
+          # A football-data outage (502) is reported in the log but doesn't fail the run, so it won't email every 15 minutes.
+          if [ "$code" = "000" ]; then echo "::warning::$url did not respond"; fi
