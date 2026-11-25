@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { addReward, getState, markRevealed, mergeCloud, subscribe, type Reward, type Seal } from "./store";
 import { FIXTURES, phaseOf, whenOf, type Fixture } from "./data";
+import type { Network } from "./zaddr";
 
 // Optional cloud account (Supabase + Google sign-in). Without the two env vars the app stays guest-only.
 // What syncs: profile, the rewards ledger, and each seal's commitment and proof.
@@ -356,7 +357,7 @@ if (typeof window !== "undefined") {
 
 export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
-  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: "pending" | "paid"; txid?: string | null }[] | null;
+  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: "pending" | "sending" | "paid"; txid?: string | null }[] | null;
   sponsor_logo: string | null; sponsor_color: string | null; sponsor_url: string | null;
   owner_id?: string | null; opens_at?: string | null; paused?: boolean; hidden?: boolean; funded_zec?: number;
   prize_structure: "top3" | "top5" | "top10" | "top20" | "all_correct" | "random_draw" | "custom" | "equal_split";
@@ -399,16 +400,20 @@ export const useContests = () => contestStore.use().filter((c) => isListed(c));
 export const useAllContests = () => contestStore.use();
 
 // ---------- App settings ----------
-const fundStore = shared<string | null>(async () => {
+type Settings = { fund_address: string | null; network: Network };
+const settingsStore = shared<Settings>(async () => {
   const c = sb();
-  if (!c) return null;
-  const { data, error } = await c.from("app_settings").select("value").eq("key", "fund_address").maybeSingle();
+  if (!c) return { fund_address: null, network: "mainnet" };
+  const { data, error } = await c.from("app_settings").select("key, value");
   if (error) throw error;
-  return (data?.value as string | undefined) ?? null;
-}, null);
-/** The operator's prize-fund wallet for Boost the Pot, set by the admin; null when none is set. */
-export const useFundAddress = () => fundStore.use();
-export const refreshFundAddress = () => fundStore.refresh();
+  const get = (k: string) => (data ?? []).find((r) => r.key === k)?.value as string | undefined;
+  return { fund_address: get("fund_address") ?? null, network: get("network") === "testnet" ? "testnet" : "mainnet" };
+}, { fund_address: null, network: "mainnet" });
+/** The operator's prize-fund wallet for Boost the Pot and sponsor funding; null when none is set. */
+export const useFundAddress = () => settingsStore.use().fund_address;
+/** Which Zcash network prizes are paid on: mainnet for real ZEC, testnet for a practice run. */
+export const useNetwork = () => settingsStore.use().network;
+export const refreshFundAddress = () => settingsStore.refresh();
 export const refreshContests = () => contestStore.refresh();
 
 // ---------- Contest entries (join / leave) ----------

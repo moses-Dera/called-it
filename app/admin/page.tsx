@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
 import { zip321 } from "@/lib/zip321";
-import { isMainnetShielded } from "@/lib/zaddr";
-import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useFundAddress, type Contest } from "@/lib/cloud";
+import { isShieldedFor } from "@/lib/zaddr";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useFundAddress, useNetwork, type Contest } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -347,10 +347,11 @@ function Sponsors({ act }: { act: Act }) {
 
 function FundWallet() {
   const current = useFundAddress();
+  const network = useNetwork();
   const [value, setValue] = useState<string | null>(null), [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null), [busy, setBusy] = useState(false);
   const v = value ?? current ?? "";
   async function save(next: string) {
-    if (next.trim() && !isMainnetShielded(next)) return setMsg({ text: "That isn't a complete mainnet shielded address. Copy it again from your wallet: it starts with u1 or zs1.", bad: true });
+    if (next.trim() && !isShieldedFor(next, network)) return setMsg({ text: `That isn't a complete ${network} shielded address. Copy it again from your wallet.`, bad: true });
     setBusy(true); setMsg(null);
     try {
       await cloudRpc("admin_set_setting", { p_key: "fund_address", p_value: next });
@@ -404,6 +405,7 @@ function SponsorRequests() {
 }
 
 function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
+  const network = useNetwork();
   const contests = useAllContests(), fixtures = useFixtures();
   const [contestMsg, setContestMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [title, setTitle] = useState(""), [sponsor, setSponsor] = useState(""), [prize, setPrize] = useState(""), [pick, setPick] = useState<string[]>([]);
@@ -466,8 +468,12 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                         <span className="chip" style={{ background: "var(--lime)", fontSize: 11, padding: "2px 8px" }}>PAID ✓ {w.txid ? short(w.txid) : ""}</span>
                       ) : (
                         <>
-                          <span className="chip" style={{ background: "var(--amber)", fontSize: 11, padding: "2px 8px" }}>PENDING</span>
-                          {w.address ? (
+                          <span className="chip" style={{ background: "var(--amber)", fontSize: 11, padding: "2px 8px" }}>{w.status === "sending" ? "SENDING · CHECK WALLET" : "PENDING"}</span>
+                          {w.status === "sending" && (
+                            <button style={{ ...btn("#fff"), minHeight: 28, padding: "0 8px", fontSize: 11 }} title="Only if your wallet shows this payment never went out"
+                              onClick={() => act("payout_release_winner", { p_contest_id: c.id, p_rank: w.rank }, `Rank #${w.rank} is back in the payout queue.`)}>Not sent: retry later</button>
+                          )}
+                          {w.address && w.status !== "sending" ? (
                             <a
                               href={zip321(w.address, w.zec, `Called It: ${c.title} (#${w.rank})`)}
                               title={`Pay ${w.zec} ZEC to ${w.address}`}
@@ -476,17 +482,17 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                               Pay in Wallet ↗
                             </a>
                           ) : null}
-                          <button
+                          {w.status !== "sending" && <button
                             style={{ ...btn("#111", "var(--lime)"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
                             onClick={async () => {
-                              if (!confirm(`Release payout for #${w.rank} (${w.name}) on mainnet?`)) return;
+                              if (!confirm(`Release payout for #${w.rank} (${w.name}) on ${network}?`)) return;
                               setContestMsg({ text: `Dispatching cloud payout for #${w.rank}…` });
                               try {
                                 const tok = await accessToken();
                                 const res = await fetch("/api/admin/payouts", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-                                  body: JSON.stringify({ contest_id: c.id, rank: w.rank, network: "mainnet" }),
+                                  body: JSON.stringify({ contest_id: c.id, rank: w.rank, network }),
                                 });
                                 const data = await res.json();
                                 setContestMsg({ text: data.message || data.error, bad: !res.ok || data.ok === false });
@@ -497,7 +503,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                             }}
                           >
                             ⚡ Release #{w.rank}
-                          </button>
+                          </button>}
                           <button
                             style={{ ...btn("#fff"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
                             onClick={() => {
@@ -528,7 +534,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                       const res = await fetch("/api/admin/payouts", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-                        body: JSON.stringify({ contest_id: c.id, network: "mainnet" }),
+                        body: JSON.stringify({ contest_id: c.id, network }),
                       });
                       const data = await res.json();
                       setContestMsg({ text: data.message || data.error, bad: !res.ok || data.ok === false });
@@ -620,7 +626,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
 }
 
 function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onReload?: () => void }) {
-  const [network, setNetwork] = useState<"mainnet" | "testnet">("mainnet");
+  const network = useNetwork();
   const [running, setRunning] = useState(false);
   const [cloudMsg, setCloudMsg] = useState<{ text: string; bad?: boolean } | null>(null);
 
@@ -658,7 +664,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ display: "flex", borderRadius: 12, border: "2px solid #111", overflow: "hidden", background: "#fff" }}>
             <button
-              onClick={() => setNetwork("mainnet")}
+              onClick={() => network !== "mainnet" && confirm("Switch the whole app to MAINNET? Prizes and withdrawals become real ZEC, and the prize wallet setting is cleared.") && act("admin_set_setting", { p_key: "network", p_value: "mainnet" }, "The app now runs on mainnet.").then(() => refreshFundAddress())}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "mainnet" ? "var(--lime)" : "#fff",
@@ -668,7 +674,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
               Mainnet (ZEC)
             </button>
             <button
-              onClick={() => setNetwork("testnet")}
+              onClick={() => network !== "testnet" && confirm("Switch the whole app to TESTNET for a practice run? Players see a test-mode banner, only testnet addresses are accepted, and the prize wallet setting is cleared.") && act("admin_set_setting", { p_key: "network", p_value: "testnet" }, "The app now runs on testnet (test mode).").then(() => refreshFundAddress())}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "testnet" ? "var(--amber)" : "#fff",
@@ -711,11 +717,18 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
             <div className="display" style={{ fontSize: 18 }}>{w.name} · {Number(w.amount).toFixed(4)} {network === "mainnet" ? "ZEC" : "TAZ"}</div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>to <span className="mono">{short(w.address)}</span> · {time(w.created_at)} · tx <Tx id={w.txid} /></div>
           </div>
-          <Chip text={w.status.toUpperCase()} bg={w.status === "paid" ? "var(--lime)" : w.status === "rejected" ? "var(--pink)" : "var(--amber)"} />
+          <Chip text={w.status === "sending" ? "SENDING · CHECK WALLET" : w.status.toUpperCase()} bg={w.status === "paid" ? "var(--lime)" : w.status === "rejected" ? "var(--pink)" : "var(--amber)"} />
+          {w.status === "sending" && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", flexBasis: "100%" }}>A payout run claimed this. Check your wallet history before acting: it will never be sent again automatically.</span>
+              <button style={btn("#111", "var(--lime)")} onClick={() => { const tx = prompt("Transaction id from your wallet (optional)") ?? ""; act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>It was paid</button>
+              <button style={btn("#fff")} onClick={() => act("admin_mark_withdrawal", { p_id: w.id, p_status: "requested", p_txid: null }, "Back in the payout queue.")}>Not sent: retry later</button>
+            </div>
+          )}
           {w.status === "requested" && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a
-                href={`zcash:${w.address}?amount=${w.amount}&memo=${encodeURIComponent(`Called It Prize Payout`)}`}
+                href={zip321(w.address, Number(w.amount), "Called It prize payout")}
                 style={{ ...btn("var(--lime)"), display: "inline-flex", alignItems: "center", fontSize: 12, textDecoration: "none" }}
               >
                 Pay in Wallet ↗

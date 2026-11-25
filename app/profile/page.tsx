@@ -2,11 +2,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Img, TopBar } from "@/components/ui";
-import { cloudReady, myTipsterProfile, saveTipsterProfile, signInWithGoogle, signOut, useCloud, usePlayerStats } from "@/lib/cloud";
+import { cloudReady, myTipsterProfile, saveTipsterProfile, signInWithGoogle, signOut, useCloud, usePlayerStats, useNetwork } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
   const s = useStore();
+  const network = useNetwork();
   const t = totals(s);
   const cloud = useCloud();
   const user = cloud.session?.user;
@@ -16,7 +17,7 @@ export default function Profile() {
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
 
   function save() {
-    if (addrV.trim() && !isShielded(addrV)) return setMsg("That isn't a complete mainnet shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
+    if (addrV.trim() && !isShielded(addrV, network)) return setMsg(network === "testnet" ? "That isn't a complete testnet shielded address (utest1… or ztestsapling1…). Copy it again from your wallet." : "That isn't a complete shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
     saveProfile({ name: nameV.trim().slice(0, 24), address: addrV.trim() });
     setMsg("Saved.");
   }

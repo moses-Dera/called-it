@@ -135,9 +135,32 @@ function getSupabase() {
     });
 }
 
+// Call a database function as the payout tool; throws with the server's message on failure.
+async function rpc(api, name, args) {
+  const r = await api(`rpc/${name}`, { method: "POST", body: JSON.stringify(args) });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`${name}: ${r.status} ${text}`);
+  return text ? JSON.parse(text) : null;
+}
+
+// Payouts go claim -> send -> mark paid. The claim is atomic, so a second run (or a double click) skips
+// anything already claimed. A failed send is released for a later run; if marking paid fails after the
+// ZEC went out, the payout stays 'sending' and is never sent again: settle it in the admin panel.
+
+// The app decides the network (Admin > Payouts). Refuse to pay on a different one: an address from one
+// network can't receive coins from the other.
+async function checkNetwork(api) {
+  const r = await api("app_settings?key=eq.network&select=value");
+  if (!r.ok) throw new Error(`Could not read the app's network setting: ${r.status} ${await r.text()}`);
+  const [row] = await r.json();
+  const appNetwork = row?.value === "testnet" ? "testnet" : "mainnet";
+  if (appNetwork !== NETWORK) throw new Error(`The app is set to ${appNetwork} but this run is on ${NETWORK}. Set ZCASH_NETWORK=${appNetwork} (or switch the network in Admin > Payouts).`);
+}
+
 // Pay all general requested withdrawals
 async function payouts(account) {
   const api = getSupabase();
+  await checkNetwork(api);
   const res = await api("withdrawals?status=eq.requested&order=created_at.asc&select=id,address,amount,user_id");
   if (!res.ok) throw new Error(`Could not list withdrawals: ${res.status} ${await res.text()}`);
   const list = await res.json();
@@ -148,6 +171,11 @@ async function payouts(account) {
   try {
     for (const w of list) {
       const zats = BigInt(Math.round(Number(w.amount) * 1e8));
+      let claimed = false;
+      try { claimed = (await rpc(api, "payout_claim_withdrawal", { p_id: w.id })) === true; }
+      catch (e) { console.error(`✗ Could not claim ${w.id}: ${describe(e)}`); continue; }
+      if (!claimed) { console.log(`Skipping ${w.id}: another payout run already took it.`); continue; }
+      let txid;
       try {
         await wallet.sync();
         console.log(`Sending ${zec(zats)} ${coin} to ${w.address.slice(0, 16)}…`);
@@ -158,14 +186,18 @@ async function payouts(account) {
           memo: { text: "Called It prize payout" },
           idempotencyKey: "payout-" + w.id,
         });
-        const txid = (await pending.snapshot()).steps.at(-1)?.txid;
-        await api(`withdrawals?id=eq.${w.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ status: "paid", txid: txid ? String(txid) : null }),
-        });
+        txid = (await pending.snapshot()).steps.at(-1)?.txid;
+      } catch (e) {
+        console.error(`✗ Could not send ${w.id}: ${describe(e)}`);
+        try { await rpc(api, "payout_release_withdrawal", { p_id: w.id }); console.error("  Released: it will be retried on the next run."); }
+        catch (e2) { console.error(`  Could not release it (${describe(e2)}). It stays 'sending': check the wallet, then settle it in the admin panel.`); }
+        continue;
+      }
+      try {
+        if ((await rpc(api, "payout_finish_withdrawal", { p_id: w.id, p_txid: txid ? String(txid) : null })) !== true) throw new Error("not in 'sending' state");
         console.log(`✓ Paid ${zec(zats)} ${coin} — tx ${txid}`);
       } catch (e) {
-        console.error(`✗ Could not pay ${w.id}: ${describe(e)} (left as requested)`);
+        console.error(`!! SENT ${zec(zats)} ${coin} (tx ${txid}) but could not mark ${w.id} paid: ${describe(e)}. It stays 'sending' and will not be sent again. Mark it paid in the admin panel.`);
       }
     }
   } finally {
@@ -178,6 +210,7 @@ async function payouts(account) {
 // Optional targetRank: pay ONLY 1st, 2nd, or 3rd place!
 async function contestPayout(account, contestId, targetRank = null) {
   const api = getSupabase();
+  await checkNetwork(api);
   const res = await api(`contests?id=eq.${contestId}&select=id,title,prize_zec,winners,status`);
   if (!res.ok) throw new Error(`Could not get contest: ${res.status}`);
   const [contest] = await res.json();
@@ -205,6 +238,11 @@ async function contestPayout(account, contestId, targetRank = null) {
         continue;
       }
       const zats = BigInt(Math.round(Number(w.zec) * 1e8));
+      let claimed = false;
+      try { claimed = (await rpc(api, "payout_claim_winner", { p_contest_id: contest.id, p_rank: w.rank })) === true; }
+      catch (e) { console.error(`✗ Winner #${w.rank}: ${describe(e)}`); continue; }
+      if (!claimed) { console.log(`Skipping winner #${w.rank}: already paid or being paid by another run.`); continue; }
+      let txid;
       try {
         await wallet.sync();
         console.log(`Sending #${w.rank} (${w.name}) ${zec(zats)} ${coin} to ${w.address.slice(0, 16)}…`);
@@ -215,16 +253,18 @@ async function contestPayout(account, contestId, targetRank = null) {
           memo: { text: `Called It prize: ${contest.title} (#${w.rank})` },
           idempotencyKey: `contest-${contest.id}-rank-${w.rank}`,
         });
-        const txid = (await pending.snapshot()).steps.at(-1)?.txid;
-        console.log(`✓ Winner #${w.rank} paid — tx ${txid}`);
-
-        // Mark individual winner as paid in the database
-        await api("rpc/admin_mark_contest_winner_paid", {
-          method: "POST",
-          body: JSON.stringify({ p_contest_id: contest.id, p_rank: w.rank, p_txid: txid ? String(txid) : "paid" }),
-        });
+        txid = (await pending.snapshot()).steps.at(-1)?.txid;
       } catch (e) {
-        console.error(`✗ Error paying winner #${w.rank}: ${describe(e)}`);
+        console.error(`✗ Could not send to winner #${w.rank}: ${describe(e)}`);
+        try { await rpc(api, "payout_release_winner", { p_contest_id: contest.id, p_rank: w.rank }); console.error("  Released: it will be retried on the next run."); }
+        catch (e2) { console.error(`  Could not release it (${describe(e2)}). It stays 'sending': check the wallet, then settle it in the admin panel.`); }
+        continue;
+      }
+      try {
+        if ((await rpc(api, "payout_finish_winner", { p_contest_id: contest.id, p_rank: w.rank, p_txid: txid ? String(txid) : null })) !== true) throw new Error("not in 'sending' state");
+        console.log(`✓ Winner #${w.rank} paid — tx ${txid}`);
+      } catch (e) {
+        console.error(`!! SENT ${zec(zats)} ${coin} to winner #${w.rank} (tx ${txid}) but could not mark it paid: ${describe(e)}. It stays 'sending' and will not be sent again. Mark it paid in the admin panel.`);
       }
     }
     console.log(`\n✓ Contest payout run completed.`);

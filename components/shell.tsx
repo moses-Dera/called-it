@@ -3,6 +3,7 @@ import { MODES, art } from "@/lib/data";
 import { DeskPanel } from "./desk-panel";
 import { SideLink } from "./side-link";
 import { CloudSync } from "./cloud-sync";
+import { TestModeBanner } from "./test-mode-banner";
 import { SidebarAccount } from "./account";
 
 // Sets the scale factors before first paint so there is no jump.
@@ -16,6 +17,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <>
       <script dangerouslySetInnerHTML={{ __html: FIT }} />
       <CloudSync />
+      <TestModeBanner />
       <aside className="sidebar" aria-label="Navigation">
         <div className="sidebar-top">
           <Link href="/" className="display" style={{ fontSize: 30, color: "var(--text)", padding: "0 10px 10px", minHeight: 0 }}>

@@ -29,11 +29,16 @@ function checksumOk(addr: string, constant: number): boolean {
   return polymod([...expanded, ...data]) === constant;
 }
 
-/** A mainnet shielded address with a valid checksum. */
-export function isMainnetShielded(raw: string): boolean {
+export type Network = "mainnet" | "testnet";
+
+/** A shielded address on the given network, with a valid checksum. */
+export function isShieldedFor(raw: string, network: Network): boolean {
   const a = raw.trim();
   if (a !== a.toLowerCase()) return false;
-  if (/^u1[a-z0-9]{100,}$/.test(a)) return checksumOk(a, BECH32M);
-  if (/^zs1[a-z0-9]{70,80}$/.test(a)) return checksumOk(a, BECH32);
+  const [unified, sapling] = network === "testnet" ? ["utest1", "ztestsapling1"] : ["u1", "zs1"];
+  if (a.startsWith(unified) && a.length >= unified.length + 100) return checksumOk(a, BECH32M);
+  if (a.startsWith(sapling) && a.length >= sapling.length + 70 && a.length <= sapling.length + 80) return checksumOk(a, BECH32);
   return false;
 }
+
+export const isMainnetShielded = (raw: string) => isShieldedFor(raw, "mainnet");

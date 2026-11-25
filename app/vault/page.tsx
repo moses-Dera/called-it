@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
-import { requestWithdrawal, useCloud, useTipHistory } from "@/lib/cloud";
+import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -12,6 +12,7 @@ const cover = (g: string) => MODES.find((m) => m.key === g)?.img ?? "cover_arena
 
 export default function Vault() {
   const s = useStore();
+  const network = useNetwork();
   const t = totals(s);
   const [addr, setAddr] = useState(""), [msg, setMsg] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function Vault() {
     // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.
     const to = saved || addr.trim();
     if (!to) return setMsg("Add your shielded wallet address first.");
-    if (!isShielded(to)) return setMsg("That isn't a complete mainnet shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
+    if (!isShielded(to, network)) return setMsg(network === "testnet" ? "That isn't a complete testnet shielded address (utest1… or ztestsapling1…). Copy it again from your wallet." : "That isn't a complete shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
     const justSaved = !saved;
     if (justSaved) saveProfile({ address: to });
     if (!signedIn) return setMsg(`${justSaved ? "Wallet saved. " : ""}Sign in to request a payout. Prizes come only from ranked (server-checked) points.`);
