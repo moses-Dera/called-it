@@ -1,7 +1,9 @@
 "use client";
 import Link from "next/link";
-import { Component, useEffect, useState, type ReactNode } from "react";
-import { GUIDES, art } from "@/lib/data";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
+import { GUIDES, MODES, art } from "@/lib/data";
 import type { Seal } from "@/lib/store";
 
 export function Img({ n, size, h, alt = "", style, className }: { n: string; size: number; h?: number; alt?: string; style?: React.CSSProperties; className?: string }) {
@@ -150,27 +152,124 @@ const NAV = [
   { href: "/play/arena", label: "Live", d: "M13 2L4 14h7l-1 8 9-12h-7z" },
   null,
   { href: "/ranks", label: "Ranks", d: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" },
-  { href: "/vault", label: "Vault", d: "M3 8a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM12 9.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" },
 ];
+const MORE = [
+  { href: "/rooms", label: "Play with friends" },
+  { href: "/contests", label: "Contests" },
+  { href: "/vault", label: "Vault" },
+  { href: "/syndicates", label: "Syndicates" },
+  { href: "/profile", label: "Profile" },
+  { href: "/how", label: "How your seal works" },
+];
+const MORE_ICON = "M4 6h16M4 12h16M4 18h16";
+// Sits just above the tab bar (70px tall, 14px from the bottom, scaled with the phone zoom --z).
+const SHEET_BOTTOM = "calc(96px * var(--z, 1) + env(safe-area-inset-bottom))";
+
+function MoreSheet({ open, active, onClose }: { open: boolean; active: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState(0);
+  // Swipe down to dismiss, but only once the sheet's own list is scrolled to the top.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !open) return;
+    let startY = 0, lastY = 0, lastT = 0, speed = 0, pulling = false;
+    const start = (e: TouchEvent) => { startY = lastY = e.touches[0].clientY; lastT = e.timeStamp; speed = 0; pulling = false; };
+    const move = (e: TouchEvent) => {
+      const y = e.touches[0].clientY, dy = y - startY;
+      if (!pulling && dy > 6 && el.scrollTop <= 0) pulling = true;
+      if (!pulling) return;
+      e.preventDefault();
+      speed = (y - lastY) / Math.max(1, e.timeStamp - lastT);
+      lastY = y; lastT = e.timeStamp;
+      setDrag(Math.max(0, dy));
+    };
+    const end = () => {
+      if (!pulling) return;
+      pulling = false;
+      if (lastY - startY > 90 || speed > 0.5) onClose();
+      setDrag(0);
+    };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchmove", move, { passive: false });
+    el.addEventListener("touchend", end);
+    el.addEventListener("touchcancel", end);
+    el.querySelector<HTMLElement>("a")?.focus({ preventScroll: true });
+    return () => {
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("touchmove", move);
+      el.removeEventListener("touchend", end);
+      el.removeEventListener("touchcancel", end);
+    };
+  }, [open, onClose]);
+  return createPortal(
+    <div className="navwrap" inert={!open} aria-hidden={!open} style={{ position: "fixed", inset: 0, zIndex: 19, pointerEvents: open ? "auto" : "none" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", opacity: open ? Math.max(0.2, 1 - drag / 300) : 0, transition: drag ? "none" : "opacity 220ms" }} />
+      <div ref={ref} id="more-sheet" role="dialog" aria-label="More" style={{ position: "absolute", left: 14, right: 14, bottom: SHEET_BOTTOM, maxHeight: `calc(100dvh - ${SHEET_BOTTOM} - 24px)`, overflowY: "auto", overscrollBehavior: "contain", background: "var(--paper)", color: "#111", border: "3px solid #111", borderRadius: 24, boxShadow: "0 10px 30px rgba(0,0,0,.45)", padding: "14px 14px 18px", display: "flex", flexDirection: "column", gap: 4, opacity: open ? 1 : 0, transform: `translateY(${open ? drag : 24}px)`, transition: drag ? "none" : "transform 260ms cubic-bezier(.3,1.2,.4,1), opacity 180ms" }}>
+        {MORE.map((m) => (
+          <Link key={m.href} href={m.href} onClick={onClose} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 48, padding: "0 14px", borderRadius: 14, background: active === m.href ? "rgba(17,17,17,.08)" : "transparent", color: "#111", fontWeight: 800, fontSize: 15 }}>
+            {m.label}<span>→</span>
+          </Link>
+        ))}
+        <div className="eyebrow" style={{ color: "#6b6455", padding: "12px 14px 4px" }}>Games</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+          {MODES.map((m) => (
+            <Link key={m.key} href={m.href} onClick={onClose} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "#111", fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>
+              <Img n={m.img} size={56} style={{ borderRadius: 14, border: "2px solid #111" }} />{m.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export function BottomNav({ active }: { active: string }) {
   const [hide, setHide] = useState(false);
+  const [more, setMore] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const moreBtn = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
+  const close = useCallback(() => setMore(false), []);
+  useEffect(() => { setMore(false); }, [pathname]);
   useEffect(() => {
+    setMounted(true);
     let last = window.scrollY;
     const on = () => { const y = window.scrollY; if (Math.abs(y - last) > 6) { setHide(y > last && y > 40); last = y; } };
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
   }, []);
+  useEffect(() => {
+    if (!more) return;
+    const btn = moreBtn.current;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMore(false); };
+    window.addEventListener("keydown", esc);
+    // The sheet only exists on phones; widening the screen must not leave the page scroll-locked.
+    const wide = window.matchMedia("(min-width: 768px)");
+    const onWide = () => { if (wide.matches) setMore(false); };
+    wide.addEventListener("change", onWide);
+    window.addEventListener("resize", onWide);
+    // Lock both scroll roots so scrolling the sheet never moves the page behind it.
+    const html = document.documentElement, body = document.body;
+    const prev = [html.style.overflow, body.style.overflow];
+    html.style.overflow = body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", esc); wide.removeEventListener("change", onWide); window.removeEventListener("resize", onWide); [html.style.overflow, body.style.overflow] = prev; btn?.focus({ preventScroll: true }); };
+  }, [more]);
+  const inBar = NAV.some((n) => n?.href === active);
+  const tab = { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, minWidth: 48, minHeight: 44, justifyContent: "center", background: "none", border: 0, padding: 0, fontFamily: "inherit" } as const;
+  const icon = (d: string) => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg>;
   return (
     <><div className="navspace" />
-    <nav aria-label="Main" className={"tabbar" + (hide ? " hide" : "")} style={{ height: 70, background: "var(--paper)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "space-around", color: "#111", flexShrink: 0 }}>
+    <nav aria-label="Main" className={"tabbar" + (hide && !more ? " hide" : "")} style={{ height: 70, background: "var(--paper)", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "space-around", color: "#111", flexShrink: 0 }}>
       {NAV.map((n, i) => n ? (
-        <Link key={n.href} href={n.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, fontWeight: 800, minWidth: 48, minHeight: 44, justifyContent: "center", color: active === n.href ? "#111" : "#6b6455" }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={n.d} /></svg>{n.label}
-        </Link>
+        <Link key={n.href} href={n.href} onClick={close} style={{ ...tab, color: active === n.href ? "#111" : "#6b6455" }}>{icon(n.d)}{n.label}</Link>
       ) : (
-        <Link key={i} href="/seal" aria-label="Seal a call" style={{ width: 62, height: 62, marginTop: -34, borderRadius: "50%", background: "var(--lime)", border: "3px solid #111", boxShadow: "0 6px 0 #111", display: "flex", alignItems: "center", justifyContent: "center" }}><Lock size={26} /></Link>
+        <Link key={i} href="/seal" onClick={close} aria-label="Seal a call" style={{ width: 62, height: 62, marginTop: -34, borderRadius: "50%", background: "var(--lime)", border: "3px solid #111", boxShadow: "0 6px 0 #111", display: "flex", alignItems: "center", justifyContent: "center" }}><Lock size={26} /></Link>
       ))}
-    </nav></>
+      <button ref={moreBtn} type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} aria-controls="more-sheet" style={{ ...tab, color: !inBar ? "#111" : "#6b6455" }}>{icon(MORE_ICON)}More</button>
+    </nav>
+    {mounted && <MoreSheet open={more} active={active} onClose={close} />}
+    </>
   );
 }
 

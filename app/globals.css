@@ -88,16 +88,15 @@ button { font-family: inherit; cursor: pointer; }
   .guide { align-items: center !important; padding: 24px; }
   .guide > .sheet { border-radius: 28px !important; }
 
-  /* Home — desktop: 2-col grid with explicit placement */
-  .home-body { display: grid !important; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 24px !important; padding: 16px 0 0 !important; align-content: start; align-items: start; }
-  .home-head { padding: 0 0 6px !important; grid-column: 1 / -1; }
+  /* Home — tablets and narrow desktops: one roomy column; two columns from 1180px (below) */
+  .home-body { width: 100%; max-width: 720px; margin: 0 auto; gap: 24px !important; padding: 16px 0 0 !important; }
+  .home-head { position: static !important; background: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 0 6px !important; width: 100%; max-width: 720px; margin: 0 auto; }
   .home-head > .display { visibility: hidden; }
-  .home-feed { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
-  .home-fixtures { grid-column: 1; grid-row: 1; }
-  .home-games { grid-column: 1; grid-row: 2; }
-  .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; gap: 14px !important; }
+  .home-games { container-type: inline-size; }
+  .home-games .tiles { gap: 14px !important; }
   .home-games .tiles img { width: 100% !important; height: auto !important; border-radius: 20px !important; }
   .home-games .tiles span { font-size: 13px !important; }
+  @container (min-width: 600px) { .home-games .tiles { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; } }
   .fixture-grid { display: flex; flex-direction: column; gap: 10px; }
 
   /* Hub pages: one roomy column on tablets, real grids from 1180px (below) */
@@ -122,6 +121,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 @media (min-width: 1180px) {
+  /* Home — two columns: fixtures and games left, social and contests right */
+  .home-body { display: grid !important; max-width: none; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: auto auto; align-content: start; align-items: start; }
+  .home-head { max-width: none; }
+  .home-feed { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+  .home-fixtures { grid-column: 1; grid-row: 1; }
+  .home-games { grid-column: 1; grid-row: 2; }
+
   /* Dashboard rail beside every game board */
   .stage { grid-template-columns: minmax(0, 720px) 360px; }
   .desk { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
