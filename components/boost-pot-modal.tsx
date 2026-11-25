@@ -3,21 +3,12 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Contest } from "@/lib/cloud";
+import { zip321 } from "@/lib/zip321";
 
 
 
 const PRESET_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 
-function toZip321(address: string, amount: number, memoText: string): string {
-  try {
-    // UTF-8 to Base64URL without padding per ZIP 321
-    const rawB64 = btoa(unescape(encodeURIComponent(memoText)));
-    const b64url = rawB64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    return `zcash:${address}?amount=${amount}&memo=${b64url}`;
-  } catch {
-    return `zcash:${address}?amount=${amount}`;
-  }
-}
 
 export function BoostPotModal({
   contest,
@@ -36,7 +27,7 @@ export function BoostPotModal({
 
   const activeAmount = custom ? parseFloat(custom) || 0.1 : amount;
   const memoText = `boost:${contest.id}`;
-  const zip321Uri = toZip321(address, activeAmount, memoText);
+  const zip321Uri = zip321(address, activeAmount, memoText);
 
   useEffect(() => {
     let active = true;

@@ -2,23 +2,41 @@
 import Link from "next/link";
 import { useState } from "react";
 import { BottomNav, TopBar } from "@/components/ui";
-import { cloudReady, cloudRpc } from "@/lib/cloud";
+import { cloudReady, cloudRpc, signInWithGoogle, useCloud, useSponsorDashboard } from "@/lib/cloud";
+import { SponsorDashboardView } from "@/components/sponsor-dashboard";
 
 const GETS = [
   ["Your brand on the contest", "Your name, logo, colour and website on the contest page, the contest list and Home."],
   ["Fair by design", "Every entry is sealed before kickoff and timestamped on Bitcoin. You can check every winner yourself."],
   ["Prizes paid privately", "Winners are paid in shielded ZEC with a memo naming your contest."],
   ["Free for players", "Nobody pays to enter, so your contest reaches every football fan on Called It."],
-  ["Watch it live", "Your contest's public page shows how many players entered and the leaderboard, updating while you watch."],
+  ["Run it yourself", "Once you're a sponsor, you create your contests, choose when they go public, pause them and watch entries live from your own dashboard."],
 ] as const;
 const STEPS = [
   "Send the form below. Tell us your budget and which matches you want.",
-  "We agree the prize split and set up your branded contest.",
-  "You send the prize pool in ZEC before the first kickoff.",
+  "We set up your sponsor account. You sign in with Google and get your own dashboard.",
+  "You create your contest, pick the matches and prize split, and choose when it goes public.",
+  "You fund the prize by scanning a payment QR in your dashboard. It is recorded against your contest only.",
   "Results settle automatically at full time, and winners are paid in shielded ZEC.",
 ];
 
 export default function SponsorPage() {
+  const signedIn = !!useCloud().session;
+  const { data: dash, reload } = useSponsorDashboard();
+  if (signedIn && dash) {
+    return (
+      <main className="screen wide hub">
+        <div style={{ padding: "18px 20px 28px", maxWidth: 760, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+          <SponsorDashboardView data={dash} reload={reload} />
+        </div>
+        <BottomNav active="/sponsor" />
+      </main>
+    );
+  }
+  return <SponsorPitch signedIn={signedIn} />;
+}
+
+function SponsorPitch({ signedIn }: { signedIn: boolean }) {
   const [brand, setBrand] = useState(""), [contact, setContact] = useState(""), [budget, setBudget] = useState("");
   const [matches, setMatches] = useState(""), [message, setMessage] = useState("");
   const [state, setState] = useState<{ busy?: boolean; sent?: boolean; error?: string }>({});
@@ -42,6 +60,12 @@ export default function SponsorPage() {
       <TopBar eyebrow="For brands and communities" title="Sponsor a contest" />
       <div style={{ padding: "4px 20px 28px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#c9d3de" }}>Put up a ZEC prize pool on real football matches. Fans play free, and every result can be checked.</p>
+        {!signedIn && cloudReady && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, padding: "10px 12px" }}>
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Already a sponsor? Sign in to open your dashboard.</span>
+            <button className="btn btn-quiet" onClick={signInWithGoogle} style={{ width: "auto", minHeight: 40, padding: "0 14px" }}>Sign in with Google</button>
+          </div>
+        )}
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 10 }}>
           {GETS.map(([t, d]) => (

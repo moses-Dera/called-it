@@ -1,4 +1,5 @@
 "use client";
+import { isMainnetShielded } from "./zaddr";
 import { useSyncExternalStore } from "react";
 import { sha256Hex, verifyProof } from "./merkle";
 
@@ -121,7 +122,8 @@ export function mergeCloud(remote: { profile?: Partial<Profile>; withdrawn?: num
     ledger: [...s.ledger, ...remote.ledger.filter((x) => !got.has(x.id))].sort((a, b) => b.at - a.at).slice(0, 200),
   });
 }
-export const isShielded = (a: string) => /^(u|utest|zs|ztestsapling)1[a-z0-9]{20,}$/i.test(a.trim());
+/** A mainnet shielded address (u1… or zs1…) whose checksum is valid, so typos and partial pastes are caught. */
+export const isShielded = (a: string) => isMainnetShielded(a);
 export function withdrawAll() { const s = read(); write({ ...s, withdrawn: s.ledger.reduce((a, r) => a + (r.verified ? r.zec : 0), 0) }); }
 export const totals = (s: State) => {
   const points = s.ledger.reduce((a, r) => a + r.points, 0);

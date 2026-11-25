@@ -344,6 +344,7 @@ export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
   status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: "pending" | "paid"; txid?: string | null }[] | null;
   sponsor_logo: string | null; sponsor_color: string | null; sponsor_url: string | null;
+  owner_id?: string | null; opens_at?: string | null; paused?: boolean; hidden?: boolean; funded_zec?: number;
   prize_structure: "top3" | "top5" | "top10" | "top20" | "all_correct" | "random_draw" | "custom" | "equal_split";
   entry_deadline: string | null; description: string | null;
   custom_shares?: number[] | null;
@@ -353,9 +354,35 @@ const contestStore = shared<Contest[]>(async () => {
   if (!c) return [];
   const { data, error } = await c.from("contests").select("*").order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((x) => ({ ...x, prize_zec: Number(x.prize_zec) }));
+  return (data ?? []).map((x) => ({ ...x, prize_zec: Number(x.prize_zec), funded_zec: Number(x.funded_zec ?? 0) }));
 }, []);
-export const useContests = () => contestStore.use();
+// ---------- Sponsor dashboard ----------
+export type SponsorMatch = { id: string; home: string; away: string; kickoff: string; home_goals: number | null; away_goals: number | null; sealed: number };
+export type SponsorContest = Contest & { created_at: string; entries: number; funded_zec: number; matches: SponsorMatch[] };
+export type SponsorDashboard = { name: string; contests: SponsorContest[] };
+/** The signed-in sponsor's own contests with live numbers; null for anyone who is not a sponsor, undefined while loading. */
+export function useSponsorDashboard(): { data: SponsorDashboard | null | undefined; reload: () => void } {
+  const uid = useCloud().session?.user.id;
+  const [data, setData] = useState<SponsorDashboard | null | undefined>(undefined);
+  const [n, setN] = useState(0);
+  const tick = useVisibleTick(30_000);
+  useEffect(() => {
+    if (!uid || !sb()) { setData(null); return; }
+    let live = true;
+    cloudRpc<SponsorDashboard | null>("sponsor_dashboard").then((d) => {
+      if (live) setData(d && { ...d, contests: d.contests.map((c) => ({ ...c, prize_zec: Number(c.prize_zec), funded_zec: Number(c.funded_zec) })) });
+    }).catch(() => live && setData((prev) => prev ?? null));
+    return () => { live = false; };
+  }, [uid, tick, n]);
+  return { data, reload: () => setN((x) => x + 1) };
+}
+
+/** Whether the public can see a contest: not hidden by the admin and past its opening time. */
+export const isListed = (c: Contest, now = Date.now()) => !c.hidden && (!c.opens_at || Date.parse(c.opens_at) <= now);
+/** Contests the public sees. Owners and the admin also receive their unlisted ones; those are filtered out here. */
+export const useContests = () => contestStore.use().filter((c) => isListed(c));
+/** Every contest the database lets this person see, including their own scheduled or hidden ones. */
+export const useAllContests = () => contestStore.use();
 
 // ---------- App settings ----------
 const fundStore = shared<string | null>(async () => {

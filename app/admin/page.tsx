@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
-import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useContests, useFixtures, useFundAddress } from "@/lib/cloud";
+import { zip321 } from "@/lib/zip321";
+import { isMainnetShielded } from "@/lib/zaddr";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useFundAddress, type Contest } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -289,11 +291,66 @@ function ImportCard() {
   );
 }
 
+function ContestControls({ c, act }: { c: Contest; act: Act }) {
+  const [funded, setFunded] = useState<string | null>(null);
+  const v = funded ?? String(c.funded_zec ?? 0);
+  const opensLater = c.opens_at && Date.parse(c.opens_at) > Date.now();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontWeight: 700, color: "#4a4436" }}>
+        {c.owner_id && <span>Run by the sponsor</span>}
+        {opensLater && <span>· opens {time(c.opens_at!)}</span>}
+        {c.paused && <span>· joining paused</span>}
+        {c.hidden && <span style={{ color: "#9a2d1d" }}>· hidden from the public</span>}
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <label htmlFor={`funded-${c.id}`} style={{ fontWeight: 800 }}>ZEC received for prizes</label>
+        <input id={`funded-${c.id}`} value={v} onChange={(e) => setFunded(e.target.value)} inputMode="decimal" style={{ width: 90, height: 32, borderRadius: 8, border: "2px solid #111", padding: "0 6px" }} />
+        <button style={{ ...btn("#111", "var(--lime)"), minHeight: 32, padding: "0 10px", fontSize: 12 }} disabled={funded === null}
+          onClick={async () => { if (await act("admin_set_funded", { p_id: c.id, p_amount: Number(v) }, `Recorded ${v} ZEC for ${c.title}.`)) setFunded(null); }}>Save</button>
+        <span style={{ color: "#4a4436" }}>of {c.prize_zec} ZEC · memo fund:{c.id}</span>
+        <button style={{ ...btn(c.hidden ? "var(--lime)" : "#fff"), minHeight: 32, padding: "0 10px", fontSize: 12, marginLeft: "auto" }}
+          onClick={() => act("admin_hide_contest", { p_id: c.id, p_hidden: !c.hidden }, c.hidden ? `${c.title} is visible again.` : `${c.title} is hidden from the public.`)}>{c.hidden ? "Unhide" : "Hide"}</button>
+      </div>
+    </div>
+  );
+}
+
+type SponsorRow = { email: string; name: string; contests: number; added_at: string };
+function Sponsors({ act }: { act: Act }) {
+  const [list, setList] = useState<SponsorRow[] | null>(null);
+  const [email, setEmail] = useState(""), [name, setName] = useState("");
+  const load = useCallback(() => { cloudRpc<SponsorRow[]>("admin_sponsors").then(setList).catch(() => setList([])); }, []);
+  useEffect(() => { load(); }, [load]);
+  async function set(e: string, n: string, on: boolean) {
+    if (await act("admin_set_sponsor", { p_email: e, p_name: n, p_on: on }, on ? `${n} is now a sponsor. They open /sponsor to reach their dashboard.` : `${e} is no longer a sponsor.`)) { setEmail(""); setName(""); load(); }
+  }
+  const f = { height: 40, borderRadius: 10, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 10px", fontSize: 14, flex: "1 1 160px", minWidth: 0 } as const;
+  return (
+    <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+      <span className="display" style={{ fontSize: 18 }}>Sponsors</span>
+      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Sponsors run their own contests from /sponsor and they go public without approval, so only add people you trust. They must sign in to Called It once before you add them.</span>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input aria-label="Sponsor sign-in email" placeholder="Their sign-in email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" style={f} />
+        <input aria-label="Sponsor display name" placeholder="Brand name" value={name} onChange={(e) => setName(e.target.value)} style={f} />
+        <button className="btn" disabled={!email.trim() || name.trim().length < 2} onClick={() => set(email, name, true)} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--lime)", color: "#111" }}>Add sponsor</button>
+      </div>
+      {list?.map((r) => (
+        <div key={r.email} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flexWrap: "wrap" }}>
+          <b>{r.name}</b><span style={{ color: "var(--muted)", overflowWrap: "anywhere" }}>{r.email} · {r.contests} contest{r.contests === 1 ? "" : "s"}</span>
+          <button className="btn btn-quiet" onClick={() => set(r.email, r.name, false)} style={{ width: "auto", minHeight: 32, padding: "0 10px", marginLeft: "auto", fontSize: 12 }}>Remove</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function FundWallet() {
   const current = useFundAddress();
   const [value, setValue] = useState<string | null>(null), [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null), [busy, setBusy] = useState(false);
   const v = value ?? current ?? "";
   async function save(next: string) {
+    if (next.trim() && !isMainnetShielded(next)) return setMsg({ text: "That isn't a complete mainnet shielded address. Copy it again from your wallet: it starts with u1 or zs1.", bad: true });
     setBusy(true); setMsg(null);
     try {
       await cloudRpc("admin_set_setting", { p_key: "fund_address", p_value: next });
@@ -347,7 +404,7 @@ function SponsorRequests() {
 }
 
 function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
-  const contests = useContests(), fixtures = useFixtures();
+  const contests = useAllContests(), fixtures = useFixtures();
   const [contestMsg, setContestMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [title, setTitle] = useState(""), [sponsor, setSponsor] = useState(""), [prize, setPrize] = useState(""), [pick, setPick] = useState<string[]>([]);
   const [logo, setLogo] = useState(""), [color, setColor] = useState(""), [surl, setSurl] = useState("");
@@ -378,6 +435,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <FundWallet />
+        <Sponsors act={act} />
         <SponsorRequests />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
@@ -392,6 +450,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
               <div><div className="display" style={{ fontSize: 18 }}>{c.title}</div><div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{c.sponsor ? `Sponsored by ${c.sponsor} · ` : ""}{c.prize_zec} ZEC pot · {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}</div></div>
               <Chip text={c.status === "open" ? "OPEN" : "CLOSED"} bg={c.status === "open" ? "var(--sky)" : "var(--lime)"} />
             </div>
+            <ContestControls c={c} act={act} />
             {c.winners && (c.winners.length ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase" }}>Winners & Payouts</div>
@@ -410,7 +469,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                           <span className="chip" style={{ background: "var(--amber)", fontSize: 11, padding: "2px 8px" }}>PENDING</span>
                           {w.address ? (
                             <a
-                              href={`zcash:${w.address}?amount=${w.zec}&memo=${encodeURIComponent(`Called It: ${c.title} (#${w.rank})`)}`}
+                              href={zip321(w.address, w.zec, `Called It: ${c.title} (#${w.rank})`)}
                               title={`Pay ${w.zec} ZEC to ${w.address}`}
                               style={{ ...btn("var(--lime)"), minHeight: 28, padding: "0 8px", fontSize: 11, display: "inline-flex", alignItems: "center", textDecoration: "none" }}
                             >
@@ -844,7 +903,7 @@ function TransactionsTab({ txs }: { txs: Txs | null }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <section className="paper" style={card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Anchors on Zcash testnet</h2>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Timestamp batches</h2>
           <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>{txs?.anchors.length ?? "…"} transactions · click an id to copy</span>
         </div>
         <div style={{ overflowX: "auto" }}>

@@ -5,7 +5,7 @@ import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { BoostPotModal } from "@/components/boost-pot-modal";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useContestEntryCount, useContests, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
+import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
 
 const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top10: "Top 10 share the pot", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
@@ -13,13 +13,14 @@ export default function ContestPage() {
   const [id, setId] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
   const [ref, setRef] = useState<string | null>(null);
   useEffect(() => { const p = new URLSearchParams(location.search); setId(p.get("c")); setRef(p.get("ref")); setNow(Date.now()); }, []);
-  const contests = useContests(), fixtures = useFixtures();
+  const contests = useAllContests(), fixtures = useFixtures();
   const session = useCloud().session;
   const signedIn = !!session;
   const c = contests.find((x) => x.id === id);
   const { rows: board, loadMore: boardMore, hasMore: boardHasMore, loading: boardLoading } = useContestBoard(c ? c.id : null);
   const entryCount = useContestEntryCount(c ? c.id : null);
   const fund = useFundAddress();
+  const canJoin = !!c && !c.paused && !c.hidden && !(c.opens_at && now && Date.parse(c.opens_at) > now) && !(c.entry_deadline && now && Date.parse(c.entry_deadline) < now);
   const myIds = useMyContestIds();
   const joined = c ? myIds.includes(c.id) : false;
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
@@ -70,7 +71,7 @@ export default function ContestPage() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
               </div>
-              {fund && c.status === "open" && <button
+              {fund && c.status === "open" && canJoin && <button
                 onClick={() => setBoostOpen(true)}
                 style={{
                   display: "inline-flex",
@@ -93,13 +94,17 @@ export default function ContestPage() {
               {STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. Seal before each kickoff while signed in.
             </div>
             {entryCount !== null && <div style={{ fontSize: 13, fontWeight: 800 }}>{entryCount} player{entryCount === 1 ? "" : "s"} entered</div>}
+            {c.prize_zec > 0 && (c.funded_zec ?? 0) >= c.prize_zec && <div style={{ fontSize: 13, fontWeight: 800 }}>✓ Prize funded: {c.prize_zec} ZEC is set aside for this contest</div>}
+            {now && c.opens_at && Date.parse(c.opens_at) > now && <div role="timer" style={{ fontSize: 13, fontWeight: 800 }}>Opens {new Date(c.opens_at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Only you can see it until then.</div>}
+            {c.paused && c.status === "open" && <div style={{ fontSize: 13, fontWeight: 800 }}>Joining is paused by the sponsor. Players already in keep playing.</div>}
+            {c.hidden && <div style={{ fontSize: 13, fontWeight: 800 }}>Hidden by Called It. Only you can see this page.</div>}
             {c.entry_deadline && now && (
               <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.7 }}>
                 Entry deadline: {new Date(c.entry_deadline).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                 {Date.parse(c.entry_deadline) < now && " (passed)"}
               </div>
             )}
-            {c.status === "open" && signedIn && (
+            {c.status === "open" && signedIn && (joined || canJoin) && (
               <button onClick={handleJoin} disabled={joining} style={{ minHeight: 48, borderRadius: 14, border: "2px solid #111", background: joined ? "transparent" : "#111", color: joined ? "#111" : accent, fontWeight: 800, fontSize: 15 }}>
                 {joining ? "…" : joined ? "Leave contest" : "Join contest"}
               </button>

@@ -16,7 +16,7 @@ export default function Profile() {
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
 
   function save() {
-    if (addrV.trim() && !isShielded(addrV)) return setMsg("That doesn't look like a valid Zcash address. It should start with u1 or utest1.");
+    if (addrV.trim() && !isShielded(addrV)) return setMsg("That isn't a complete mainnet shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
     saveProfile({ name: nameV.trim().slice(0, 24), address: addrV.trim() });
     setMsg("Saved.");
   }

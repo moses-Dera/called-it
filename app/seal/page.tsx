@@ -115,7 +115,7 @@ export default function SealPage() {
         <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(11,15,20,.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 30, textAlign: "center" }}>
           <Img n="seal" size={200} alt="Wax seal" className="stamp" />
           <div className="display" style={{ fontSize: 40 }}>Sealed.</div>
-          <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label} is locked.<br />Only its fingerprint left your phone.</div>
+          <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label} is locked.<br />Only its fingerprint is timestamped. Nobody can see your call before the reveal.</div>
           <SealStatus seal={seal} />
           <details style={{ fontSize: 12, color: "var(--muted)" }}>
             <summary style={{ cursor: "pointer", fontWeight: 700 }}>View proof details</summary>
