@@ -2,7 +2,7 @@
 import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
-import { cloudRpc, useFixtures, useFundAddress, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
+import { cloudRpc, refreshContests, useFixtures, useFundAddress, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
 import { phaseOf } from "@/lib/data";
 import { zip321 } from "@/lib/zip321";
 
@@ -146,7 +146,7 @@ function ContestForm({ edit, onDone }: { edit?: SponsorContest; onDone: () => vo
 
 function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () => void; onEdit: () => void }) {
   const now = useClock();
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState(""), [note, setNote] = useState("");
   if (now == null) return null;
   const st = state(c, now);
   const next = c.matches.find((m) => Date.parse(m.kickoff) > now);
@@ -190,6 +190,7 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
         </div>
       )}
       {err && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</div>}
+      {note && <div role="status" style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)", overflowWrap: "anywhere" }}>{note}</div>}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {!c.hidden && c.status !== "closed" && st.label === "Scheduled" && <button className="btn" onClick={() => control("open_now")} style={{ ...btn, background: "var(--lime)", color: "#111" }}>Open now</button>}
         {!c.hidden && c.status !== "closed" && st.label !== "Scheduled" && (c.paused
@@ -197,6 +198,7 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
           : <button className="btn btn-quiet" onClick={() => control("pause")} style={btn}>Pause joining</button>)}
         {c.status !== "closed" && <button className="btn btn-quiet" onClick={onEdit} style={btn}>Edit</button>}
         <Link href={`/contest?c=${c.id}`} className="btn btn-quiet" style={btn}>Public page</Link>
+        <button className="btn btn-quiet" style={btn} onClick={() => { navigator.clipboard?.writeText(`${location.origin}/contest?c=${c.id}`).then(() => setNote("Link copied. Share it anywhere: people who sign in come straight back to this contest."), () => setNote(`Your link: ${location.origin}/contest?c=${c.id}`)); }}>Copy link</button>
       </div>
     </article>
   );
@@ -204,7 +206,8 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
 
 export function SponsorDashboardView({ data, reload }: { data: SponsorDashboard; reload: () => void }) {
   const [form, setForm] = useState<"new" | SponsorContest | null>(null);
-  const done = () => { setForm(null); reload(); };
+  const done = () => { setForm(null); reload(); refreshContests(); };
+  const changed = () => { reload(); refreshContests(); };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -213,7 +216,7 @@ export function SponsorDashboardView({ data, reload }: { data: SponsorDashboard;
       </div>
       {form && <ContestForm key={form === "new" ? "new" : form.id} edit={form === "new" ? undefined : form} onDone={done} />}
       {data.contests.length === 0 && !form && <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>No contests yet. Create your first one: pick matches, set the prize and choose when it goes public.</p>}
-      {data.contests.map((c) => <ContestCard key={c.id} c={c} onChange={reload} onEdit={() => { setForm(c); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
+      {data.contests.map((c) => <ContestCard key={c.id} c={c} onChange={changed} onEdit={() => { setForm(c); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
       <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Your contests settle automatically when their last match finishes. Called It pays the winners in shielded ZEC from the prize you funded. Only you can see and change your contests here.</p>
     </div>
   );

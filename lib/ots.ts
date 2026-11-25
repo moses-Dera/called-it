@@ -27,6 +27,9 @@ const CALENDARS = [
   "https://finney.calendar.eternitywall.com",
 ];
 const TIMEOUT_MS = 12_000;
+// Calendars a stored proof may point to for its Bitcoin confirmation. The pool servers we stamp with
+// hand proofs on to alice and bob. Only these are ever contacted, never a URL read out of stored data.
+const UPGRADE_FROM = [...CALENDARS, "https://bob.btc.calendar.opentimestamps.org"];
 
 // ---------- OpenTimestamps binary format ----------
 const FILE_HEADER = Buffer.from("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294", "hex");
@@ -176,16 +179,19 @@ export async function checkRoot(root: string): Promise<AnchorState | null> {
   const done = parsed.leaves.find((l) => l.tag === BITCOIN);
   if (done) return { status: "mined", height: heightOf(done), mode: "bitcoin" };
 
-  // Ask only calendars we chose; never follow a URL read out of stored data.
-  const pending = parsed.leaves.filter((l) => l.tag === PENDING && CALENDARS.includes(calendarOf(l)));
-  for (const leaf of pending) {
+  // Ask every listed calendar at once (each call has its own timeout), and use the first Bitcoin confirmation.
+  const pending = parsed.leaves.filter((l) => l.tag === PENDING && UPGRADE_FROM.includes(calendarOf(l)));
+  const answers = await Promise.all(pending.map(async (leaf) => {
     const reply = await upgrade(calendarOf(leaf), leaf.msg);
-    if (!reply) continue;
+    if (!reply) return null;
     const found: Leaf[] = [];
-    try { walk(reply, 0, leaf.msg, found); } catch { continue; }
+    try { walk(reply, 0, leaf.msg, found); } catch { return null; }
     const btc = found.find((l) => l.tag === BITCOIN);
-    if (!btc) continue;
-
+    return btc ? { leaf, reply, btc } : null;
+  }));
+  for (const a of answers) {
+    if (!a) continue;
+    const { leaf, reply, btc } = a;
     const height = heightOf(btc);
     // Swap the pending attestation for the calendar's path to the Bitcoin block header.
     file = Buffer.concat([file.subarray(0, leaf.start), reply, file.subarray(leaf.end)]);

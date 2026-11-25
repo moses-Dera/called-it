@@ -66,6 +66,16 @@ begin
   if logo is not null and logo !~ '^https://' then raise exception 'the logo must be an https:// link'; end if;
   if url is not null and url !~ '^https://' then raise exception 'the website must be an https:// link'; end if;
   if color is not null and color !~ '^#[0-9a-fA-F]{3,8}$' then raise exception 'the colour must look like #ffb547'; end if;
+  -- Shares are divided by their total at payout, so a negative or zero share would inflate the others.
+  if p_structure = 'custom' and (coalesce(array_length(p_custom_shares, 1), 0) not between 1 and 20
+      or exists (select 1 from unnest(p_custom_shares) x where x is null or x <= 0 or x > 100)) then
+    raise exception 'custom shares must be 1 to 20 percentages, each above 0';
+  elsif p_structure = 'equal_split' and (coalesce(array_length(p_custom_shares, 1), 0) <> 1
+      or p_custom_shares[1] is null or p_custom_shares[1] <> trunc(p_custom_shares[1]) or p_custom_shares[1] not between 1 and 100) then
+    raise exception 'equal split needs a number of winners from 1 to 100';
+  elsif coalesce(p_structure, 'top3') not in ('custom', 'equal_split') and p_custom_shares is not null then
+    raise exception 'shares are only used with the custom or equal split prize';
+  end if;
 
   select * into c from public.contests where id = p_id;
   if found and c.owner_id is distinct from uid then raise exception 'that contest name is taken, try another title'; end if;

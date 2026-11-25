@@ -8,6 +8,25 @@ import { settlePick } from "./data";
 
 // Gives an offline tipster's phone time to hand its moves to escrow before a missing one counts as lost.
 const GRACE_MS = 3 * 60 * 60_000;
+// How far back to look for finished matches to settle.
+const WINDOW_MS = 21 * 24 * 60 * 60_000;
+const PAGE = 1000;
+
+function chunks<T>(list: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+/** Read every row of a query, a page at a time (PostgREST returns at most 1000 rows per request). */
+async function pages<T>(query: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>): Promise<{ rows: T[] } | { error: string }> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await query(from, from + PAGE - 1);
+    if (error) return { error: error.message };
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) return { rows };
+  }
+}
 const enc = new TextEncoder(), dec = new TextDecoder();
 const unb64 = (s: string) => new Uint8Array(Buffer.from(s, "base64"));
 
@@ -30,41 +49,61 @@ export async function settleTips(sb: SupabaseClient): Promise<{ settled: number;
   const key = await escrowKey();
   if (!key) return { settled: 0, error: "SEAL_ESCROW_KEY not set" };
 
-  const { data: tipsters, error: pErr } = await sb.from("profiles").select("id").not("public_since", "is", null);
+  // Every read must succeed: settling from partial data would record tips as lost forever.
+  const { data: tipsters, error: pErr } = await sb.from("profiles").select("id, public_since").not("public_since", "is", null);
   if (pErr) return { settled: 0, error: pErr.message };
   if (!tipsters?.length) return { settled: 0 };
-  const ids = tipsters.map((t) => t.id as string);
+  const since = new Map(tipsters.map((t) => [t.id as string, Date.parse(t.public_since as string)]));
+  const ids = [...since.keys()];
 
-  const { data: seals, error: sErr } = await sb.from("seals").select("user_id, id, round, commitment, received_at").in("game", ["classic", "tip"]).in("user_id", ids);
-  if (sErr) return { settled: 0, error: sErr.message };
-  if (!seals?.length) return { settled: 0 };
-
-  const rounds = [...new Set(seals.map((s) => s.round as string))];
+  // Recent finished matches only: the cron runs daily, so anything older has already been settled.
   const cutoff = new Date(Date.now() - GRACE_MS).toISOString();
-  const { data: fixtures, error: fErr } = await sb.from("fixtures").select("id, kickoff, home_goals, away_goals")
-    .in("id", rounds).not("home_goals", "is", null).lt("kickoff", cutoff);
-  if (fErr) return { settled: 0, error: fErr.message };
-  const final = new Map((fixtures ?? []).map((f) => [f.id as string, f as Fixture]));
+  const window = new Date(Date.now() - WINDOW_MS).toISOString();
+  const fx = await pages<Fixture>((from, to) => sb.from("fixtures").select("id, kickoff, home_goals, away_goals")
+    .not("home_goals", "is", null).lt("kickoff", cutoff).gte("kickoff", window).order("kickoff").range(from, to));
+  if ("error" in fx) return { settled: 0, error: fx.error };
+  const final = new Map(fx.rows.map((f) => [f.id, f]));
+  if (!final.size) return { settled: 0 };
+  const finalIds = [...final.keys()];
 
-  const { data: done } = await sb.from("tip_results").select("user_id, fixture_id").in("user_id", ids);
-  const settled = new Set((done ?? []).map((d) => `${d.user_id}|${d.fixture_id}`));
+  const sealRows: Seal[] = [];
+  for (const idPart of chunks(ids, 50)) for (const fxPart of chunks(finalIds, 100)) {
+    const r = await pages<Seal>((from, to) => sb.from("seals").select("user_id, id, round, commitment, received_at")
+      .in("game", ["classic", "tip"]).in("user_id", idPart).in("round", fxPart).order("received_at").range(from, to));
+    if ("error" in r) return { settled: 0, error: r.error };
+    sealRows.push(...r.rows);
+  }
+  const settled = new Set<string>();
+  for (const idPart of chunks(ids, 50)) for (const fxPart of chunks(finalIds, 100)) {
+    const r = await pages<{ user_id: string; fixture_id: string }>((from, to) => sb.from("tip_results").select("user_id, fixture_id")
+      .in("user_id", idPart).in("fixture_id", fxPart).range(from, to));
+    if ("error" in r) return { settled: 0, error: r.error };
+    r.rows.forEach((d) => settled.add(`${d.user_id}|${d.fixture_id}`));
+  }
 
   // The earliest seal before kickoff is the tip; later seals on the same match never count.
+  // Seals from before the record went public don't count: back then they could still be deleted.
   const tips = new Map<string, Seal>();
-  for (const s of seals as Seal[]) {
-    const f = final.get(s.round);
-    if (!f || Date.parse(s.received_at) >= Date.parse(f.kickoff)) continue;
+  for (const s of sealRows) {
+    const f = final.get(s.round)!;
+    const at = Date.parse(s.received_at);
+    if (at >= Date.parse(f.kickoff) || at < (since.get(s.user_id) ?? Infinity)) continue;
     const k = `${s.user_id}|${s.round}`;
     if (settled.has(k)) continue;
     const cur = tips.get(k);
-    if (!cur || Date.parse(s.received_at) < Date.parse(cur.received_at)) tips.set(k, s);
+    if (!cur || at < Date.parse(cur.received_at)) tips.set(k, s);
   }
   if (!tips.size) return { settled: 0 };
 
   const chosen = [...tips.values()];
-  const { data: vault } = await sb.from("seal_vault").select("user_id, seal_id, iv, data")
-    .in("user_id", [...new Set(chosen.map((s) => s.user_id))]).in("seal_id", chosen.map((s) => s.id));
-  const blob = new Map((vault ?? []).map((v) => [`${v.user_id}|${v.seal_id}`, v]));
+  const vault: { user_id: string; seal_id: string; iv: string; data: string }[] = [];
+  for (const part of chunks(chosen, 100)) {
+    const { data, error } = await sb.from("seal_vault").select("user_id, seal_id, iv, data")
+      .in("user_id", [...new Set(part.map((s) => s.user_id))]).in("seal_id", part.map((s) => s.id));
+    if (error) return { settled: 0, error: error.message };
+    vault.push(...(data ?? []));
+  }
+  const blob = new Map(vault.map((v) => [`${v.user_id}|${v.seal_id}`, v]));
 
   const rows: Row[] = [];
   for (const s of chosen) {

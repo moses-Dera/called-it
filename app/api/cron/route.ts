@@ -76,13 +76,18 @@ export async function GET(req: Request) {
   // Auto-settle completed contests: when all matches in a contest finish, rank winners automatically.
   // Funds are NOT sent automatically — they await manual or cloud release by the admin/sponsor.
   try {
-    const { data: openContests } = await sb
+    const { data: openContests, error: listErr } = await sb
       .from("contests")
-      .select("id, title, fixture_ids")
+      .select("id, title, fixture_ids, owner_id, prize_zec, funded_zec, hidden")
       .eq("status", "open");
+    if (listErr) log.push(`! Contest list: ${listErr.message}`);
 
     for (const c of openContests ?? []) {
       if (!c.fixture_ids || c.fixture_ids.length === 0) continue;
+      // Closing credits winners with withdrawable ZEC, so a hidden contest, or a sponsor's contest whose prize
+      // hasn't been fully received, waits for the admin to close it by hand.
+      if (c.hidden) { log.push(`⏸ Not auto-settling hidden contest ${c.id}`); continue; }
+      if (c.owner_id && Number(c.funded_zec ?? 0) < Number(c.prize_zec ?? 0)) { log.push(`⏸ Not auto-settling ${c.id}: ${c.funded_zec ?? 0} of ${c.prize_zec} ZEC funded`); continue; }
       const { data: finished } = await sb
         .from("fixtures")
         .select("id")

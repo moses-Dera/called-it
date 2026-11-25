@@ -25,7 +25,11 @@ export function useCloud(): Cloud {
 }
 
 export async function signInWithGoogle() {
-  const { error } = (await sb()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } })) ?? {};
+  // Come back to exactly this page, link details included (?c=contest, ?h=tipster, ?f=match), so a shared
+  // link still works after signing in. A leftover ?code= from an earlier sign-in is dropped.
+  const q = new URLSearchParams(location.search); q.delete("code");
+  const back = location.origin + location.pathname + (q.size ? "?" + q : "");
+  const { error } = (await sb()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: back } })) ?? {};
   if (error) set({ status: "error", error: error.message });
 }
 export async function signOut() { await sb()?.auth.signOut(); }
@@ -104,7 +108,13 @@ async function sync(first = false) {
 }
 
 /** Push local changes now (used before a claim, so the server has the seal). */
-export async function syncNow() { if (timer) clearTimeout(timer); await sync(); }
+export async function syncNow() {
+  if (timer) clearTimeout(timer);
+  // A sync already running may have started before the latest change, so wait for it to finish
+  // (up to 15s), then run one that is sure to include everything.
+  for (let waited = 0; (busy || again) && waited < 15_000; waited += 200) await new Promise((r) => setTimeout(r, 200));
+  await sync();
+}
 
 export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; final?: string; id?: string; message?: string; streak?: number; streak_mult?: number };
 /** Reveal a Classic Call to the server, which re-hashes it and scores it against the official result. */
@@ -228,7 +238,11 @@ export async function announceTip(sealId: string) {
   try {
     await syncNow(); // the server must have the seal before it can announce it
     const token = await accessToken();
-    if (token) await fetch("/api/tipsters/announce", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ seal_id: sealId }) });
+    if (!token) return;
+    const send = () => fetch("/api/tipsters/announce", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ seal_id: sealId }) }).then((r) => r.json());
+    const first = await send();
+    // The seal can still be on its way to the server: try once more shortly after.
+    if (first?.reason === "no such tip") { await new Promise((r) => setTimeout(r, 4000)); await syncNow(); await send(); }
   } catch { /* followers simply miss this one alert */ }
 }
 export async function saveTipsterProfile(handle: string, bio: string, isPublic: boolean) {
@@ -546,6 +560,8 @@ export function startCloud() {
     set({ session, status: session ? cloud.status : "idle" });
     // Supabase calls must not run inside this callback, so defer the first sync.
     if (session && session.user.id !== was) setTimeout(() => sync(true).then(autoClaim), 0);
+    // Owners and the admin see contests the public can't, so reload the list when the account changes.
+    if ((session?.user.id ?? null) !== (was ?? null)) setTimeout(() => contestStore.refresh(), 0);
     // After Google sends the player back, drop the one-time ?code= from the address bar.
     if (session && new URLSearchParams(location.search).has("code")) {
       const q = new URLSearchParams(location.search); q.delete("code");
