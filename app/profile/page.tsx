@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Img, TopBar } from "@/components/ui";
-import { cloudReady, signInWithGoogle, signOut, useCloud, usePlayerStats } from "@/lib/cloud";
+import { cloudReady, myTipsterProfile, saveTipsterProfile, signInWithGoogle, signOut, useCloud, usePlayerStats } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
@@ -64,6 +65,8 @@ export default function Profile() {
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
         </section>
 
+        {user && <TipsterSettings />}
+
         <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <span className="display" style={{ fontSize: 18 }}>Account</span>
           {user ? (
@@ -101,6 +104,54 @@ const BADGE_DEFS: { key: string; label: string; desc: string; check: (s: Record<
   { key: "streak_30", label: "Month King", desc: "30-day streak", check: (s) => (s.streak ?? 0) >= 30, bg: "#FFD700" },
   { key: "hundred_seals", label: "Legend", desc: "100 seals", check: (s) => (s.total_seals ?? 0) >= 100, bg: "#C6F432" },
 ];
+
+function TipsterSettings() {
+  const [loaded, setLoaded] = useState(false);
+  const [handle, setHandle] = useState(""), [bio, setBio] = useState(""), [isPublic, setIsPublic] = useState(false);
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    myTipsterProfile().then((p) => {
+      if (p) { setHandle(p.handle ?? ""); setBio(p.bio ?? ""); setIsPublic(p.public_record); }
+      setLoaded(true);
+    });
+  }, []);
+
+  async function save(nextPublic: boolean) {
+    const h = handle.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,20}$/.test(h)) return setMsg({ ok: false, text: "Pick a handle of 3 to 20 letters, numbers or underscores." });
+    setBusy(true); setMsg(null);
+    try {
+      await saveTipsterProfile(h, bio.trim(), nextPublic);
+      setHandle(h); setIsPublic(nextPublic);
+      setMsg({ ok: true, text: nextPublic ? "Your record is public." : "Your record is private. It keeps its history, and your Classic Calls still cannot be deleted." });
+    } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Could not save." }); }
+    setBusy(false);
+  }
+
+  if (!loaded) return null;
+  return (
+    <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+      <span className="display" style={{ fontSize: 18 }}>Public tipster record</span>
+      <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Show your Classic Call record on a public page. Every call counts, one per match, settled by the server at full time. Your past and future calls are shown after full time, and calls on a public record can never be deleted.</div>
+      <label htmlFor="handle" style={{ fontSize: 12, fontWeight: 800 }}>Handle</label>
+      <input id="handle" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="yourname" maxLength={20} autoComplete="off" spellCheck={false} style={{ height: 48, borderRadius: 14, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
+      <label htmlFor="bio" style={{ fontSize: 12, fontWeight: 800 }}>Short bio</label>
+      <input id="bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Leagues you cover" maxLength={140} style={{ height: 48, borderRadius: 14, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 15 }} />
+      {isPublic ? (
+        <>
+          <Link href={`/tipster?h=${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>View my public record</Link>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+            <button className="btn btn-quiet" disabled={busy} onClick={() => save(true)}>Save changes</button>
+            <button className="btn btn-quiet" disabled={busy} onClick={() => save(false)}>Make private</button>
+          </div>
+        </>
+      ) : (
+        <button className="btn" disabled={busy} style={{ background: "var(--lime)", color: "#111" }} onClick={() => save(true)}>Make my record public</button>
+      )}
+      {msg && <div role={msg.ok ? "status" : "alert"} style={{ fontSize: 13, fontWeight: 700, color: msg.ok ? "var(--lime)" : "var(--red)" }}>{msg.text}</div>}
+    </section>
+  );
+}
 
 function PlayerBadges() {
   const stats = usePlayerStats();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { settleTips } from "@/lib/tipsters";
 
 // Auto fixture pipeline: import upcoming matches and fetch results.
 // Called by a cron job (e.g. Vercel cron, or `curl /api/cron?token=...` every 30 minutes).
@@ -60,6 +61,9 @@ export async function GET(req: Request) {
       log.push(`! ${comp}: ${e instanceof Error ? e.message : "failed"}`);
     }
   }
+
+  const tips = await settleTips(sb);
+  log.push(tips.error ? `! Tipster settle: ${tips.error}` : `tipster tips settled: ${tips.settled}`);
 
   // Weekly leaderboard cache reset (idempotent — only updates rows from prior weeks)
   try {

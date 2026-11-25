@@ -177,6 +177,42 @@ export async function cloudRpc<T = unknown>(name: string, args: Record<string, u
   return data as T;
 }
 
+// ---------- Verified tipster profiles ----------
+export type TipsterTip = {
+  fixture_id: string; home: string; away: string; kickoff: string; home_goals: number; away_goals: number;
+  pick: string | null; outcome: "won" | "lost"; exact: boolean; reason: "revealed" | "missing" | "mismatch";
+  received_at: string; commitment: string | null; root: string | null; height: number | null;
+};
+export type Tipster = {
+  handle: string; name: string; avatar: number; bio: string; public_since: string;
+  settled: number; won: number; exact: number; form: ("won" | "lost")[];
+  tips: TipsterTip[]; pending: { home: string; away: string; kickoff: string; received_at: string }[];
+};
+/** A public tipster record: undefined while loading, null when the handle is unknown or private. */
+export function useTipster(handle: string | null): { tipster: Tipster | null | undefined; error?: string } {
+  const [state, setState] = useState<{ handle: string | null; tipster: Tipster | null | undefined; error?: string }>({ handle: null, tipster: undefined });
+  useEffect(() => {
+    const c = sb();
+    if (!handle) return;
+    if (!c) { setState({ handle, tipster: null, error: "Accounts are not configured." }); return; }
+    let live = true;
+    c.rpc("tipster_profile", { p_handle: handle }).then(({ data, error }) => {
+      if (live) setState({ handle, tipster: error ? null : (data as Tipster | null), error: error?.message });
+    });
+    return () => { live = false; };
+  }, [handle]);
+  return state.handle === handle ? state : { tipster: undefined };
+}
+export async function saveTipsterProfile(handle: string, bio: string, isPublic: boolean) {
+  return cloudRpc<{ handle: string; public: boolean }>("set_tipster_profile", { p_handle: handle, p_bio: bio, p_public: isPublic });
+}
+export async function myTipsterProfile(): Promise<{ handle: string | null; bio: string; public_record: boolean } | null> {
+  const c = sb(), uid = cloud.session?.user.id;
+  if (!c || !uid) return null;
+  const { data } = await c.from("profiles").select("handle, bio, public_record").eq("id", uid).maybeSingle();
+  return data ?? { handle: null, bio: "", public_record: false };
+}
+
 // ---------- Tipping ----------
 export type Tip = { id: string; direction: string; other_name: string; amount: number; message: string | null; created_at: string };
 export function useTipHistory(): Tip[] | null {

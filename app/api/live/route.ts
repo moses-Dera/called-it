@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { settleTips } from "@/lib/tipsters";
 
 const COMPETITIONS = "PL,CL,PD,SA,BL1";
 const LIVE = new Set(["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"]);
@@ -71,7 +72,8 @@ async function run(): Promise<{ body: Record<string, unknown>; status: number }>
     if (error) return { body: { error: error.message }, status: 500 };
   }
 
-  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, at: new Date().toISOString() }, status: 200 };
+  const tips = await settleTips(sb);
+  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, tipsSettled: tips.settled, at: new Date().toISOString() }, status: 200 };
 }
 
 export async function GET() {
