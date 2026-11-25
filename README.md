@@ -49,9 +49,13 @@ Vercel. Points are score only; ZEC comes from contest prizes.
 - **Fixtures** live in the `fixtures` table. Enter a final score in the Supabase SQL editor once a match ends:
   `update fixtures set home_goals = 2, away_goals = 1 where id = 'reds-blues-2026-11-21';`
 - **Withdrawals**: signed-in players request a payout from the Vault (`request_withdrawal()`). Only
-  mainnet shielded addresses are accepted (`u1…` or `zs1…`); the app checks the address checksum
-  (`lib/zaddr.ts`) so typos and partial pastes are caught, and requests are serialised per player so one
-  balance can't be withdrawn twice. Payouts go out from the admin Payouts tab (`services/anchor`).
+  shielded addresses on the app's network are accepted (`u1…`/`zs1…` on mainnet, `utest1…`/`ztestsapling1…`
+  on testnet); the app checks the address checksum (`lib/zaddr.ts`) so typos and partial pastes are caught,
+  and requests are serialised per player so one balance can't be withdrawn twice.
+- **Payouts can't go out twice.** Every payout is claimed (`requested` → `sending`) in one atomic step before
+  any ZEC moves, so double clicks or two payout runs can't both send it. A send that fails is released for the
+  next run; anything unclear stays `sending` and is never re-sent: the admin checks the wallet and settles it.
+  A contest prize paid directly is recorded against the winner's balance, so it can't also be withdrawn.
 
 ## Play with friends (real players)
 
@@ -104,7 +108,11 @@ none; no other way to add an admin exists in the app). From there:
   received against that contest. A sponsor's contest only auto-settles once fully funded, and hidden contests never
   auto-settle. Contest pages show "Prize funded" when the ledger covers the prize.
 - **Sponsor requests:** brands that aren't sponsors yet send a request from `/sponsor`; requests appear here.
-- **Payouts and Credit:** pay winners and withdrawals in shielded ZEC, and award verified points.
+- **Network:** mainnet (real ZEC, the default) or testnet for a practice run with test coins. The whole app
+  follows it: address checks, the prize wallet (cleared on every switch) and the payout tool, which refuses to
+  run on the other network. Players see a test-mode banner on testnet.
+- **Payouts and Credit:** pay winners and withdrawals in shielded ZEC, settle payouts stuck in `sending`, and
+  award verified points.
 
 ### Auto fixture pipeline (cron)
 
