@@ -356,6 +356,18 @@ const contestStore = shared<Contest[]>(async () => {
   return (data ?? []).map((x) => ({ ...x, prize_zec: Number(x.prize_zec) }));
 }, []);
 export const useContests = () => contestStore.use();
+
+// ---------- App settings ----------
+const fundStore = shared<string | null>(async () => {
+  const c = sb();
+  if (!c) return null;
+  const { data, error } = await c.from("app_settings").select("value").eq("key", "fund_address").maybeSingle();
+  if (error) throw error;
+  return (data?.value as string | undefined) ?? null;
+}, null);
+/** The operator's prize-fund wallet for Boost the Pot, set by the admin; null when none is set. */
+export const useFundAddress = () => fundStore.use();
+export const refreshFundAddress = () => fundStore.refresh();
 export const refreshContests = () => contestStore.refresh();
 
 // ---------- Contest entries (join / leave) ----------

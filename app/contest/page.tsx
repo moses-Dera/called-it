@@ -3,9 +3,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { BoostPotModal, FUND_ADDRESS } from "@/components/boost-pot-modal";
+import { BoostPotModal } from "@/components/boost-pot-modal";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useContestEntryCount, useContests, useFixtures, useMyContestIds } from "@/lib/cloud";
+import { joinContest, leaveContest, useCloud, useContestBoard, useContestEntryCount, useContests, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
 
 const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top10: "Top 10 share the pot", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
@@ -19,6 +19,7 @@ export default function ContestPage() {
   const c = contests.find((x) => x.id === id);
   const { rows: board, loadMore: boardMore, hasMore: boardHasMore, loading: boardLoading } = useContestBoard(c ? c.id : null);
   const entryCount = useContestEntryCount(c ? c.id : null);
+  const fund = useFundAddress();
   const myIds = useMyContestIds();
   const joined = c ? myIds.includes(c.id) : false;
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
@@ -69,7 +70,7 @@ export default function ContestPage() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
               </div>
-              {FUND_ADDRESS && c.status === "open" && <button
+              {fund && c.status === "open" && <button
                 onClick={() => setBoostOpen(true)}
                 style={{
                   display: "inline-flex",
@@ -158,7 +159,7 @@ export default function ContestPage() {
           </section>
         </div>
       )}
-      {boostOpen && c && FUND_ADDRESS && <BoostPotModal contest={c} onClose={() => setBoostOpen(false)} />}
+      {boostOpen && c && fund && <BoostPotModal contest={c} address={fund} onClose={() => setBoostOpen(false)} />}
       <BottomNav active="/" />
     </main>
   );

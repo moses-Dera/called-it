@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Contest } from "@/lib/cloud";
 
-// The operator's own prize-fund wallet. With none configured, boosting is switched off rather than
-// sending donations to an address nobody here controls.
-export const FUND_ADDRESS = process.env.NEXT_PUBLIC_ZCASH_FUND_ADDRESS?.trim() || null;
+
 
 const PRESET_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 
@@ -23,9 +21,11 @@ function toZip321(address: string, amount: number, memoText: string): string {
 
 export function BoostPotModal({
   contest,
+  address,
   onClose,
 }: {
   contest: Contest;
+  address: string;
   onClose: () => void;
 }) {
   const [amount, setAmount] = useState<number>(0.1);
@@ -36,7 +36,6 @@ export function BoostPotModal({
 
   const activeAmount = custom ? parseFloat(custom) || 0.1 : amount;
   const memoText = `boost:${contest.id}`;
-  const address = FUND_ADDRESS ?? "";
   const zip321Uri = toZip321(address, activeAmount, memoText);
 
   useEffect(() => {

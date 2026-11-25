@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
-import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, signInWithGoogle, useCloud, useContests, useFixtures } from "@/lib/cloud";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useContests, useFixtures, useFundAddress } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -289,6 +289,33 @@ function ImportCard() {
   );
 }
 
+function FundWallet() {
+  const current = useFundAddress();
+  const [value, setValue] = useState<string | null>(null), [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null), [busy, setBusy] = useState(false);
+  const v = value ?? current ?? "";
+  async function save(next: string) {
+    setBusy(true); setMsg(null);
+    try {
+      await cloudRpc("admin_set_setting", { p_key: "fund_address", p_value: next });
+      await refreshFundAddress(); setValue(null);
+      setMsg({ text: next.trim() ? "Saved. Boost the Pot now sends to this wallet." : "Cleared. Boost the Pot is hidden." });
+    } catch (e) { setMsg({ text: e instanceof Error ? e.message : "Could not save", bad: true }); }
+    setBusy(false);
+  }
+  return (
+    <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+      <label htmlFor="fund-address" className="display" style={{ fontSize: 18 }}>Prize fund wallet</label>
+      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Your own shielded address for Boost the Pot donations. Leave it empty to hide Boost the Pot. Add each boost to the contest&apos;s prize pot after it arrives.</span>
+      <input id="fund-address" value={v} onChange={(e) => setValue(e.target.value)} placeholder="u1…" spellCheck={false} autoComplete="off" className="mono" style={{ height: 44, borderRadius: 12, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 10px", fontSize: 12 }} />
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn" disabled={busy || v.trim() === (current ?? "")} onClick={() => save(v)} style={{ width: "auto", minHeight: 40, padding: "0 16px", background: "var(--lime)", color: "#111" }}>Save</button>
+        {current && <button className="btn btn-quiet" disabled={busy} onClick={() => save("")} style={{ width: "auto", minHeight: 40, padding: "0 16px" }}>Clear</button>}
+      </div>
+      {msg && <div role={msg.bad ? "alert" : "status"} style={{ fontSize: 13, fontWeight: 700, color: msg.bad ? "var(--red)" : "var(--lime)" }}>{msg.text}</div>}
+    </section>
+  );
+}
+
 type SponsorRequest = { id: number; brand: string; contact: string; budget_zec: number | null; matches: string; message: string; status: "new" | "handled"; created_at: string };
 function SponsorRequests() {
   const [list, setList] = useState<SponsorRequest[] | null>(null), [err, setErr] = useState("");
@@ -350,6 +377,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <FundWallet />
         <SponsorRequests />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
