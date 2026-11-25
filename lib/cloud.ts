@@ -185,6 +185,7 @@ export type TipsterTip = {
 };
 export type Tipster = {
   handle: string; name: string; avatar: number; bio: string; public_since: string;
+  followers: number; following: boolean; is_me: boolean;
   settled: number; won: number; exact: number; form: ("won" | "lost")[];
   tips: TipsterTip[]; pending: { home: string; away: string; kickoff: string; received_at: string }[];
 };
@@ -202,6 +203,18 @@ export function useTipster(handle: string | null): { tipster: Tipster | null | u
     return () => { live = false; };
   }, [handle]);
   return state.handle === handle ? state : { tipster: undefined };
+}
+export async function followTipster(handle: string, follow: boolean) {
+  return cloudRpc<boolean>("follow_tipster", { p_handle: handle, p_follow: follow });
+}
+/** Tell a public tipster's followers that a tip was sealed. Best effort: the tip stands either way. */
+export async function announceTip(sealId: string) {
+  if (!cloud.session) return;
+  try {
+    await syncNow(); // the server must have the seal before it can announce it
+    const token = await accessToken();
+    if (token) await fetch("/api/tipsters/announce", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify({ seal_id: sealId }) });
+  } catch { /* followers simply miss this one alert */ }
 }
 export async function saveTipsterProfile(handle: string, bio: string, isPublic: boolean) {
   return cloudRpc<{ handle: string; public: boolean }>("set_tipster_profile", { p_handle: handle, p_bio: bio, p_public: isPublic });

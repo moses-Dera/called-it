@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img, Lock, TopBar } from "@/components/ui";
-import { useTipster, type TipsterTip } from "@/lib/cloud";
+import { followTipster, useCloud, useTipster, type TipsterTip } from "@/lib/cloud";
+import { describePick } from "@/lib/data";
 import { short } from "@/lib/store";
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
@@ -27,7 +28,7 @@ function TipRow({ t }: { t: TipsterTip }) {
         <span style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
           <b style={{ fontSize: 14 }}>{t.home} {t.home_goals}–{t.away_goals} {t.away}</b>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
-            {t.pick ? `Called ${t.pick.replace("-", "–")}${t.exact ? " · exact score" : ""}` : REASON[t.reason]} · sealed {lead(t.received_at, t.kickoff)} early
+            {t.pick ? `Called ${describePick(t.pick, t.home, t.away)}${t.exact ? " · exact" : ""}` : REASON[t.reason]} · sealed {lead(t.received_at, t.kickoff)} early
           </span>
         </span>
         <span style={{ fontSize: 12, fontWeight: 800, color: "var(--lime)" }}>{open ? "Hide" : "Proof"}</span>
@@ -51,6 +52,17 @@ export default function TipsterPage() {
   const [handle, setHandle] = useState<string | null>(null);
   useEffect(() => { setHandle(new URLSearchParams(location.search).get("h")); }, []);
   const { tipster: t } = useTipster(handle);
+  const signedIn = !!useCloud().session;
+  const [follow, setFollow] = useState<{ on: boolean; count: number } | null>(null);
+  const [followMsg, setFollowMsg] = useState("");
+  const f = follow ?? (t ? { on: t.following, count: t.followers } : null);
+  async function toggleFollow() {
+    if (!t || !f) return;
+    const next = !f.on;
+    setFollow({ on: next, count: f.count + (next ? 1 : -1) }); setFollowMsg("");
+    try { await followTipster(t.handle, next); }
+    catch (e) { setFollow(f); setFollowMsg(e instanceof Error ? e.message : "Could not update."); }
+  }
   const rate = t && t.settled ? Math.round((t.won / t.settled) * 100) : null;
   let run = "";
   if (t?.form.length) {
@@ -81,6 +93,18 @@ export default function TipsterPage() {
                 {t.bio && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>{t.bio}</span>}
               </div>
             </section>
+
+            <section style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}><b className="display" style={{ fontSize: 20 }}>{f?.count ?? 0}</b> follower{f?.count === 1 ? "" : "s"}</span>
+              <span style={{ flex: 1 }} />
+              {t.is_me
+                ? <Link href="/tip" className="btn" style={{ width: "auto", padding: "0 18px", background: "var(--lime)", color: "#111" }}>Seal a tip</Link>
+                : signedIn
+                  ? <button className="btn" onClick={toggleFollow} aria-pressed={f?.on} style={{ width: "auto", padding: "0 18px", background: f?.on ? "var(--panel)" : "var(--lime)", color: f?.on ? "var(--text)" : "#111", border: f?.on ? "2px solid var(--line)" : undefined }}>{f?.on ? "Following" : "Follow"}</button>
+                  : <Link href="/profile" className="btn btn-quiet" style={{ width: "auto", padding: "0 18px" }}>Sign in to follow</Link>}
+            </section>
+            {followMsg && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)", marginTop: -8 }}>{followMsg}</div>}
+            {f?.on && <span style={{ fontSize: 12, color: "var(--muted)", marginTop: -8 }}>You&apos;ll get a notification when @{t.handle} seals a tip, if notifications are on for this device.</span>}
 
             <section style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--lime)", color: "#111", border: "3px solid #111", borderRadius: 16, padding: "10px 14px" }}>
               <Lock size={22} />

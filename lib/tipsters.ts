@@ -1,9 +1,10 @@
-// Settles public tipsters' Classic Calls after full time, from the reveal escrow, so a tipster
+// Settles public tipsters' Classic Calls and market tips after full time, from the reveal escrow, so a tipster
 // cannot choose which tips to reveal. Server only: needs SUPABASE_SERVICE_ROLE_KEY and SEAL_ESCROW_KEY.
 //   * one tip per match: the earliest seal the server received before kickoff
 //   * escrowed move missing, or not matching its sealed hash: the tip counts as lost
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { settlePick } from "./data";
 
 // Gives an offline tipster's phone time to hand its moves to escrow before a missing one counts as lost.
 const GRACE_MS = 3 * 60 * 60_000;
@@ -20,12 +21,9 @@ async function escrowKey() {
   return crypto.subtle.importKey("raw", unb64(raw), "AES-GCM", false, ["decrypt"]);
 }
 
-export function score(pick: string, f: Fixture): { outcome: "won" | "lost"; exact: boolean } | null {
-  const m = /^(\d{1,2})-(\d{1,2})$/.exec(pick);
-  if (!m) return null;
-  const h = Number(m[1]), a = Number(m[2]);
-  const won = Math.sign(h - a) === Math.sign(f.home_goals - f.away_goals);
-  return { outcome: won ? "won" : "lost", exact: h === f.home_goals && a === f.away_goals };
+function score(pick: string, f: Fixture): { outcome: "won" | "lost"; exact: boolean } | null {
+  const r = settlePick(pick, f.home_goals, f.away_goals);
+  return r && { outcome: r.won ? "won" : "lost", exact: r.exact };
 }
 
 export async function settleTips(sb: SupabaseClient): Promise<{ settled: number; error?: string }> {
@@ -37,7 +35,7 @@ export async function settleTips(sb: SupabaseClient): Promise<{ settled: number;
   if (!tipsters?.length) return { settled: 0 };
   const ids = tipsters.map((t) => t.id as string);
 
-  const { data: seals, error: sErr } = await sb.from("seals").select("user_id, id, round, commitment, received_at").eq("game", "classic").in("user_id", ids);
+  const { data: seals, error: sErr } = await sb.from("seals").select("user_id, id, round, commitment, received_at").in("game", ["classic", "tip"]).in("user_id", ids);
   if (sErr) return { settled: 0, error: sErr.message };
   if (!seals?.length) return { settled: 0 };
 

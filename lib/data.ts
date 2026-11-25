@@ -3,7 +3,40 @@ export const art = (n: string) => `/a/${n}.webp`;
  * from the `fixtures` table, which admins manage at /admin. */
 export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null; status?: string | null; liveHome?: number | null; liveAway?: number | null };
 
-const LIVE_STATUSES = ["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"];
+// Tip markets a tipster can seal. A pick is "<market>:<selection>"; a Classic Call pick is a score like "2-1".
+export const MARKETS = [
+  { key: "1x2", name: "Match result", options: [{ key: "home", label: "Home win" }, { key: "draw", label: "Draw" }, { key: "away", label: "Away win" }] },
+  { key: "ou25", name: "Total goals", options: [{ key: "over", label: "Over 2.5" }, { key: "under", label: "Under 2.5" }] },
+  { key: "btts", name: "Both teams score", options: [{ key: "yes", label: "Yes" }, { key: "no", label: "No" }] },
+] as const;
+
+/** Did this pick come true for the final score? null when the pick is not a known format. */
+export function settlePick(pick: string, homeGoals: number, awayGoals: number): { won: boolean; exact: boolean } | null {
+  const score = /^(\d{1,2})-(\d{1,2})$/.exec(pick);
+  if (score) {
+    const h = Number(score[1]), a = Number(score[2]);
+    return { won: Math.sign(h - a) === Math.sign(homeGoals - awayGoals), exact: h === homeGoals && a === awayGoals };
+  }
+  const [market, sel] = pick.split(":");
+  const diff = Math.sign(homeGoals - awayGoals), total = homeGoals + awayGoals, both = homeGoals > 0 && awayGoals > 0;
+  const won =
+    market === "1x2" ? (sel === "home" ? diff === 1 : sel === "draw" ? diff === 0 : sel === "away" ? diff === -1 : null) :
+    market === "ou25" ? (sel === "over" ? total > 2.5 : sel === "under" ? total < 2.5 : null) :
+    market === "btts" ? (sel === "yes" ? both : sel === "no" ? !both : null) : null;
+  return won === null || won === undefined ? null : { won, exact: false };
+}
+
+/** Human wording for a pick, with team names for match-result tips. */
+export function describePick(pick: string, home: string, away: string): string {
+  if (/^\d{1,2}-\d{1,2}$/.test(pick)) return `${pick.replace("-", "–")} score`;
+  const [market, sel] = pick.split(":");
+  if (market === "1x2") return sel === "draw" ? "Draw" : `${sel === "home" ? home : away} to win`;
+  const m = MARKETS.find((x) => x.key === market);
+  const o = m?.options.find((x) => x.key === sel);
+  return m && o ? (market === "btts" ? `Both teams to score: ${o.label}` : `${o.label} goals`) : pick;
+}
+
+const LIVE_STATUSES =["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"];
 const OFF_STATUSES = ["POSTPONED", "CANCELLED", "SUSPENDED"];
 // Without a feed status, assume a match is live for this long after kickoff.
 const LIVE_WINDOW_MS = 150 * 60_000;

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fixtureOf, phaseOf } from "@/lib/data";
-import { useCloud, useFixtures } from "@/lib/cloud";
+import { announceTip, useCloud, useFixtures } from "@/lib/cloud";
 import { Img, Lock, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
@@ -67,6 +67,7 @@ export default function SealPage() {
     setBusy(true);
     const s = await createSeal("classic", fx.id, `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `${fx.home} ${home} – ${away} ${fx.away}`);
     setSealId(s.id); setBusy(false);
+    announceTip(s.id);
     haptic("success");
     playSealSound();
   }
@@ -104,6 +105,7 @@ export default function SealPage() {
             ))}
           </div>
         </div>
+        {!closed && <Link href={`/tip?f=${encodeURIComponent(fx.id)}`} style={{ fontSize: 13, fontWeight: 700 }}>Rather tip the result, goals or both teams scoring? Seal a tip instead</Link>}
       </div>
       <div style={{ padding: "14px 20px 30px" }}>
         <button className="btn btn-primary" style={{ width: "100%", opacity: closed ? 0.5 : 1 }} disabled={closed} onClick={doSeal}><Lock />{closed ? "Kickoff passed" : busy ? "Sealing…" : `Seal ${home} – ${away}`}</button>
