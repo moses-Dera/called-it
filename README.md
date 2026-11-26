@@ -220,3 +220,7 @@ structures, Bitcoin timestamps through OpenTimestamps, and shielded ZEC payouts 
 - `components/ui.tsx` shared components, `components/notifications.tsx` push bell, `components/onboarding.tsx`
 - `public/sw.js` service worker (push + offline cache)
 - `public/a/` optimised artwork, `design-assets/` original PNGs
+
+## License
+
+MIT. See [LICENSE](LICENSE).
