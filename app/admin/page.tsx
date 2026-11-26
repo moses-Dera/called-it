@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
 import { zip321 } from "@/lib/zip321";
 import { isShieldedFor } from "@/lib/zaddr";
+import { askConfirm, askText } from "@/components/dialog";
 import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useFundAddress, useNetwork, type Contest } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
@@ -103,7 +104,7 @@ function demoMatch(act: Act) {
   return act("admin_upsert_fixture", { p_id: slug(`demo-${k.toISOString().slice(0, 16)}`), p_home: "Demo United", p_away: "Test City", p_kickoff: k.toISOString() }, "Demo match added. It kicks off in 10 minutes: seal it from Home now.");
 }
 
-type WalletHealth = { ok: boolean; address: string; spendable: number | null; height: number; queued: number };
+type WalletHealth = { ok: boolean; mode?: string; queued?: number; mined?: number; error?: string };
 
 function useWalletHealth() {
   const [health, setHealth] = useState<WalletHealth | null>(null);
@@ -111,10 +112,10 @@ function useWalletHealth() {
   const refresh = useCallback(async () => {
     try {
       const r = await fetch("/api/anchor/health", { headers: { authorization: `Bearer ${await accessToken()}` } });
-      if (!r.ok) { setError(r.status === 501 ? "Anchor service not configured" : `Error ${r.status}`); return; }
+      if (!r.ok) { setError(r.status === 403 ? "Admin access required" : `Couldn't load timestamp status (${r.status})`); return; }
       setHealth(await r.json());
       setError(null);
-    } catch { setError("Could not reach anchor service"); }
+    } catch { setError("Couldn't load timestamp status"); }
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
   return { health, error, refresh };
@@ -138,26 +139,22 @@ function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | nul
 
       <section style={{ borderRadius: 26, background: "#111", color: "var(--paper)", border: "3px solid var(--line)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="eyebrow" style={{ color: "var(--lime)" }}>Anchor wallet</span>
+          <span className="eyebrow" style={{ color: "var(--lime)" }}>Bitcoin timestamps</span>
           <button onClick={wallet.refresh} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--muted)" }}>Refresh</button>
         </div>
         {wallet.error ? (
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>{wallet.error}</div>
         ) : !wallet.health ? (
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>Loading…</div>
+        ) : wallet.health.mode === "simulated" ? (
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)" }}>Simulated mode: set SUPABASE_SERVICE_ROLE_KEY to timestamp on Bitcoin.</div>
         ) : (
           <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span className="display" style={{ fontSize: 36, color: "var(--lime)" }}>{wallet.health.spendable != null ? wallet.health.spendable.toFixed(4) : "—"}</span>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>ZEC spendable</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+              <div><div className="display" style={{ fontSize: 32, color: "var(--lime)" }}>{wallet.health.mined ?? 0}</div><div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>batches confirmed in a Bitcoin block</div></div>
+              <div><div className="display" style={{ fontSize: 32, color: "var(--amber)" }}>{wallet.health.queued ?? 0}</div><div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>waiting for a block (usually a few hours)</div></div>
             </div>
-            <div style={{ display: "flex", gap: 16, fontSize: 12, fontWeight: 700, color: "var(--muted)", flexWrap: "wrap" }}>
-              <span>Block {wallet.health.height?.toLocaleString()}</span>
-              {wallet.health.queued > 0 && <span style={{ color: "var(--amber)" }}>{wallet.health.queued} anchor{wallet.health.queued === 1 ? "" : "s"} queued</span>}
-              <button onClick={() => { navigator.clipboard?.writeText(wallet.health!.address); }} className="mono" style={{ background: "rgba(198,244,50,.15)", color: "var(--lime)", border: 0, borderRadius: 8, padding: "2px 8px", fontSize: 11, cursor: "copy" }} title={wallet.health.address}>
-                {short(wallet.health.address)}
-              </button>
-            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Seals are batched and timestamped through OpenTimestamps for free. Each batch confirms once players&apos; apps check it after the calendars commit.</div>
           </>
         )}
       </section>
@@ -179,10 +176,10 @@ function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | nul
 
       <section className="paper" style={{ ...card, gridColumn: "1 / -1" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span className="eyebrow" style={{ color: "#5b6b12" }}>Latest Zcash anchors</span>
+          <span className="eyebrow" style={{ color: "#5b6b12" }}>Zcash testnet anchors (first build)</span>
           <button onClick={() => go("Transactions")} style={{ background: "none", border: 0, fontWeight: 800, textDecoration: "underline", color: "#111" }}>All transactions</button>
         </div>
-        {!txs?.anchors.length && <p style={{ margin: 0, fontSize: 14, color: "#4a4436" }}>No anchors synced yet.</p>}
+        {!txs?.anchors.length && <p style={{ margin: 0, fontSize: 14, color: "#4a4436" }}>None recorded. Seals are now timestamped on Bitcoin (see Bitcoin timestamps).</p>}
         {txs?.anchors.slice(0, 4).map((a) => (
           <div key={a.txid} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: "2px dashed #d8cfb8", paddingBottom: 8, fontSize: 14 }}>
             <Img n="seal" size={28} /><Tx id={a.txid} /><b>{a.seals} seal{a.seals === 1 ? "" : "s"}</b>
@@ -200,6 +197,17 @@ function FixturesTab({ act }: { act: Act }) {
   const [scores, setScores] = useState<Record<string, [string, string]>>({});
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, [fixtures]);
+  const [view, setView] = useState<"needs" | "upcoming" | "final">("needs");
+  const [q, setQ] = useState("");
+  const groups = {
+    needs: fixtures.filter((f) => f.homeGoals == null && now && Date.parse(f.kickoff) <= now).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)),
+    upcoming: fixtures.filter((f) => f.homeGoals == null && (!now || Date.parse(f.kickoff) > now)).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)),
+    final: fixtures.filter((f) => f.homeGoals != null).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)),
+  };
+  const needle = q.trim().toLowerCase();
+  const shown = groups[view].filter((f) => !needle || `${f.home} ${f.away}`.toLowerCase().includes(needle));
+  const PAGE = 20;
+  const [limit, setLimit] = useState(PAGE);
 
   async function add() {
     if (!home.trim() || !away.trim() || !kick) return;
@@ -211,8 +219,15 @@ function FixturesTab({ act }: { act: Act }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sealing closes at kickoff. Enter the final score after the match: everyone who sealed it while signed in is scored automatically.</p>
-        {fixtures.map((f) => {
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sealing closes at kickoff. Real results arrive automatically; enter a score by hand only for matches you added yourself.</p>
+        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+          {([["needs", "Needs result"], ["upcoming", "Upcoming"], ["final", "Finished"]] as const).map(([k, t]) => (
+            <button key={k} role="tab" aria-selected={view === k} onClick={() => { setView(k); setLimit(PAGE); }} style={{ height: 40, borderRadius: 12, border: `2px solid ${view === k ? "#111" : "var(--line)"}`, background: view === k ? "var(--lime)" : "var(--panel)", color: view === k ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13 }}>{t} ({groups[k].length})</button>
+          ))}
+        </div>
+        <input aria-label="Search fixtures" placeholder="Search a team" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} style={{ height: 42, borderRadius: 12, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 14 }} />
+        {shown.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>{view === "needs" ? "Nothing waiting for a result." : "No matches here."}</p>}
+        {shown.slice(0, limit).map((f) => {
           const s = scores[f.id] ?? [f.homeGoals?.toString() ?? "", f.awayGoals?.toString() ?? ""];
           const state = f.homeGoals != null ? ["FINAL", "var(--lime)"] : now && Date.parse(f.kickoff) <= now ? ["NEEDS RESULT", "var(--amber)"] : ["OPEN FOR SEALS", "var(--sky)"];
           return (
@@ -226,11 +241,12 @@ function FixturesTab({ act }: { act: Act }) {
                 <span className="display" style={{ fontSize: 22 }}>:</span>
                 <input aria-label={`${f.away} goals`} inputMode="numeric" value={s[1]} onChange={(e) => setScores({ ...scores, [f.id]: [s[0], e.target.value.replace(/\D/g, "")] })} className="display" style={{ ...field, width: 64, textAlign: "center", fontSize: 22 }} />
                 <button style={btn("#111", "var(--lime)")} disabled={s[0] === "" || s[1] === ""} onClick={() => act("admin_set_result", { p_id: f.id, p_home: Number(s[0]), p_away: Number(s[1]) }, `Result saved: ${f.home} ${s[0]}–${s[1]} ${f.away}.`)}>Save result</button>
-                {f.homeGoals != null && <button style={btn("transparent")} onClick={() => act("admin_set_result", { p_id: f.id, p_home: null, p_away: null }, "Result cleared.")}>Clear</button>}
+                {f.homeGoals != null && <button style={btn("transparent")} onClick={async () => { if (await askConfirm({ title: `Clear the result of ${f.home} vs ${f.away}?`, body: "Players' calls on this match go back to waiting for a result. Only do this to correct a wrong score.", confirmLabel: "Clear result", danger: true })) act("admin_set_result", { p_id: f.id, p_home: null, p_away: null }, "Result cleared."); }}>Clear</button>}
               </div>
             </div>
           );
         })}
+        {shown.length > limit && <button className="btn btn-quiet" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, shown.length - limit)} more ({shown.length - limit} left)</button>}
       </section>
 
       <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
@@ -453,7 +469,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                           {w.status !== "sending" && <button
                             style={{ ...btn("#111", "var(--lime)"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
                             onClick={async () => {
-                              if (!confirm(`Release payout for #${w.rank} (${w.name}) on ${network}?`)) return;
+                              if (!(await askConfirm({ title: `Pay #${w.rank} ${w.name}?`, body: `Sends ${w.zec} ${network === "mainnet" ? "ZEC" : "TAZ"} on ${network} through the payout tool. It can't be sent twice.`, confirmLabel: "Send payout" }))) return;
                               setContestMsg({ text: `Dispatching cloud payout for #${w.rank}…` });
                               try {
                                 const tok = await accessToken();
@@ -474,8 +490,9 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                           </button>}
                           <button
                             style={{ ...btn("#fff"), minHeight: 28, padding: "0 8px", fontSize: 11 }}
-                            onClick={() => {
-                              const tx = prompt("Transaction ID of the payout (optional)") ?? "";
+                            onClick={async () => {
+                              const tx = await askText({ title: `Mark #${w.rank} ${w.name} as paid`, body: "Only do this after you've sent the prize from your wallet. Paste the transaction ID if you have it.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark paid" });
+                              if (tx === null) return;
                               act("admin_mark_contest_winner_paid", { p_contest_id: c.id, p_rank: w.rank, p_txid: tx }, `Rank #${w.rank} marked paid.`);
                             }}
                           >
@@ -490,12 +507,15 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
             ) : <span style={{ fontSize: 13, color: "#4a4436" }}>Closed with no ranked players.</span>)}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a href={`/contest?c=${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
-              {c.status === "open" && <button style={btn("var(--amber)")} onClick={() => { if (confirm(`Close "${c.title}" and award the prize?`)) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>}
+              {c.status === "open" && (c.fixture_ids.every((id) => fixtures.some((f) => f.id === id && f.homeGoals != null))
+                ? <button style={btn("var(--amber)")} onClick={async () => { if (await askConfirm({ title: `Close "${c.title}"?`, body: "All its matches are finished. Closing ranks the players and credits the prizes to the winners' balances.", confirmLabel: "Close and award" })) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>
+                : <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", alignSelf: "center" }}>Closes automatically after its last match</span>)}
+              {c.status === "closed" && !(c.winners && c.winners.length) && <button style={btn("#fff")} onClick={async () => { if (await askConfirm({ title: `Reopen "${c.title}"?`, body: "It closed with no winners, so nothing was credited. Reopening lets players join again.", confirmLabel: "Reopen" })) act("admin_reopen_contest", { p_id: c.id }, `${c.title} is open again.`); }}>Reopen</button>}
               {c.status === "closed" && c.winners && c.winners.some((w) => w.zec > 0) && (
                 <button
                   style={btn("#111", "var(--lime)")}
                   onClick={async () => {
-                    if (!confirm(`Run automated cloud payout for "${c.title}"?`)) return;
+                    if (!(await askConfirm({ title: `Pay all winners of "${c.title}"?`, body: `Sends each unpaid winner's prize on ${network} through the payout tool. Paid winners are skipped, and nobody is paid twice.`, confirmLabel: "Send payouts" }))) return;
                     setContestMsg({ text: "Triggering cloud payout runner…" });
                     try {
                       const tok = await accessToken();
@@ -632,7 +652,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ display: "flex", borderRadius: 12, border: "2px solid #111", overflow: "hidden", background: "#fff" }}>
             <button
-              onClick={() => network !== "mainnet" && confirm("Switch the whole app to MAINNET? Prizes and withdrawals become real ZEC, and the prize wallet setting is cleared.") && act("admin_set_setting", { p_key: "network", p_value: "mainnet" }, "The app now runs on mainnet.").then(() => refreshFundAddress())}
+              onClick={async () => { if (network !== "mainnet" && await askConfirm({ title: "Switch to mainnet?", body: "Prizes and withdrawals become real ZEC. The prize wallet setting is cleared, so set your mainnet address next.", confirmLabel: "Switch to mainnet", danger: true })) { await act("admin_set_setting", { p_key: "network", p_value: "mainnet" }, "The app now runs on mainnet."); refreshFundAddress(); } }}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "mainnet" ? "var(--lime)" : "#fff",
@@ -642,7 +662,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
               Mainnet (ZEC)
             </button>
             <button
-              onClick={() => network !== "testnet" && confirm("Switch the whole app to TESTNET for a practice run? Players see a test-mode banner, only testnet addresses are accepted, and the prize wallet setting is cleared.") && act("admin_set_setting", { p_key: "network", p_value: "testnet" }, "The app now runs on testnet (test mode).").then(() => refreshFundAddress())}
+              onClick={async () => { if (network !== "testnet" && await askConfirm({ title: "Switch to testnet?", body: "For a practice run with test coins. Players see a test-mode banner, only testnet addresses are accepted, and the prize wallet setting is cleared.", confirmLabel: "Switch to testnet" })) { await act("admin_set_setting", { p_key: "network", p_value: "testnet" }, "The app now runs on testnet (test mode)."); refreshFundAddress(); } }}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "testnet" ? "var(--amber)" : "#fff",
@@ -689,7 +709,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
           {w.status === "sending" && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", flexBasis: "100%" }}>A payout run claimed this. Check your wallet history before acting: it will never be sent again automatically.</span>
-              <button style={btn("#111", "var(--lime)")} onClick={() => { const tx = prompt("Transaction id from your wallet (optional)") ?? ""; act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>It was paid</button>
+              <button style={btn("#111", "var(--lime)")} onClick={async () => { const tx = await askText({ title: "Mark this payout as paid", body: "Only if your wallet shows it went out. Paste the transaction ID from your wallet.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark paid" }); if (tx !== null) act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>It was paid</button>
               <button style={btn("#fff")} onClick={() => act("admin_mark_withdrawal", { p_id: w.id, p_status: "requested", p_txid: null }, "Back in the payout queue.")}>Not sent: retry later</button>
             </div>
           )}
@@ -701,7 +721,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
               >
                 Pay in Wallet ↗
               </a>
-              <button style={btn("#111", "var(--lime)")} onClick={() => { const tx = prompt("Transaction id of the payout (optional)") ?? ""; act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>Mark paid</button>
+              <button style={btn("#111", "var(--lime)")} onClick={async () => { const tx = await askText({ title: `Mark ${w.name}'s withdrawal as paid`, body: "Only after you've sent it from your wallet. Paste the transaction ID if you have it.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark paid" }); if (tx !== null) act("admin_mark_withdrawal", { p_id: w.id, p_status: "paid", p_txid: tx }, "Marked paid."); }}>Mark paid</button>
               <button style={btn("var(--pink)")} onClick={() => act("admin_mark_withdrawal", { p_id: w.id, p_status: "rejected", p_txid: null }, "Rejected.")}>Reject</button>
             </div>
           )}

@@ -5,6 +5,7 @@ import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { BoostPotModal } from "@/components/boost-pot-modal";
 import { inkOn } from "@/lib/data";
+import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
 import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
 
@@ -35,7 +36,7 @@ export default function ContestPage() {
     try {
       if (joined) { await leaveContest(c.id); } else { await joinContest(c.id, ref ?? undefined); }
       location.reload();
-    } catch (e) { alert(e instanceof Error ? e.message : "Failed"); }
+    } catch (e) { showNotice({ title: "Couldn't update your entry", body: e instanceof Error ? e.message : "Please try again." }); }
     setJoining(false);
   }
 

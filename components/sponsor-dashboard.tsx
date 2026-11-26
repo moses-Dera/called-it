@@ -169,7 +169,7 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
       </div>
       <div role="timer" style={{ fontSize: 14, fontWeight: 700 }}>
         {st.label === "Scheduled" && c.opens_at ? <>Opens in <span className="mono">{left(Date.parse(c.opens_at) - now)}</span> · {when(c.opens_at)}</>
-          : c.status === "closed" ? "All matches finished. Winners are ranked below."
+          : c.status === "closed" ? (c.winners?.length ? "All matches finished. Winners are ranked below." : "Closed with no winners. Ask the admin to reopen it if it closed early.")
           : next ? <>Next kickoff in <span className="mono">{left(Date.parse(next.kickoff) - now)}</span> · {next.home} vs {next.away}</> : "Waiting for the last results."}
         {c.entry_deadline && c.status !== "closed" && Date.parse(c.entry_deadline) > now && <> · joining closes in <span className="mono">{left(Date.parse(c.entry_deadline) - now)}</span></>}
       </div>
