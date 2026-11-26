@@ -40,7 +40,12 @@ function FundPanel({ c }: { c: SponsorContest }) {
   useEffect(() => { if (link) QRCode.toDataURL(link, { margin: 1, width: 200 }).then(setQr).catch(() => setQr("")); }, [link]);
   if (c.prize_zec <= 0) return null;
   if (due <= 0) return <div style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>Prize fully funded: {c.funded_zec} ZEC</div>;
-  if (!fund) return <div style={{ fontSize: 13, color: "var(--muted)" }}>Funding opens once Called It sets its prize wallet. We&apos;ll be in touch.</div>;
+  if (!fund) return (
+    <div style={{ background: "var(--paper)", color: "#111", borderRadius: 16, padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
+      <b style={{ fontSize: 15 }}>Fund your prize: {due} ZEC</b>
+      <span style={{ fontSize: 13, lineHeight: 1.5 }}>Prize payments aren&apos;t open yet. As soon as Called It turns them on, a payment QR appears here with the amount and address filled in. Your contest shows &ldquo;Prize not funded yet&rdquo; until then.</span>
+    </div>
+  );
   return (
     <div style={{ background: "var(--paper)", color: "#111", borderRadius: 16, padding: 14, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
       {qr && <img src={qr} alt="Payment QR code" width={140} height={140} style={{ borderRadius: 10, border: "2px solid #111" }} />}
