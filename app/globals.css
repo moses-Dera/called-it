@@ -113,7 +113,7 @@ button { font-family: inherit; cursor: pointer; }
   .ranks-list { border: 3px solid #111; border-radius: 28px !important; padding: 14px 24px 4px !important; }
   .ranks-list > a { margin-top: auto !important; }
   .vault-bal { margin: 0 !important; }
-  .vault-rewards, .vault-proofs { background: var(--panel); border: 2px solid var(--line); border-radius: 24px; padding: 20px !important; }
+  .vault-rewards, .vault-prizes, .vault-proofs { background: var(--panel); border: 2px solid var(--line); border-radius: 24px; padding: 20px !important; }
   .profile-body .avatars { gap: 10px !important; }
 
   /* Game boards: phone-era grids open up */
@@ -143,8 +143,8 @@ button { font-family: inherit; cursor: pointer; }
   .ranks-pod { grid-area: pod; min-height: 460px; }
   .ranks-pod > div { zoom: 1.5; }
   .ranks-list { grid-area: list; }
-  .vault { grid-template-columns: 420px minmax(0, 1fr); grid-template-areas: "title title" "bal proofs" "rewards proofs"; grid-template-rows: auto auto 1fr; }
-  .vault-title { grid-area: title; } .vault-bal { grid-area: bal; } .vault-rewards { grid-area: rewards; } .vault-proofs { grid-area: proofs; align-self: stretch; }
+  .vault { grid-template-columns: 420px minmax(0, 1fr); grid-template-areas: "title title" "bal proofs" "prizes proofs" "rewards proofs"; grid-template-rows: auto auto auto 1fr; }
+  .vault-title { grid-area: title; } .vault-bal { grid-area: bal; } .vault-rewards { grid-area: rewards; } .vault-prizes { grid-area: prizes; } .vault-proofs { grid-area: proofs; align-self: stretch; }
   .profile-body { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px 28px !important; align-items: start; }
   .profile-body > section { grid-column: 1; }
   .profile-body > .p-form { grid-column: 2; grid-row: 1 / span 3; padding: 24px !important; }

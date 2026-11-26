@@ -7,6 +7,6 @@ export function zip321(address: string, amount: number, memo: string): string {
   let bin = "";
   bytes.forEach((b) => { bin += String.fromCharCode(b); });
   const memo64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const zec = Number(amount.toFixed(8)).toString();
+  const zec = amount.toFixed(8).replace(/\.?0+$/, ""); // never "1e-7"
   return `zcash:${address}?amount=${zec}&memo=${memo64}`;
 }

@@ -355,11 +355,13 @@ if (typeof window !== "undefined") {
   else window.addEventListener("load", startLive, { once: true });
 }
 
+/** pending → sending → paid for prizes Called It pays; pending → sent → paid (or disputed) when the sponsor pays. */
+export type WinnerStatus = "pending" | "sending" | "sent" | "disputed" | "paid";
 export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
-  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: "pending" | "sending" | "paid"; txid?: string | null }[] | null;
+  status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: WinnerStatus; txid?: string | null }[] | null;
   sponsor_logo: string | null; sponsor_color: string | null; sponsor_url: string | null;
-  owner_id?: string | null; opens_at?: string | null; paused?: boolean; hidden?: boolean; funded_zec?: number;
+  owner_id?: string | null; opens_at?: string | null; paused?: boolean; hidden?: boolean; funded_zec?: number; pay_by?: string | null;
   prize_structure: "top3" | "top5" | "top10" | "top20" | "all_correct" | "random_draw" | "custom" | "equal_split";
   entry_deadline: string | null; description: string | null;
   custom_shares?: number[] | null;
@@ -374,7 +376,7 @@ const contestStore = shared<Contest[]>(async () => {
 // ---------- Sponsor dashboard ----------
 export type SponsorMatch = { id: string; home: string; away: string; kickoff: string; home_goals: number | null; away_goals: number | null; sealed: number };
 export type SponsorContest = Contest & { created_at: string; entries: number; funded_zec: number; matches: SponsorMatch[] };
-export type SponsorDashboard = { name: string; contests: SponsorContest[] };
+export type SponsorDashboard = { name: string; limit_zec: number; owed_zec: number; contests: SponsorContest[] };
 /** The signed-in sponsor's own contests with live numbers; null for anyone who is not a sponsor, undefined while loading. */
 export function useSponsorDashboard(): { data: SponsorDashboard | null | undefined; reload: () => void } {
   const uid = useCloud().session?.user.id;
@@ -385,12 +387,47 @@ export function useSponsorDashboard(): { data: SponsorDashboard | null | undefin
     if (!uid || !sb()) { setData(null); return; }
     let live = true;
     cloudRpc<SponsorDashboard | null>("sponsor_dashboard").then((d) => {
-      if (live) setData(d && { ...d, contests: d.contests.map((c) => ({ ...c, prize_zec: Number(c.prize_zec), funded_zec: Number(c.funded_zec) })) });
+      if (live) setData(d && { ...d, limit_zec: Number(d.limit_zec ?? 0.5), owed_zec: Number(d.owed_zec ?? 0), contests: d.contests.map((c) => ({ ...c, prize_zec: Number(c.prize_zec), funded_zec: Number(c.funded_zec) })) });
     }).catch(() => live && setData((prev) => prev ?? null));
     return () => { live = false; };
   }, [uid, tick, n]);
   return { data, reload: () => setN((x) => x + 1) };
 }
+
+// ---------- Sponsors pay their winners directly ----------
+export type Payee = { rank: number; name: string; zec: number; status: WinnerStatus; txid: string | null; address: string | null };
+/** Who the sponsor owes, with each winner's current shielded address (null if they haven't added a valid one). */
+export const sponsorPayees = async (id: string) =>
+  (await cloudRpc<Payee[]>("sponsor_payees", { p_contest_id: id })).map((p) => ({ ...p, zec: Number(p.zec) }));
+export const sponsorMarkSent = (id: string, rank: number, txid: string | null) =>
+  cloudRpc<boolean>("sponsor_mark_sent", { p_contest_id: id, p_rank: rank, p_txid: txid });
+export const confirmPrize = (id: string, rank: number, received: boolean) =>
+  cloudRpc<boolean>("confirm_prize", { p_contest_id: id, p_rank: rank, p_received: received });
+
+export type SponsorPrize = { contest_id: string; title: string; sponsor: string | null; rank: number; zec: number; status: WinnerStatus; txid: string | null; pay_by: string | null };
+/** The signed-in player's prizes from sponsor contests; reload after confirming one. */
+export function useMySponsorPrizes(): { prizes: SponsorPrize[] | null; reload: () => void } {
+  const uid = useCloud().session?.user.id;
+  const [prizes, setPrizes] = useState<SponsorPrize[] | null>(null);
+  const [n, setN] = useState(0);
+  const tick = useVisibleTick(60_000);
+  useEffect(() => {
+    if (!uid || !sb()) { setPrizes(null); return; }
+    let live = true;
+    cloudRpc<SponsorPrize[]>("my_sponsor_prizes").then((r) => live && setPrizes(r.map((p) => ({ ...p, zec: Number(p.zec) })))).catch(() => live && setPrizes((x) => x ?? []));
+    return () => { live = false; };
+  }, [uid, tick, n]);
+  return { prizes, reload: () => setN((x) => x + 1) };
+}
+
+export type SponsorRecord = { owner_id: string; contests: number; paid_contests: number; overdue_contests: number; paid_zec: number };
+const recordStore = shared<Record<string, SponsorRecord>>(async () => {
+  if (!sb()) return {};
+  const rows = await cloudRpc<SponsorRecord[]>("sponsor_records");
+  return Object.fromEntries(rows.map((r) => [r.owner_id, { ...r, contests: Number(r.contests), paid_contests: Number(r.paid_contests), overdue_contests: Number(r.overdue_contests), paid_zec: Number(r.paid_zec) }]));
+}, {});
+/** Every sponsor's public payment record, keyed by owner id. */
+export const useSponsorRecords = () => recordStore.use();
 
 /** Whether the public can see a contest: not hidden by the admin and past its opening time. */
 export const isListed = (c: Contest, now = Date.now()) => !c.hidden && (!c.opens_at || Date.parse(c.opens_at) <= now);

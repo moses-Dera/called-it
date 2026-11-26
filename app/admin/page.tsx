@@ -308,23 +308,16 @@ function ImportCard() {
 }
 
 function ContestControls({ c, act }: { c: Contest; act: Act }) {
-  const [funded, setFunded] = useState<string | null>(null);
-  const v = funded ?? String(c.funded_zec ?? 0);
   const opensLater = c.opens_at && Date.parse(c.opens_at) > Date.now();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontWeight: 700, color: "#4a4436" }}>
-        {c.owner_id && <span>Run by the sponsor</span>}
+        {c.owner_id && <span>Run by the sponsor, who pays the winners directly</span>}
         {opensLater && <span>· opens {time(c.opens_at!)}</span>}
         {c.paused && <span>· joining paused</span>}
         {c.hidden && <span style={{ color: "#9a2d1d" }}>· hidden from the public</span>}
       </div>
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <label htmlFor={`funded-${c.id}`} style={{ fontWeight: 800 }}>ZEC received for prizes</label>
-        <input id={`funded-${c.id}`} value={v} onChange={(e) => setFunded(e.target.value)} inputMode="decimal" style={{ width: 90, height: 32, borderRadius: 8, border: "2px solid #111", padding: "0 6px" }} />
-        <button style={{ ...btn("#111", "var(--lime)"), minHeight: 32, padding: "0 10px", fontSize: 12 }} disabled={funded === null}
-          onClick={async () => { if (await act("admin_set_funded", { p_id: c.id, p_amount: Number(v) }, `Recorded ${v} ZEC for ${c.title}.`)) setFunded(null); }}>Save</button>
-        <span style={{ color: "#4a4436" }}>of {c.prize_zec} ZEC · memo fund:{c.id}</span>
         <button style={{ ...btn(c.hidden ? "var(--lime)" : "#fff"), minHeight: 32, padding: "0 10px", fontSize: 12, marginLeft: "auto" }}
           onClick={() => act("admin_hide_contest", { p_id: c.id, p_hidden: !c.hidden }, c.hidden ? `${c.title} is visible again.` : `${c.title} is hidden from the public.`)}>{c.hidden ? "Unhide" : "Hide"}</button>
       </div>
@@ -345,7 +338,7 @@ function Sponsors({ act }: { act: Act }) {
   return (
     <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
       <span className="display" style={{ fontSize: 18 }}>Sponsors</span>
-      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Anyone signed in can start sponsoring from /sponsor; their contests go public without approval. Unfunded contests show &ldquo;Prize not funded yet&rdquo; and never pay out automatically. Block a sponsor to stop them creating or changing contests.</span>
+      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Anyone signed in can start sponsoring from /sponsor; their contests go public without approval, and sponsors pay their winners directly from their own wallets. New sponsors can promise up to 0.5 ZEC, rising with every ZEC their winners confirm. A sponsor with winners unpaid after 72 hours can&apos;t start new contests, and their record shows it on every contest. Block a sponsor to stop them creating or changing contests.</span>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <input aria-label="Sponsor sign-in email" placeholder="Block by sign-in email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" style={f} />
         <button className="btn" disabled={!email.trim()} onClick={() => set(email, name, false)} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--pink)", color: "#111" }}>Block</button>
@@ -450,6 +443,10 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                       <b style={{ color: "var(--lime)" }}>{w.zec} ZEC</b>
                       {w.status === "paid" ? (
                         <span className="chip" style={{ background: "var(--lime)", fontSize: 11, padding: "2px 8px" }}>PAID ✓ {w.txid ? short(w.txid) : ""}</span>
+                      ) : c.owner_id ? (
+                        <span className="chip" style={{ background: w.status === "disputed" || (c.pay_by && Date.parse(c.pay_by) < Date.now()) ? "var(--red)" : "var(--amber)", fontSize: 11, padding: "2px 8px" }}>
+                          SPONSOR PAYS · {w.status === "sent" ? "SENT, AWAITING WINNER" : w.status === "disputed" ? "WINNER SAYS NOT RECEIVED" : c.pay_by && Date.parse(c.pay_by) < Date.now() ? "OVERDUE" : "PENDING"}
+                        </span>
                       ) : (
                         <>
                           <span className="chip" style={{ background: "var(--amber)", fontSize: 11, padding: "2px 8px" }}>{w.status === "sending" ? "SENDING · CHECK WALLET" : "PENDING"}</span>
@@ -508,10 +505,10 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a href={`/contest?c=${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
               {c.status === "open" && (c.fixture_ids.every((id) => fixtures.some((f) => f.id === id && f.homeGoals != null))
-                ? <button style={btn("var(--amber)")} onClick={async () => { if (await askConfirm({ title: `Close "${c.title}"?`, body: "All its matches are finished. Closing ranks the players and credits the prizes to the winners' balances.", confirmLabel: "Close and award" })) act("admin_close_contest", { p_id: c.id }, "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>
+                ? <button style={btn("var(--amber)")} onClick={async () => { if (await askConfirm({ title: `Close "${c.title}"?`, body: c.owner_id ? "All its matches are finished. Closing ranks the players; the sponsor then has 72 hours to pay them directly." : "All its matches are finished. Closing ranks the players and credits the prizes to the winners' balances.", confirmLabel: "Close and award" })) act("admin_close_contest", { p_id: c.id }, c.owner_id ? "Contest closed. The sponsor has 72 hours to pay the winners." : "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>
                 : <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", alignSelf: "center" }}>Closes automatically after its last match</span>)}
               {c.status === "closed" && !(c.winners && c.winners.length) && <button style={btn("#fff")} onClick={async () => { if (await askConfirm({ title: `Reopen "${c.title}"?`, body: "It closed with no winners, so nothing was credited. Reopening lets players join again.", confirmLabel: "Reopen" })) act("admin_reopen_contest", { p_id: c.id }, `${c.title} is open again.`); }}>Reopen</button>}
-              {c.status === "closed" && c.winners && c.winners.some((w) => w.zec > 0) && (
+              {c.status === "closed" && !c.owner_id && c.winners && c.winners.some((w) => w.zec > 0) && (
                 <button
                   style={btn("#111", "var(--lime)")}
                   onClick={async () => {

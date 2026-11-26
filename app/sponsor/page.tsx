@@ -7,14 +7,14 @@ import { SponsorDashboardView } from "@/components/sponsor-dashboard";
 const GETS = [
   ["Your brand on the contest", "Your name, logo, colour and website on the contest page, the contest list and Home."],
   ["Fair by design", "Every entry is sealed before kickoff and timestamped on Bitcoin. You can check every winner yourself."],
-  ["Prizes paid privately", "Winners are paid in shielded ZEC with a memo naming your contest."],
+  ["You pay winners directly", "Prizes go from your wallet straight to each winner in shielded ZEC. Called It never holds your money."],
   ["Free for players", "Nobody pays to enter, so your contest reaches every football fan on Called It."],
 ] as const;
 const STEPS = [
   "Sign in with Google and type your brand or community name.",
-  "Create a contest: pick the matches, the prize and how it's split, and when it goes public.",
-  "Fund the prize by scanning the payment QR in your dashboard. Players see \"Prize funded\" once it arrives.",
-  "Watch entries live. Results settle automatically at full time, and winners are paid in shielded ZEC.",
+  "Create a contest: pick the matches, the prize and how it's split, and when it goes public. New sponsors start with up to 0.5 ZEC in prizes; the limit grows as you pay.",
+  "Watch entries live. Results settle automatically at full time and the winners are ranked.",
+  "Pay each winner within 72 hours with the one-tap wallet link in your dashboard. Each winner confirms it arrived, and your public record shows you paid.",
 ];
 
 export default function SponsorPage() {

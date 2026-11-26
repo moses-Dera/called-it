@@ -98,15 +98,20 @@ none; no other way to add an admin exists in the app). From there:
   a ZEC prize pot and a prize split (top 3/5/10/20, custom percentages, equal split, all exact scores, random draw).
   Contests settle automatically when their last match finishes (`/api/cron`); winners get verified rewards they
   withdraw from the Vault.
-- **Prize fund wallet:** your own shielded address, stored in `app_settings`. Boost the Pot and sponsor funding pay
-  it through ZIP-321 payment QR codes (`lib/zip321.ts`). Boost the Pot stays hidden until it is set.
+- **Prize fund wallet:** your own shielded address, stored in `app_settings`. Boost the Pot pays it through
+  ZIP-321 payment QR codes (`lib/zip321.ts`) and stays hidden until it is set. It is only used for contests
+  Called It runs itself.
 - **Sponsors (self-serve):** anyone signed in opens `/sponsor`, types a brand name and gets a dashboard at once,
-  with no request or approval. Sponsors create contests, schedule when they go public, pause joining, watch
-  entries and seals per match live, and fund the prize. Each sponsor runs at most 5 open contests at a time. Once
-  players join, the matches, prize and deadline are locked. The admin can block a sponsor and hide any contest.
-- **Funding ledger:** sponsors pay the prize wallet with memo `fund:<contest id>`; the admin records the amount
-  received against that contest. A sponsor's contest only auto-settles once fully funded, and hidden contests never
-  auto-settle. Contest pages show "Prize funded" or "Prize not funded yet" so players can tell.
+  with no request or approval. Sponsors create contests, schedule when they go public, pause joining and watch
+  entries and seals per match live. Each sponsor runs at most 5 open contests at a time. Once players join, the
+  matches, prize and deadline are locked. The admin can block a sponsor and hide any contest.
+- **Sponsors pay winners directly:** Called It never holds a sponsor's money. When a sponsor contest settles, its
+  winners are ranked but nothing is credited to their balances. The sponsor gets 72 hours and a one-tap ZIP-321
+  link per winner (address, amount and memo filled in), marks each one sent (optionally with the txid), and the
+  winner confirms "I got it" or "Not received" in the Vault. Safeguards run on their own: new sponsors can promise
+  at most 0.5 ZEC across open prizes and unpaid winners, the limit grows by every ZEC winners confirm, a sponsor
+  with winners unpaid past the deadline can't start another contest, and every contest shows its sponsor's public
+  payment record (`sponsor_records`).
 - **Network:** mainnet (real ZEC, the default) or testnet for a practice run with test coins. The whole app
   follows it: address checks, the prize wallet (cleared on every switch) and the payout tool, which refuses to
   run on the other network. Players see a test-mode banner on testnet.

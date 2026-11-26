@@ -7,7 +7,8 @@ import { BoostPotModal } from "@/components/boost-pot-modal";
 import { inkOn } from "@/lib/data";
 import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds } from "@/lib/cloud";
+import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds, useSponsorRecords } from "@/lib/cloud";
+import { SponsorRecordLine, WinnerPayState } from "@/components/sponsor-record";
 
 const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top5: "Top 5 share: 40 / 25 / 15 / 10 / 10", top10: "Top 10 share the pot", top20: "Top 20 share the pot", custom: "Prize split set by the sponsor", equal_split: "Top winners share equally", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
@@ -22,6 +23,7 @@ export default function ContestPage() {
   const { rows: board, loadMore: boardMore, hasMore: boardHasMore, loading: boardLoading } = useContestBoard(c ? c.id : null);
   const entryCount = useContestEntryCount(c ? c.id : null);
   const fund = useFundAddress();
+  const records = useSponsorRecords();
   const canJoin = !!c && !c.paused && !c.hidden && !(c.opens_at && now && Date.parse(c.opens_at) > now) && !(c.entry_deadline && now && Date.parse(c.entry_deadline) < now);
   const myIds = useMyContestIds();
   const joined = c ? myIds.includes(c.id) : false;
@@ -73,7 +75,7 @@ export default function ContestPage() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
               </div>
-              {fund && c.status === "open" && canJoin && <button
+              {fund && !c.owner_id && c.status === "open" && canJoin && <button
                 onClick={() => setBoostOpen(true)}
                 style={{
                   display: "inline-flex",
@@ -96,8 +98,7 @@ export default function ContestPage() {
               {STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. Seal before each kickoff while signed in.
             </div>
             {entryCount !== null && <div style={{ fontSize: 13, fontWeight: 800 }}>{entryCount} player{entryCount === 1 ? "" : "s"} entered</div>}
-            {c.prize_zec > 0 && (c.funded_zec ?? 0) >= c.prize_zec && <div style={{ fontSize: 13, fontWeight: 800 }}>✓ Prize funded: {c.prize_zec} ZEC is set aside for this contest</div>}
-            {c.owner_id && c.prize_zec > 0 && (c.funded_zec ?? 0) < c.prize_zec && <div style={{ fontSize: 13, fontWeight: 800 }}>Prize not funded yet{(c.funded_zec ?? 0) > 0 ? ` (${c.funded_zec} of ${c.prize_zec} ZEC received)` : ""}. Winners are paid once the sponsor funds it.</div>}
+            {c.owner_id && c.prize_zec > 0 && <SponsorRecordLine record={records[c.owner_id]} sponsor={c.sponsor} />}
             {now && c.opens_at && Date.parse(c.opens_at) > now && <div role="timer" style={{ fontSize: 13, fontWeight: 800 }}>Opens {new Date(c.opens_at).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Only you can see it until then.</div>}
             {c.paused && c.status === "open" && <div style={{ fontSize: 13, fontWeight: 800 }}>Joining is paused by the sponsor. Players already in keep playing.</div>}
             {c.hidden && <div style={{ fontSize: 13, fontWeight: 800 }}>Hidden by Called It. Only you can see this page.</div>}
@@ -120,7 +121,7 @@ export default function ContestPage() {
             {c.winners && c.winners.length > 0 && (
               <div style={{ background: "#111", color: "var(--paper)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="eyebrow" style={{ color: "var(--lime)" }}>Winners</span>
-                {c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC</b></div>)}
+                {c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC{c.owner_id && w.zec > 0 ? <WinnerPayState status={w.status} payBy={c.pay_by} now={now} /> : null}</b></div>)}
               </div>
             )}
             {c.sponsor_url && <a href={c.sponsor_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, textDecoration: "underline" }}>About {c.sponsor || "the sponsor"}</a>}

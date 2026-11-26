@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
+import { SponsorPrizes } from "@/components/sponsor-prizes";
 import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
@@ -63,6 +64,8 @@ export default function Vault() {
         <button className="btn" style={{ background: "#111", color: "var(--amber)", border: 0, fontSize: 16 }} onClick={withdraw}>{saved ? "Withdraw privately" : "Save wallet and withdraw"}</button>
         {msg && <div role="status" style={{ fontSize: 12, fontWeight: 700 }}>{msg}</div>}
       </section>
+
+      <SponsorPrizes />
 
       <section className="vault-rewards" style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Rewards</h2>

@@ -2,7 +2,8 @@
 import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
-import { cloudRpc, refreshContests, useFixtures, useFundAddress, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
+import { cloudRpc, refreshContests, sponsorMarkSent, sponsorPayees, useFixtures, useNetwork, type Payee, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
+import { askText } from "./dialog";
 import { phaseOf } from "@/lib/data";
 import { zip321 } from "@/lib/zip321";
 
@@ -32,29 +33,64 @@ function state(c: SponsorContest, now: number) {
   return { label: "Live", bg: "var(--lime)" };
 }
 
-function FundPanel({ c }: { c: SponsorContest }) {
-  const fund = useFundAddress();
-  const [qr, setQr] = useState("");
-  const due = Math.max(0, Number((c.prize_zec - c.funded_zec).toFixed(8)));
-  const link = fund && due > 0 ? zip321(fund, due, `fund:${c.id}`) : "";
-  useEffect(() => { if (link) QRCode.toDataURL(link, { margin: 1, width: 200 }).then(setQr).catch(() => setQr("")); }, [link]);
-  if (c.prize_zec <= 0) return null;
-  if (due <= 0) return <div style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>Prize fully funded: {c.funded_zec} ZEC</div>;
-  if (!fund) return (
-    <div style={{ background: "var(--paper)", color: "#111", borderRadius: 16, padding: 14, display: "flex", flexDirection: "column", gap: 6 }}>
-      <b style={{ fontSize: 15 }}>Fund your prize: {due} ZEC</b>
-      <span style={{ fontSize: 13, lineHeight: 1.5 }}>Prize payments aren&apos;t open yet. As soon as Called It turns them on, a payment QR appears here with the amount and address filled in. Your contest shows &ldquo;Prize not funded yet&rdquo; until then.</span>
+function PayeeRow({ c, p, onSent }: { c: SponsorContest; p: Payee; onSent: () => void }) {
+  const [qr, setQr] = useState(""), [err, setErr] = useState("");
+  const link = p.address ? zip321(p.address, p.zec, `Called It · ${c.title} · #${p.rank} prize`) : "";
+  async function sent() {
+    const tx = await askText({ title: `Sent ${p.zec} ZEC to ${p.name}?`, body: "Paste the transaction ID from your wallet if you have it (optional). It lets the winner and anyone else look the payment up on a block explorer.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark as sent" });
+    if (tx === null) return;
+    setErr("");
+    try { await sponsorMarkSent(c.id, p.rank, tx.trim() || null); onSent(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); }
+  }
+  const due = p.status === "pending" || p.status === "disputed";
+  return (
+    <div style={{ background: "var(--paper)", color: "#111", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <b style={{ fontSize: 15 }}>#{p.rank} {p.name} · {p.zec} ZEC</b>
+        <span style={{ fontSize: 13, fontWeight: 800 }}>{p.status === "paid" ? "✓ Received" : p.status === "sent" ? "Sent · waiting for the winner to confirm" : p.status === "disputed" ? "⚠ Winner says it hasn't arrived" : "To pay"}</span>
+      </div>
+      {p.txid && <span className="mono" style={{ fontSize: 11, overflowWrap: "anywhere", color: "#4a4436" }}>Transaction {p.txid}</span>}
+      {due && !p.address && <span style={{ fontSize: 13, lineHeight: 1.5 }}>Waiting for {p.name} to add a shielded Zcash address in their Vault. The payment link appears here as soon as they do.</span>}
+      {due && p.address && (
+        <>
+          {p.status === "disputed" && <span style={{ fontSize: 13, lineHeight: 1.5 }}>Check your wallet: if the payment failed or went to another address, send it again with the link below.</span>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <a href={link} className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, width: "auto", padding: "0 16px", minHeight: 40 }}>Pay in wallet</a>
+            <button className="btn btn-paper" style={{ width: "auto", padding: "0 14px", minHeight: 40 }} onClick={() => qr ? setQr("") : QRCode.toDataURL(link, { margin: 1, width: 220 }).then(setQr).catch(() => setErr("Could not draw the QR code."))}>{qr ? "Hide QR" : "Show QR"}</button>
+            <button className="btn" style={{ width: "auto", padding: "0 14px", minHeight: 40, background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={sent}>I&apos;ve sent it</button>
+          </div>
+          {qr && <img src={qr} alt={`Payment QR code for ${p.name}`} width={180} height={180} style={{ borderRadius: 10, border: "2px solid #111" }} />}
+          <span className="mono" style={{ fontSize: 11, overflowWrap: "anywhere", color: "#4a4436" }}>{p.address}</span>
+        </>
+      )}
+      {err && <span role="alert" style={{ fontSize: 13, fontWeight: 700, color: "#b3261e" }}>{err}</span>}
     </div>
   );
+}
+
+function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChange: () => void }) {
+  const network = useNetwork();
+  const [payees, setPayees] = useState<Payee[] | null>(null), [err, setErr] = useState("");
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let live = true;
+    sponsorPayees(c.id).then((r) => live && setPayees(r)).catch((e) => live && setErr(e instanceof Error ? e.message : "Could not load the winners."));
+    return () => { live = false; };
+  }, [c.id, n, c.winners]);
+  if (!c.winners?.some((w) => w.zec > 0)) return null;
+  const open = payees?.filter((p) => p.zec > 0 && p.status !== "paid").length ?? 0;
+  const late = c.pay_by && Date.parse(c.pay_by) < now;
   return (
-    <div style={{ background: "var(--paper)", color: "#111", borderRadius: 16, padding: 14, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-      {qr && <img src={qr} alt="Payment QR code" width={140} height={140} style={{ borderRadius: 10, border: "2px solid #111" }} />}
-      <div style={{ flex: "1 1 200px", minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        <b style={{ fontSize: 15 }}>Fund your prize: {due} ZEC</b>
-        <span style={{ fontSize: 13, lineHeight: 1.5 }}>Scan with Zashi or Ywallet, or tap the button on your phone. Amount, address and memo are filled in for you. This money is recorded against this contest only.</span>
-        <a href={link} className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, alignSelf: "flex-start", width: "auto", padding: "0 16px" }}>Open in wallet</a>
-        <span style={{ fontSize: 12, color: "#4a4436" }}>{c.funded_zec > 0 ? `${c.funded_zec} of ${c.prize_zec} ZEC received so far. ` : ""}Payments are confirmed by the Called It team, usually within a day.</span>
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span className="eyebrow" style={{ color: open ? "var(--amber)" : "var(--lime)" }}>{open ? "Pay your winners" : "All winners paid"}</span>
+      {open > 0 && c.pay_by && (
+        <span style={{ fontSize: 13, fontWeight: 700, color: late ? "var(--red)" : "var(--text)" }}>
+          {late ? "The 72-hour payment window has passed. Your contest shows as unpaid, and you can't start a new one until every winner confirms."
+            : <>Pay within <span className="mono">{left(Date.parse(c.pay_by) - now)}</span>. Each payment opens your wallet with the address, amount and memo filled in{network === "testnet" ? " (testnet coins)" : ""}.</>}
+        </span>
+      )}
+      {err && <span role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</span>}
+      {payees?.filter((p) => p.zec > 0).map((p) => <PayeeRow key={p.rank} c={c} p={p} onSent={() => { setN((x) => x + 1); onChange(); }} />)}
     </div>
   );
 }
@@ -174,7 +210,7 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
         {c.entry_deadline && c.status !== "closed" && Date.parse(c.entry_deadline) > now && <> · joining closes in <span className="mono">{left(Date.parse(c.entry_deadline) - now)}</span></>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-        {[[String(c.entries), "players joined"], [`${c.prize_zec}`, "ZEC prize"], [`${c.funded_zec}`, "ZEC funded"]].map(([v, l]) => (
+        {[[String(c.entries), "players joined"], [`${c.prize_zec}`, "ZEC prize"], c.status === "closed" ? [String(c.winners?.filter((w) => w.status === "paid" && w.zec > 0).length ?? 0) + "/" + String(c.winners?.filter((w) => w.zec > 0).length ?? 0), "winners paid"] : [String(c.matches.length), c.matches.length === 1 ? "match" : "matches"]].map(([v, l]) => (
           <div key={l} style={{ background: "var(--paper)", color: "#111", borderRadius: 12, padding: 10 }}><div className="display" style={{ fontSize: 24 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 700 }}>{l}</div></div>
         ))}
       </div>
@@ -187,11 +223,11 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
           </div>
         ))}
       </div>
-      {c.status !== "closed" && <FundPanel c={c} />}
-      {c.status === "closed" && c.winners && (
+      {c.status === "closed" && <PayPanel c={c} now={now} onChange={onChange} />}
+      {c.status === "closed" && c.winners && !c.winners.some((w) => w.zec > 0) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Winners</span>
-          {c.winners.map((w) => <div key={w.rank} style={{ fontSize: 13 }}>#{w.rank} {w.name} · {w.points} pts · {w.zec} ZEC{w.status === "paid" ? " · paid" : ""}</div>)}
+          {c.winners.map((w) => <div key={w.rank} style={{ fontSize: 13 }}>#{w.rank} {w.name} · {w.points} pts · {w.zec} ZEC</div>)}
         </div>
       )}
       {err && <div role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</div>}
@@ -219,10 +255,14 @@ export function SponsorDashboardView({ data, reload }: { data: SponsorDashboard;
         <div><span className="eyebrow" style={{ color: "var(--muted)" }}>Sponsor dashboard</span><h1 className="display" style={{ margin: 0, fontSize: 30 }}>{data.name}</h1></div>
         {!form && <button className="btn" onClick={() => setForm("new")} style={{ width: "auto", padding: "0 18px", background: "var(--lime)", color: "#111" }}>New contest</button>}
       </div>
+      <div style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, fontSize: 13, lineHeight: 1.5 }}>
+        <b>You pay your winners directly</b> from your own Zcash wallet; Called It never holds your money.
+        {" "}Prize limit: <b>{data.limit_zec} ZEC</b> across your open contests and unpaid winners{data.owed_zec > 0 ? <> (you owe <b>{data.owed_zec} ZEC</b> now)</> : null}. It grows by every ZEC your winners confirm they received.
+      </div>
       {form && <ContestForm key={form === "new" ? "new" : form.id} edit={form === "new" ? undefined : form} onDone={done} />}
       {data.contests.length === 0 && !form && <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>No contests yet. Create your first one: pick matches, set the prize and choose when it goes public.</p>}
       {data.contests.map((c) => <ContestCard key={c.id} c={c} onChange={changed} onEdit={() => { setForm(c); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
-      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Your contests settle automatically when their last match finishes. Called It pays the winners in shielded ZEC from the prize you funded. Only you can see and change your contests here.</p>
+      <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Your contests settle automatically when their last match finishes. You then have 72 hours to pay each winner in shielded ZEC, and each winner confirms when it arrives. Your public record shows how many contests you paid in full. Only you can see and change your contests here.</p>
     </div>
   );
 }
