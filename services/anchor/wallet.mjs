@@ -3,20 +3,27 @@
 //
 // Network is controlled by ZCASH_NETWORK env var:
 //   ZCASH_NETWORK=testnet (default) — TAZ, connects to testnet.zec.rocks
-//   ZCASH_NETWORK=mainnet          — real ZEC, connects to mainnet.zec.rocks
+//   ZCASH_NETWORK=mainnet          — real ZEC, connects to zec.rocks
 //
 // Wallets are stored in SEPARATE directories so testnet and mainnet can never mix.
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { blockHash, createWalletClient, encodeNetworkParameters } from "@zcashlabs/zcash.js";
+import dns from "node:dns";
+import net from "node:net";
+
+// On connections without working IPv6, Node's quick IPv6/IPv4 racing gives up on IPv4 before a slow link
+// connects, and every request to lightwalletd fails with a transport error. Prefer IPv4 and wait for it.
+dns.setDefaultResultOrder("ipv4first");
+net.setDefaultAutoSelectFamily(false);
 
 const env = process.env;
 export const NETWORK = (env.ZCASH_NETWORK ?? "testnet") === "mainnet" ? "mainnet" : "testnet";
 export const IS_MAINNET = NETWORK === "mainnet";
 
 // Default lightwalletd servers (override with ZCASH_SERVER).
-const DEFAULT_SERVER = IS_MAINNET ? "https://mainnet.zec.rocks:443" : "https://testnet.zec.rocks:443";
+const DEFAULT_SERVER = IS_MAINNET ? "https://zec.rocks:443" : "https://testnet.zec.rocks:443";
 export const SERVER = env.ZCASH_SERVER ?? DEFAULT_SERVER;
 
 // Wallets live in SEPARATE dirs so testnet keys can never accidentally pay mainnet addresses.
@@ -91,3 +98,22 @@ export async function addressOf(wallet, accountId) {
 
 export const zec = (zats) => (Number(zats) / 1e8).toFixed(8);
 export const describe = (e) => (e?.code ? `${e.code}${e.stage ? " (" + e.stage + ")" : ""}: ${e.message}` : String(e?.message ?? e));
+
+/**
+ * Sync to the chain tip, retrying when the connection drops. Progress is saved as it goes, so each retry
+ * continues where the last one stopped. Slow or flaky connections otherwise fail on the first dropped request.
+ */
+export async function syncWithRetry(wallet, { tries = 30, log = console.log } = {}) {
+  for (let i = 1; ; i++) {
+    try {
+      const r = await wallet.sync();
+      if (r?.targetReached === false && i < tries) { log(`  …not at the tip yet, continuing (${i})`); continue; }
+      return r;
+    } catch (e) {
+      const retryable = e?.retryable ?? /TRANSPORT_ERROR|TIMEOUT|UNAVAILABLE/.test(String(e?.code ?? e?.message ?? e));
+      if (!retryable || i >= tries) throw e;
+      log(`  connection dropped, retrying (${i}/${tries - 1})…`);
+      await new Promise((r) => setTimeout(r, Math.min(2000 * i, 15000)));
+    }
+  }
+}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Chips } from "@/components/chips";
+import { PlayerSearch } from "@/components/player-search";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { MODES, art } from "@/lib/data";
@@ -50,6 +51,7 @@ export default function Rooms() {
         <span className="eyebrow" style={{ color: "var(--lime)" }}>Real players</span>
         <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Play with friends</h1>
         <p style={{ margin: 0, fontSize: 14, color: "#c9d3de", lineHeight: 1.5, maxWidth: 640 }}>Pick your opponents, everyone seals a move, then all moves open together. No player can peek or change their mind, not even the host.</p>
+        <div style={{ maxWidth: 520, marginTop: 6 }}><PlayerSearch /></div>
       </div>
       {msg && <div role="status" style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--pink)" }}>{msg}</div>}
 

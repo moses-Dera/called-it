@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const handle = decodeURIComponent((await params).handle).replace(/^@/, "");
   const title = `@${handle} · tipster record`;
   const description = `Every call @${handle} made, sealed before kickoff and timestamped on Bitcoin. Check the record yourself on Called It.`;
-  return { title, description, alternates: { canonical: `/@${handle}` }, openGraph: { title, description, url: `/@${handle}` } };
+  return { title, description, alternates: { canonical: `/tipster/${handle}` }, openGraph: { title, description, url: `/tipster/${handle}` } };
 }
 
 async function View({ params }: Props) {

@@ -97,8 +97,10 @@ none; no other way to add an admin exists in the app). From there:
   Each match records its league, so match pickers are grouped by league instead of one long list. All 12 free-plan
   leagues are imported (Premier League, Championship, La Liga, Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira
   Liga, Brasileirão, Champions League, Euros, World Cup) with two requests per run; Home filters by league.
-- **Addresses:** contests live at `/contest/<name>` and public tipster records at `/@<handle>`; old `?c=` and `?h=`
-  links redirect.
+- **Usernames:** every account gets an @username automatically (changeable in Profile). `/@<username>` is a public
+  player card (points, contest wins, ZEC received; never the wallet), and players can be found by username or name
+  on the Friends page. Contests live at `/contest/<name>`; tipster records at `/tipster/<username>`. Old `?c=` and
+  `?h=` links redirect.
 - **Contests:** every contest, including the admin's, is created from the Sponsor dashboard. A contest is either
   **football predictions** (pick matches by league) or **one multiplayer game** (Rock Paper Scissors, Bluff Vault,
   Fog of War or Werewolf) that runs for a set time. In a game contest, entrants open or join rooms from the

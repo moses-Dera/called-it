@@ -434,6 +434,20 @@ const recordStore = shared<Record<string, SponsorRecord>>(async () => {
 /** Every sponsor's public payment record, keyed by owner id. */
 export const useSponsorRecords = () => recordStore.use();
 
+// ---------- Usernames (@handle, like x.com/username) ----------
+/** The signed-in player's @username; every account gets one automatically. Null when signed out. */
+const handleStore = shared<string | null>(async () => {
+  if (!sb() || !(await sb()!.auth.getSession()).data.session) return null;
+  return (await cloudRpc<string | null>("ensure_username")) ?? null;
+}, null);
+export const useMyHandle = () => handleStore.use();
+export const refreshMyHandle = () => handleStore.refresh();
+export const setUsername = async (h: string) => { const v = await cloudRpc<string>("set_username", { p_handle: h }); await handleStore.refresh(); return v; };
+export type PlayerCard = { handle: string; name: string; avatar: number; bio: string | null; joined: string | null; tipster: boolean; points: number; calls: number; contests_won: number; zec_received: number; me: boolean };
+export const playerCard = (h: string) => cloudRpc<PlayerCard | null>("player_card", { p_handle: h });
+export type PlayerHit = { handle: string; name: string; avatar: number };
+export const searchPlayers = (q: string) => cloudRpc<PlayerHit[]>("search_players", { p_query: q });
+
 /** Whether the public can see a contest: not hidden by the admin and past its opening time. */
 export const isListed = (c: Contest, now = Date.now()) => !c.hidden && (!c.opens_at || Date.parse(c.opens_at) <= now);
 /** Contests the public sees. Owners and the admin also receive their unlisted ones; those are filtered out here. */
@@ -606,7 +620,8 @@ export function startCloud() {
     const was = cloud.session?.user.id;
     set({ session, status: session ? cloud.status : "idle" });
     // Supabase calls must not run inside this callback, so defer the first sync.
-    if (session && session.user.id !== was) setTimeout(() => sync(true).then(autoClaim), 0);
+    if (session && session.user.id !== was) setTimeout(() => sync(true).then(autoClaim).then(() => handleStore.refresh()), 0);
+    if (!session && was) setTimeout(() => handleStore.refresh(), 0);
     // Owners and the admin see contests the public can't, so reload the list when the account changes.
     if ((session?.user.id ?? null) !== (was ?? null)) setTimeout(() => contestStore.refresh(), 0);
     // After Google sends the player back, drop the one-time ?code= from the address bar.

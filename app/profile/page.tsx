@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Img, TopBar } from "@/components/ui";
-import { cloudReady, myTipsterProfile, saveTipsterProfile, signInWithGoogle, signOut, useCloud, usePlayerStats, useNetwork } from "@/lib/cloud";
+import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
@@ -15,10 +15,17 @@ export default function Profile() {
   const streak = stats?.streak ?? 0;
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
+  const myHandle = useMyHandle();
+  const [handle, setHandle] = useState<string | null>(null);
+  const handleV = handle ?? myHandle ?? "";
 
-  function save() {
+  async function save() {
     if (addrV.trim() && !isShielded(addrV, network)) return setMsg(network === "testnet" ? "That isn't a complete testnet shielded address (utest1… or ztestsapling1…). Copy it again from your wallet." : "That isn't a complete shielded address. Copy it again from your wallet: it starts with u1 or zs1.");
     saveProfile({ name: nameV.trim().slice(0, 24), address: addrV.trim() });
+    const h = handleV.trim().replace(/^@/, "").toLowerCase();
+    if (user && h && h !== myHandle) {
+      try { await setUsername(h); setHandle(null); } catch (e) { return setMsg(e instanceof Error ? e.message : "Could not save the username."); }
+    }
     setMsg("Saved.");
   }
   return (
@@ -41,7 +48,6 @@ export default function Profile() {
           </div>
         )}
 
-        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginTop: -6 }}>Ranked points are Classic Calls the server scored against the official result; only these count on Ranks. Practice points come from games against bots. Contest winners earn prizes. Your sealed moves follow your account to any device where you sign in.</div>
 
         <PlayerBadges />
 
@@ -57,11 +63,19 @@ export default function Profile() {
         </section>
 
         <section className="paper p-form" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+          {user && <>
+            <label htmlFor="uname" style={{ fontSize: 12, fontWeight: 800 }}>Username</label>
+            <div style={{ display: "flex", alignItems: "center", height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", padding: "0 12px", gap: 2 }}>
+              <b style={{ color: "#4a4436", fontSize: 16 }}>@</b>
+              <input id="uname" value={handleV} onChange={(e) => setHandle(e.target.value.replace(/^@/, ""))} maxLength={20} autoComplete="off" spellCheck={false} style={{ flex: 1, minWidth: 0, height: "100%", border: 0, outline: "none", background: "transparent", color: "#111", fontSize: 16, fontWeight: 600 }} />
+            </div>
+            {myHandle && <Link href={`/@${myHandle}`} style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", textDecoration: "underline" }}>Your page: called-it-kappa.vercel.app/@{myHandle}</Link>}
+          </>}
           <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
           <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
-          <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Withdrawal wallet (Zcash address)</label>
+          <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Prize wallet (shielded Zcash address)</label>
           <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
-          <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Saved once, then every withdrawal goes here in one tap.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
+          <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Contest prizes are paid straight here. Only the sponsor paying you sees it.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
           <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
         </section>
@@ -108,22 +122,23 @@ const BADGE_DEFS: { key: string; label: string; desc: string; check: (s: Record<
 
 function TipsterSettings() {
   const [loaded, setLoaded] = useState(false);
-  const [handle, setHandle] = useState(""), [bio, setBio] = useState(""), [isPublic, setIsPublic] = useState(false);
+  const handle = useMyHandle() ?? "";
+  const [bio, setBio] = useState(""), [isPublic, setIsPublic] = useState(false);
   const [busy, setBusy] = useState(false), [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
     myTipsterProfile().then((p) => {
-      if (p) { setHandle(p.handle ?? ""); setBio(p.bio ?? ""); setIsPublic(p.public_record); }
+      if (p) { setBio(p.bio ?? ""); setIsPublic(p.public_record); }
       setLoaded(true);
     });
   }, []);
 
   async function save(nextPublic: boolean) {
-    const h = handle.trim().toLowerCase();
-    if (!/^[a-z0-9_]{3,20}$/.test(h)) return setMsg({ ok: false, text: "Pick a handle of 3 to 20 letters, numbers or underscores." });
+    const h = handle;
+    if (!h) return setMsg({ ok: false, text: "Your username is still being set up. Try again in a moment." });
     setBusy(true); setMsg(null);
     try {
       await saveTipsterProfile(h, bio.trim(), nextPublic);
-      setHandle(h); setIsPublic(nextPublic);
+      setIsPublic(nextPublic);
       setMsg({ ok: true, text: nextPublic ? "Your record is public." : "Your record is private. It keeps its history, and your Classic Calls still cannot be deleted." });
     } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Could not save." }); }
     setBusy(false);
@@ -133,14 +148,12 @@ function TipsterSettings() {
   return (
     <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
       <span className="display" style={{ fontSize: 18 }}>Public tipster record</span>
-      <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Show your Classic Call record on a public page. Every call counts, one per match, settled by the server at full time. Your past and future calls are shown after full time, and calls on a public record can never be deleted.</div>
-      <label htmlFor="handle" style={{ fontSize: 12, fontWeight: 800 }}>Handle</label>
-      <input id="handle" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="yourname" maxLength={20} autoComplete="off" spellCheck={false} style={{ height: 48, borderRadius: 14, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
+      <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Show every call you seal on your @{handle || "username"} page after full time. Calls on a public record can never be deleted.</div>
       <label htmlFor="bio" style={{ fontSize: 12, fontWeight: 800 }}>Short bio</label>
       <input id="bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Leagues you cover" maxLength={140} style={{ height: 48, borderRadius: 14, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 15 }} />
       {isPublic ? (
         <>
-          <Link href={`/@${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>View my public record</Link>
+          <Link href={`/tipster/${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>View my public record</Link>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
             <button className="btn btn-quiet" disabled={busy} onClick={() => save(true)}>Save changes</button>
             <button className="btn btn-quiet" disabled={busy} onClick={() => save(false)}>Make private</button>
@@ -161,10 +174,10 @@ function PlayerBadges() {
   if (earned.length === 0) return null;
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <span className="eyebrow" style={{ color: "var(--muted)" }}>Badges ({earned.length}/{BADGE_DEFS.length})</span>
+      <span className="eyebrow" style={{ color: "var(--muted)" }}>Badges</span>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
-        {BADGE_DEFS.map((b) => {
-          const on = earned.includes(b);
+        {earned.map((b) => {
+          const on = true;
           return (
             <div key={b.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "10px 6px", borderRadius: 14, background: on ? b.bg : "var(--panel)", border: `2px solid ${on ? "#111" : "var(--line)"}`, opacity: on ? 1 : 0.4, textAlign: "center" }}>
               <span style={{ fontSize: 20 }}>{on ? "★" : "☆"}</span>

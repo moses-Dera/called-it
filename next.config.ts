@@ -9,11 +9,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/contest", has: [{ type: "query", key: "c", value: "(?<id>[a-z0-9-]{3,64})" }], destination: "/contest/:id", permanent: true },
       { source: "/contest", destination: "/contests", permanent: false },
-      { source: "/tipster", has: [{ type: "query", key: "h", value: "(?<h>[A-Za-z0-9_]{1,32})" }], destination: "/@:h", permanent: true },
+      { source: "/tipster", has: [{ type: "query", key: "h", value: "(?<h>[A-Za-z0-9_]{1,32})" }], destination: "/tipster/:h", permanent: true },
     ];
   },
   async rewrites() {
-    return [{ source: "/@:handle", destination: "/tipster/:handle" }];
+    return [{ source: "/@:handle", destination: "/u/:handle" }];
   },
   turbopack: {
     rules: {

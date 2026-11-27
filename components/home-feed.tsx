@@ -5,7 +5,7 @@ import { Chips } from "./chips";
 import { OTHER_LEAGUE } from "@/lib/leagues";
 import { ErrorBoundary, Img, TeamBadge } from "./ui";
 import { refreshFixtures, useContests, useFixtures, useFixturesState, useFixtureSealCounts, useMyContestIds, useNow } from "@/lib/cloud";
-import { phaseOf, type Fixture } from "@/lib/data";
+import { contestGame, phaseOf, type Fixture } from "@/lib/data";
 
 /* ── Fixture grid: only upcoming (not kicked off yet) ── */
 export function HomeFixtures() {
@@ -80,16 +80,16 @@ function HomeFixturesInner() {
     .sort((a, b) => (a === OTHER_LEAGUE ? 1 : 0) - (b === OTHER_LEAGUE ? 1 : 0) || open.filter((f) => (f.league || OTHER_LEAGUE) === b).length - open.filter((f) => (f.league || OTHER_LEAGUE) === a).length);
   const shown = league && leagues.includes(league) ? league : "all";
   const inLeague = shown === "all" ? open : open.filter((f) => (f.league || OTHER_LEAGUE) === shown);
-  const list = inLeague.filter((f) => f !== featured).slice(0, showAll ? 60 : 8);
+  const list = inLeague.filter((f) => f !== featured).slice(0, showAll ? 60 : 3);
 
   return (
     <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {featured && <Featured f={featured} kind={kind} sealed={sealCounts[featured.id] ?? 0} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
-        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
+        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Next matches</h2>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{inLeague.length} open</span>
       </div>
-      {leagues.length > 1 && (
+      {showAll && leagues.length > 1 && (
         <div style={{ overflowX: "auto", margin: "0 -20px", padding: "0 20px 2px" }}>
           <div style={{ width: "max-content" }}><Chips label="League" value={shown} onChange={(v) => { setLeague(v); setShowAll(false); }} options={[["all", "All leagues"], ...leagues.map((l) => [l, l] as const)]} /></div>
         </div>
@@ -104,8 +104,8 @@ function HomeFixturesInner() {
           <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
         </Link>
       ))}</div>
-      {!showAll && inLeague.filter((f) => f !== featured).length > 8 && (
-        <button className="btn btn-quiet" onClick={() => setShowAll(true)} style={{ minHeight: 42 }}>Show all {inLeague.length} {shown === "all" ? "" : shown + " "}matches</button>
+      {!showAll && open.length > 4 && (
+        <button className="btn btn-quiet" onClick={() => setShowAll(true)} style={{ minHeight: 42 }}>See all {open.length} matches by league</button>
       )}
     </section>
   );
@@ -122,11 +122,6 @@ function HomeFeedInner() {
 
   return (
     <div className="home-feed" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Link href="/rooms" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--lilac)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 18, padding: "12px 14px" }}>
-        <Img n="cover_arcade" size={44} style={{ borderRadius: 12, border: "2px solid #111" }} />
-        <div style={{ flex: 1 }}><div className="display" style={{ fontSize: 18 }}>Play with friends</div><div style={{ fontSize: 12, fontWeight: 700 }}>Pick your opponents. Every move sealed, opened together.</div></div>
-        <span style={{ fontWeight: 800 }}>→</span>
-      </Link>
 
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -143,7 +138,7 @@ function HomeFeedInner() {
             <span style={{ fontWeight: 800, fontSize: 18 }}>→</span>
           </Link>
         )}
-        {contests.slice(0, 3).map((c) => {
+        {contests.slice(0, 2).map((c) => {
           const joined = myIds.includes(c.id);
           return (
             <Link key={c.id} href={`/contest/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
@@ -151,7 +146,7 @@ function HomeFeedInner() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="display" style={{ fontSize: 19 }}>{c.title}</div>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>
-                  {c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}{c.sponsor ? ` · by ${c.sponsor}` : ""}{joined ? " · joined" : ""}
+                  {c.game && c.game !== "football" ? contestGame(c.game).name : `${c.fixture_ids.length} match${c.fixture_ids.length === 1 ? "" : "es"}`}{c.sponsor ? ` · by ${c.sponsor}` : ""}{joined ? " · joined" : ""}
                 </div>
               </div>
               {c.prize_zec > 0 && (
@@ -165,18 +160,6 @@ function HomeFeedInner() {
         })}
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <Link href="/how" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
-          <Img n="seal" size={32} />
-          <div style={{ fontSize: 14, fontWeight: 800 }}>How your seal works</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Three steps. Zero trust required.</div>
-        </Link>
-        <Link href="/sponsor" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
-          <Img n="cover_classic" size={32} style={{ borderRadius: 8 }} />
-          <div style={{ fontSize: 14, fontWeight: 800 }}>Run a contest</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Put up a prize for your community.</div>
-        </Link>
-      </div>
     </div>
   );
 }

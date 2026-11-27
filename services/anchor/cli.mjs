@@ -17,7 +17,7 @@
 
 import { generateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { DATA, SERVER, NETWORK, IS_MAINNET, addressOf, describe, openWallet, readMnemonic, saveMnemonic, unlock, zec } from "./wallet.mjs";
+import { DATA, SERVER, NETWORK, IS_MAINNET, addressOf, describe, openWallet, readMnemonic, saveMnemonic, syncWithRetry, unlock, zec } from "./wallet.mjs";
 
 const env = process.env;
 const cmd = process.argv[2];
@@ -61,7 +61,7 @@ try {
   if (cmd === "init") {
     if (account) throw new Error(`A wallet already exists in ${DATA}. Use "address" or "balance".`);
     console.log(`Syncing chain tip from ${SERVER}…`);
-    const synced = await wallet.sync();
+    const synced = await syncWithRetry(wallet);
     if (!synced.targetReached) throw new Error("Sync stopped before reaching the chain tip. Try again.");
     const phrase = generateMnemonic(wordlist, 256);
     const file = await saveMnemonic(phrase);
@@ -87,7 +87,7 @@ try {
 
   if (cmd === "balance") {
     console.log(`\nSyncing ${NETWORK} chain tip from ${SERVER}…`);
-    await wallet.sync();
+    await syncWithRetry(wallet);
     const b = await wallet.getBalance({ accountId: account.id });
     if (!b.amounts) console.log("Balance not available yet.");
     else {
@@ -177,7 +177,7 @@ async function payouts(account) {
       if (!claimed) { console.log(`Skipping ${w.id}: another payout run already took it.`); continue; }
       let txid;
       try {
-        await wallet.sync();
+        await syncWithRetry(wallet);
         console.log(`Sending ${zec(zats)} ${coin} to ${w.address.slice(0, 16)}…`);
         const pending = await wallet.send({
           accountId: account.id,
@@ -244,7 +244,7 @@ async function contestPayout(account, contestId, targetRank = null) {
       if (!claimed) { console.log(`Skipping winner #${w.rank}: already paid or being paid by another run.`); continue; }
       let txid;
       try {
-        await wallet.sync();
+        await syncWithRetry(wallet);
         console.log(`Sending #${w.rank} (${w.name}) ${zec(zats)} ${coin} to ${w.address.slice(0, 16)}…`);
         const pending = await wallet.send({
           accountId: account.id,
