@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Img } from "./ui";
 import { useNetwork } from "@/lib/cloud";
 import { isShielded, saveProfile, useStore } from "@/lib/store";
+import { walletAdvice } from "@/lib/wallets";
 
 const STEPS = [
   { title: "Call the score", desc: "Pick the final score before kickoff.", bg: "var(--sky)", img: "seal" },
@@ -49,7 +50,7 @@ export function Onboarding() {
             <input aria-label="Your Zcash wallet address" value={addr} onChange={(e) => { setAddr(e.target.value); setErr(""); }} placeholder={network === "testnet" ? "utest1… (testnet)" : "u1… or zs1…"} autoComplete="off" spellCheck={false} className="mono"
               style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
             {err && <span role="alert" style={{ fontSize: 13, fontWeight: 800, color: "#9a2d1d" }}>{err}</span>}
-            <a href="https://electriccoin.co/zashi/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 800, textDecoration: "underline" }}>No wallet yet? Get Zashi (free) and copy its address</a>
+            <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>No wallet yet? Get {walletAdvice(network).apps.map((a, k) => <span key={a.name}>{k ? " or " : ""}<a href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{a.name}</a></span>)} (free). {walletAdvice(network).setup}</span>
           </div>
         )}
         {step === WALLET_STEP && saved && <p style={{ margin: 0, fontSize: 13, fontWeight: 800 }}>✓ Wallet saved</p>}

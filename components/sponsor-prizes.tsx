@@ -4,6 +4,7 @@ import { confirmPrize, syncNow, useMySponsorPrizes, useNetwork, useNow } from "@
 import { isShielded, saveProfile, useStore } from "@/lib/store";
 import { askConfirm } from "./dialog";
 import { explorerTx } from "@/lib/explorer";
+import { walletAdvice } from "@/lib/wallets";
 
 /** Prizes a player won in sponsor contests: the sponsor pays them directly and the player confirms they arrived. */
 export function SponsorPrizes() {
@@ -37,7 +38,7 @@ export function SponsorPrizes() {
       {waiting && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sponsors pay these straight to your wallet within 72 hours. The sponsor sees your saved address so they can pay you.</p>}
       {waiting && !isShielded(saved, network) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--panel)", border: "2px solid var(--amber)", borderRadius: 14, padding: 12 }}>
-          <label htmlFor="prize-addr" style={{ fontSize: 13, fontWeight: 800 }}>Add your shielded Zcash address so the sponsor can pay you{network === "testnet" ? " (testnet)" : ""}. No wallet? <a href="https://electriccoin.co/zashi/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>Get Zashi free</a>, then copy its address here.</label>
+          <label htmlFor="prize-addr" style={{ fontSize: 13, fontWeight: 800 }}>Add your shielded Zcash address so the sponsor can pay you{network === "testnet" ? " (testnet)" : ""}. No wallet? Get {walletAdvice(network).apps.map((a, k) => <span key={a.name}>{k ? " or " : ""}<a href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{a.name}</a></span>)} free. {walletAdvice(network).setup}</label>
           <input id="prize-addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder={network === "testnet" ? "utest1…" : "u1…"} autoComplete="off" spellCheck={false} className="mono"
             style={{ height: 44, borderRadius: 12, border: "2px solid #111", background: "var(--paper)", color: "#111", padding: "0 12px", fontSize: 13 }} />
           <button className="btn" onClick={saveAddress} style={{ background: "var(--amber)", color: "#111", border: "2px solid #111" }}>Save address</button>

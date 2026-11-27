@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { cloudRpc, refreshContests, sponsorMarkSent, sponsorPayees, useFixtures, useNetwork, type ContestGame, type Payee, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
 import { askText } from "./dialog";
 import { explorerTx } from "@/lib/explorer";
+import { walletAdvice } from "@/lib/wallets";
 import { CONTEST_GAMES, contestGame, phaseOf } from "@/lib/data";
 import { OTHER_LEAGUE } from "@/lib/leagues";
 import { Chips } from "./chips";
@@ -69,6 +70,19 @@ function PayeeRow({ c, p, onSent }: { c: SponsorContest; p: Payee; onSent: () =>
   );
 }
 
+/** The three steps a sponsor follows, with the right wallet for the network the app runs on. */
+function HowToPay({ network }: { network: "mainnet" | "testnet" }) {
+  const w = walletAdvice(network);
+  const link = (a: { name: string; url: string }) => <a key={a.name} href={a.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{a.name}</a>;
+  return (
+    <ol style={{ margin: 0, padding: "10px 14px 10px 30px", background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, fontSize: 13, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 4 }}>
+      <li>Have {w.apps.map((a, k) => <span key={a.name}>{k ? " or " : ""}{link(a)}</span>)} on your phone with enough {network === "testnet" ? "test coins (TAZ)" : "ZEC"}. {network === "testnet" && w.faucet ? <>{w.setup} Free test coins: {link(w.faucet)}.</> : null}</li>
+      <li>Tap <b>Pay in wallet</b> on your phone, or tap <b>Show QR</b> here and scan it with your wallet. The address, amount and memo are already filled in: just send.</li>
+      <li>Copy the transaction ID from the payment in your wallet&apos;s history, then tap <b>I&apos;ve sent it</b> and paste it. The winner confirms, and the contest shows a public payment link.</li>
+    </ol>
+  );
+}
+
 function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChange: () => void }) {
   const network = useNetwork();
   const [payees, setPayees] = useState<Payee[] | null>(null), [err, setErr] = useState("");
@@ -90,6 +104,7 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
             : <>Pay within <span className="mono">{left(Date.parse(c.pay_by) - now)}</span>. Each payment opens your wallet with the address, amount and memo filled in{network === "testnet" ? " (testnet coins)" : ""}.</>}
         </span>
       )}
+      {open > 0 && <HowToPay network={network} />}
       {err && <span role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</span>}
       {payees?.filter((p) => p.zec > 0).map((p) => <PayeeRow key={p.rank} c={c} p={p} onSent={() => { setN((x) => x + 1); onChange(); }} />)}
     </div>

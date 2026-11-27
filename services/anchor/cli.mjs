@@ -8,8 +8,6 @@
 //   node cli.mjs balance              Sync chain tip & show spendable balance
 //   node cli.mjs payouts              Pay all pending withdrawal requests
 //   node cli.mjs contest-payout <id>  Pay ONLY winners of a specific contest (funds cannot leak!)
-//   node cli.mjs pay "<zcash: link>"  Show a payment from the app's "Pay in wallet" link; add --yes to send it
-//                                     (a stand-in for a phone wallet when testing on testnet)
 //
 // Env vars:
 //   ZCASH_NETWORK=mainnet | testnet   Switch network (default: testnet)
@@ -26,7 +24,7 @@ const cmd = process.argv[2];
 const arg = process.argv[3];
 const coin = IS_MAINNET ? "ZEC" : "TAZ";
 
-if (!["init", "address", "balance", "payouts", "contest-payout", "pay"].includes(cmd)) {
+if (!["init", "address", "balance", "payouts", "contest-payout"].includes(cmd)) {
   console.log(`
 Called It Zcash Wallet CLI [Network: ${NETWORK.toUpperCase()}]
 
@@ -36,7 +34,6 @@ Commands:
   node cli.mjs balance              Check synced spendable balance
   node cli.mjs payouts              Pay all requested withdrawals in Supabase
   node cli.mjs contest-payout <id>  Pay only winners of contest <id>
-  node cli.mjs pay "<zcash: link>"  Check a "Pay in wallet" link; add --yes to send it
 `);
   process.exit(1);
 }
@@ -102,26 +99,6 @@ try {
  Spendable: ${zec(b.amounts.ironwood.spendable)} ${coin}
  Pending:   ${zec(b.amounts.ironwood.pendingSpendability + b.amounts.ironwood.changePendingConfirmation)} ${coin}
 --------------------------------------------------`);
-    }
-  }
-
-  if (cmd === "pay") {
-    if (!arg) throw new Error('Paste the link from "Pay in wallet": node cli.mjs pay "zcash:…?amount=…&memo=…" [--yes]');
-    const { address, zats, memo } = parseZip321(arg);
-    console.log(`\nPayment on ${NETWORK.toUpperCase()}:\n To:     ${address.slice(0, 20)}…${address.slice(-10)}\n Amount: ${zec(zats)} ${coin}\n Memo:   ${memo || "(none)"}`);
-    if (!process.argv.includes("--yes")) { console.log('\nNothing sent. Run the same command with --yes to send it.'); }
-    else {
-      await syncWithRetry(wallet);
-      const { signer, binding } = await unlock(wallet);
-      try {
-        const pending = await wallet.send({ accountId: account.id, to: address, amount: zats, memo: memo ? { text: memo } : undefined, idempotencyKey: "pay-" + address.slice(-16) + "-" + zats + "-" + memo });
-        const txid = (await pending.snapshot()).steps.at(-1)?.txid;
-        console.log(`\n✓ Sent ${zec(zats)} ${coin}. Transaction ID (paste it into "I've sent it"):\n${txid}`);
-        console.log(`Explorer: https://blockexplorer.one/zcash/${IS_MAINNET ? "mainnet" : "testnet"}/tx/${txid}`);
-      } finally {
-        await binding.dispose();
-        await signer.dispose();
-      }
     }
   }
 
@@ -295,21 +272,4 @@ async function contestPayout(account, contestId, targetRank = null) {
     await binding.dispose();
     await signer.dispose();
   }
-}
-
-/** Read a ZIP-321 payment link (zcash:<address>?amount=<ZEC>&memo=<base64url>), as the app's "Pay in wallet" makes. */
-function parseZip321(uri) {
-  const m = /^zcash:([a-z0-9]+)\?(.*)$/i.exec(uri.trim());
-  if (!m) throw new Error("That isn't a zcash: payment link.");
-  const q = new URLSearchParams(m[2]);
-  const amount = q.get("amount");
-  if (!amount || !/^\d+(\.\d{1,8})?$/.test(amount)) throw new Error("The link has no valid amount.");
-  const [whole, frac = ""] = amount.split(".");
-  const zats = BigInt(whole) * 100000000n + BigInt((frac + "00000000").slice(0, 8));
-  if (zats <= 0n) throw new Error("The amount must be above zero.");
-  const memo64 = q.get("memo");
-  const memo = memo64 ? Buffer.from(memo64.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8") : "";
-  const prefix = IS_MAINNET ? /^(u1|zs1)/ : /^(utest1|ztestsapling1)/;
-  if (!prefix.test(m[1])) throw new Error(`That address is not a ${NETWORK} shielded address.`);
-  return { address: m[1], zats, memo };
 }
