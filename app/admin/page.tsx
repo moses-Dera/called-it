@@ -122,6 +122,33 @@ function useWalletHealth() {
   return { health, error, refresh };
 }
 
+type Conn = { name: string; purpose: string; url: string; ok: boolean; ms: number; note?: string };
+
+/** Each outside service, what it's for, and whether it answers right now. */
+function Connections() {
+  const [rows, setRows] = useState<Conn[] | null>(null), [n, setN] = useState(0);
+  useEffect(() => { setRows(null); fetch("/api/health").then((r) => r.json()).then(setRows).catch(() => setRows([])); }, [n]);
+  return (
+    <section style={{ borderRadius: 26, background: "#111", color: "var(--paper)", border: "3px solid var(--line)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span className="eyebrow" style={{ color: "var(--lime)" }}>Connections</span>
+        <button onClick={() => setN((x) => x + 1)} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--muted)" }}>Check again</button>
+      </div>
+      {rows === null && <div style={{ fontSize: 13, color: "var(--muted)" }}>Checking…</div>}
+      {rows?.map((c) => (
+        <div key={c.name} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
+          <span aria-label={c.ok ? "working" : "not answering"} style={{ fontWeight: 900, color: c.ok ? "var(--lime)" : "var(--red)" }}>{c.ok ? "✓" : "✗"}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+            <b>{c.name} <span style={{ fontWeight: 600, color: "var(--muted)" }}>· {c.ok ? `${c.ms} ms${c.note ? ` · ${c.note}` : ""}` : c.note}</span></b>
+            <span style={{ color: "#c9d3de" }}>{c.purpose}</span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", overflowWrap: "anywhere" }}>{c.url}</span>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | null; act: Act; go: (t: Tab) => void }) {
   const fixtures = useFixtures();
   const wallet = useWalletHealth();
@@ -137,6 +164,8 @@ function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | nul
           {stats.map(([k, v]) => <div key={k} style={{ background: "#111", color: "var(--paper)", borderRadius: 16, padding: "12px 14px" }}><div className="display" style={{ fontSize: 30 }}>{v}</div><div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>{k}{k === "Payouts owed" ? " (ZEC)" : ""}</div></div>)}
         </div>
       </section>
+
+      <Connections />
 
       <section style={{ borderRadius: 26, background: "#111", color: "var(--paper)", border: "3px solid var(--line)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
