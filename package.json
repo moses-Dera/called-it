@@ -7,11 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node services/anchor/patch-sdk.mjs node_modules/@zcashlabs/zcash.js && node scripts/copy-zcash-assets.mjs"
   },
   "dependencies": {
+    "@scure/bip39": "^2.4.0",
     "@supabase/supabase-js": "^2.119.0",
     "@types/qrcode": "^1.5.6",
+    "@zcashlabs/zcash.js": "https://github.com/zcashlabs/zcashjs/releases/download/v0.1.2/zcashlabs-zcash.js-0.1.2.tgz",
     "next": "16.4.6",
     "qrcode": "^1.5.4",
     "react": "19.3.0",

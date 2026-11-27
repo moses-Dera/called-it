@@ -7,10 +7,11 @@
 // Remove each part once a zcash.js release includes it.
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "node_modules", "@zcashlabs", "zcash.js");
+// Patches the anchor service's copy by default, or the copy at the path given (the web app's, for the in-app wallet).
+const root = process.argv[2] ? resolve(process.argv[2]) : join(dirname(fileURLToPath(import.meta.url)), "node_modules", "@zcashlabs", "zcash.js");
 if (!existsSync(join(root, "package.json"))) { console.log("patch-sdk: zcash.js not installed, skipping"); process.exit(0); }
 
 const { version } = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
@@ -47,3 +48,33 @@ const tries = "if (refreshes === 3) {", moreTries = "if (refreshes === 12) {";
 if (pay.includes(moreTries)) console.log("patch-sdk: submission refresh limit already 12");
 else if (pay.includes(tries)) { await writeFile(payFile, pay.replace(tries, moreTries)); console.log("patch-sdk: submission refresh limit raised to 12"); }
 else console.log("patch-sdk: payments.js changed upstream; refresh-limit patch not applied");
+
+// 4) Browser bundling (the in-app wallet): Node-only modules are loaded with dynamic imports that browsers
+// never run, but bundlers still try to resolve them and fail on net/tls/@grpc/grpc-js. Mark them ignored.
+const ignore = (code, from, to) => code.includes(to) ? code : code.replace(from, to);
+for (const [rel, from, to] of [
+  ["dist/src/runtime/worker-platform.js", "const builtin = (name) => import(`node:${name}`);", "const builtin = (name) => import(/* webpackIgnore: true */ /* turbopackIgnore: true */ `node:${name}`);"],
+  ["dist/src/grpc.js", "await import(/* @vite-ignore */ path);", "await import(/* @vite-ignore */ /* webpackIgnore: true */ /* turbopackIgnore: true */ path);"],
+]) {
+  const f = join(root, rel);
+  if (!existsSync(f)) continue;
+  const code = await readFile(f, "utf8");
+  const out = ignore(code, from, to);
+  if (out === code && !code.includes(to)) console.log(`patch-sdk: ${rel} changed upstream; bundler-ignore patch not applied`);
+  else if (out !== code) { await writeFile(f, out); console.log(`patch-sdk: ${rel} Node-only import hidden from browser bundlers`); }
+}
+
+// 5) In-app wallet: browsers load the wallet engine from /zcash/ on the app's own site (copied there by
+// scripts/copy-zcash-assets.mjs) instead of from bundler-renamed files, which broke the engine's manifest.
+// The engine still verifies every file against its pinned SHA-256. Node (the anchor service) is unchanged.
+const assetsFile = join(root, "dist/src/runtime/bundled-assets.mjs");
+if (existsSync(assetsFile)) {
+  let a = await readFile(assetsFile, "utf8");
+  if (a.includes("__CALLEDIT_ZCASH_ASSETS__")) console.log("patch-sdk: wallet engine location already configurable");
+  else {
+    a = a.replace(/new URL\("(\.\/assets\/[^"]+)", import\.meta\.url\)/g, 'at("$1")');
+    a = a.replace("let urls;", 'let urls;\nconst at = (rel) => { const base = globalThis.__CALLEDIT_ZCASH_ASSETS__; return base ? new URL(rel.slice("./assets/".length), base) : new URL(rel, import.meta.url); };');
+    await writeFile(assetsFile, a);
+    console.log("patch-sdk: wallet engine location configurable for browsers");
+  }
+}
