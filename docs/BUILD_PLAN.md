@@ -184,13 +184,13 @@ contest wins and total ZEC received to anyone, and `search_players` finds anyone
   default true`. `player_card` returns points and contest wins only when `show_stats` or the viewer is the owner;
   it **never** returns ZEC received to anyone but the owner. `search_players` matches names only for
   `searchable` players (an exact @username still resolves).
-- Public contest results (`contests.winners`) keep rank, name, points and status, but must not let strangers sum
-  a person's winnings: check `contest-view.tsx` and `sponsor-record.tsx` show amounts per rank, not per person
-  totals anywhere.
+- Contest prizes stay public on purpose (the pot and what each place wins, shown on the contest page). Privacy
+  protects people: their totals, stats, wallet addresses and findability.
 - Profile gets two switches: "Show my stats on my public page" (off by default) and "Hide me from name search".
 - Wallet addresses are already never public (`20261128090000_no_public_addresses.sql`); keep it that way.
 **Done when** a logged-out visitor to `/@someone` sees only username, name and avatar (unless stats are on), ZEC
-received is visible only to its owner, and a hidden player is found only by exact @username.
+received is visible only to its owner, a hidden player is found only by exact @username, and contest pages still
+show the prize pot and each place's prize.
 
 ### Phase 2: Infrastructure on one server (needs owner: server + domain)
 Target: one Hetzner VPS (4 vCPU, 8 GB, Ubuntu LTS), Docker Compose, Cloudflare free plan in front.

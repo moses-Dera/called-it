@@ -35,13 +35,14 @@ export function PlayerView({ handle }: { handle: string }) {
               </div>
             </div>
             {p.bio && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{p.bio}</p>}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-              {[[p.points, "points"], [p.contests_won, "contest wins"], [Number(p.zec_received), "ZEC received"]].map(([v, l]) => (
+            {p.points != null && <div style={{ display: "grid", gridTemplateColumns: `repeat(${p.me ? 3 : 2}, minmax(0, 1fr))`, gap: 8 }}>
+              {([[p.points, "points"], [p.contests_won, "contest wins"], ...(p.me ? [[Number(p.zec_received ?? 0), "ZEC received (only you see this)"]] : [])] as [number | null, string][]).map(([v, l]) => (
                 <div key={String(l)} style={{ background: "#fff", border: "2px solid #111", borderRadius: 14, padding: 10 }}>
                   <div className="display" style={{ fontSize: 24 }}>{v}</div><div style={{ fontSize: 11, fontWeight: 800 }}>{l}</div>
                 </div>
               ))}
-            </div>
+            </div>}
+            {p.me && !p.stats_public && <span style={{ fontSize: 12, color: "#4a4436" }}>Your stats are private: other people see only your name and avatar. Change it in Profile.</span>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {p.tipster && <Link href={`/tipster/${p.handle}`} className="btn" style={{ width: "auto", padding: "0 16px", background: "#111", color: "var(--lime)", border: 0 }}>See their sealed calls</Link>}
               {p.me && <Link href="/profile" className="btn btn-paper" style={{ width: "auto", padding: "0 16px" }}>Edit profile</Link>}

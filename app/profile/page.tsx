@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Img, TopBar } from "@/components/ui";
-import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork } from "@/lib/cloud";
+import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork, myPrivacy, setPrivacy, type Privacy } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 
 export default function Profile() {
@@ -80,6 +80,8 @@ export default function Profile() {
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
         </section>
 
+        {user && <PrivacySettings />}
+
         {user && <TipsterSettings />}
 
         <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -119,6 +121,31 @@ const BADGE_DEFS: { key: string; label: string; desc: string; check: (s: Record<
   { key: "streak_30", label: "Month King", desc: "30-day streak", check: (s) => (s.streak ?? 0) >= 30, bg: "#FFD700" },
   { key: "hundred_seals", label: "Legend", desc: "100 seals", check: (s) => (s.total_seals ?? 0) >= 100, bg: "#C6F432" },
 ];
+
+/** Who can see you: stats on your public page, and whether your name shows up in player search. */
+function PrivacySettings() {
+  const [p, setP] = useState<Privacy | null>(null), [msg, setMsg] = useState("");
+  useEffect(() => { myPrivacy().then((x) => setP(x ?? { show_stats: false, searchable: true })).catch(() => setP({ show_stats: false, searchable: true })); }, []);
+  if (!p) return null;
+  async function change(next: Privacy) {
+    const before = p; setP(next); setMsg("");
+    try { await setPrivacy(next); setMsg("Saved."); } catch (e) { setP(before); setMsg(e instanceof Error ? e.message : "Could not save."); }
+  }
+  const row = (label: string, hint: string, on: boolean, flip: () => void) => (
+    <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+      <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}><b style={{ fontSize: 14 }}>{label}</b><span style={{ fontSize: 12, color: "#c9d3de", lineHeight: 1.4 }}>{hint}</span></span>
+      <input type="checkbox" role="switch" checked={on} onChange={flip} style={{ width: 22, height: 22, accentColor: "var(--lime)" }} />
+    </label>
+  );
+  return (
+    <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+      <span className="display" style={{ fontSize: 18 }}>Privacy</span>
+      {row("Show my stats on my public page", "Points and contest wins. Off: people see only your name and avatar. Your ZEC total is always private.", p.show_stats, () => change({ ...p, show_stats: !p.show_stats }))}
+      {row("Find me by name in search", "Off: people can still reach you by your exact @username.", p.searchable, () => change({ ...p, searchable: !p.searchable }))}
+      {msg && <div role="status" style={{ fontSize: 12, fontWeight: 700 }}>{msg}</div>}
+    </section>
+  );
+}
 
 function TipsterSettings() {
   const [loaded, setLoaded] = useState(false);

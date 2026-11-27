@@ -443,7 +443,11 @@ const handleStore = shared<string | null>(async () => {
 export const useMyHandle = () => handleStore.use();
 export const refreshMyHandle = () => handleStore.refresh();
 export const setUsername = async (h: string) => { const v = await cloudRpc<string>("set_username", { p_handle: h }); await handleStore.refresh(); return v; };
-export type PlayerCard = { handle: string; name: string; avatar: number; bio: string | null; joined: string | null; tipster: boolean; points: number; calls: number; contests_won: number; zec_received: number; me: boolean };
+/** Stats are null unless the player shows them (or it's your own card); zec_received is only ever yours. */
+export type PlayerCard = { handle: string; name: string; avatar: number; bio: string | null; joined: string | null; tipster: boolean; stats_public: boolean; points: number | null; calls: number | null; contests_won: number | null; zec_received: number | null; me: boolean };
+export type Privacy = { show_stats: boolean; searchable: boolean };
+export const myPrivacy = () => cloudRpc<Privacy | null>("my_privacy");
+export const setPrivacy = (p: Privacy) => cloudRpc<boolean>("set_privacy", { p_show_stats: p.show_stats, p_searchable: p.searchable });
 export const playerCard = (h: string) => cloudRpc<PlayerCard | null>("player_card", { p_handle: h });
 export type PlayerHit = { handle: string; name: string; avatar: number };
 export const searchPlayers = (q: string) => cloudRpc<PlayerHit[]>("search_players", { p_query: q });
