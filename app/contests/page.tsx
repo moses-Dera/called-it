@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { useContests, useMyContestIds, useFixtures, useSponsorRecords } from "@/lib/cloud";
 import { SponsorRecordLine } from "@/components/sponsor-record";
-import { SPLIT_LABEL, inkOn } from "@/lib/data";
+import { SPLIT_LABEL, contestGame, inkOn } from "@/lib/data";
 
 export default function ContestsPage() {
   const contests = useContests(), fixtures = useFixtures(), myIds = useMyContestIds(), records = useSponsorRecords();
@@ -54,7 +54,7 @@ export default function ContestsPage() {
               {c.description && <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85, lineHeight: 1.4 }}>{c.description}</div>}
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", fontSize: 13, fontWeight: 700 }}>
                 {c.prize_zec > 0 && <span style={{ background: "var(--amber)", color: "#111", borderRadius: 10, padding: "4px 10px", fontWeight: 800 }}>{c.prize_zec} ZEC</span>}
-                <span>{c.fixture_ids.length} fixture{c.fixture_ids.length === 1 ? "" : "s"}</span>
+                <span>{c.game && c.game !== "football" ? contestGame(c.game).name : `${c.fixture_ids.length} fixture${c.fixture_ids.length === 1 ? "" : "s"}`}</span>
                 {c.sponsor && <span>by {c.sponsor}</span>}
                 <span className="chip" style={{ background: "rgba(127,127,127,.2)", color: "inherit", border: 0 }}>{SPLIT_LABEL[c.prize_structure] ?? "Top 3 share"}</span>
                 {c.owner_id && c.prize_zec > 0 && <SponsorRecordLine record={records[c.owner_id]} sponsor={c.sponsor} short />}

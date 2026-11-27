@@ -313,14 +313,16 @@ const fixtureStore = shared<Fixture[]>(async () => {
   const c = sb();
   if (!c) return FIXTURES;
   const base = "id, home, away, kickoff, home_goals, away_goals";
-  let res: { data: unknown[] | null; error: unknown } = await c.from("fixtures").select(`${base}, status, live_home, live_away`).order("kickoff");
-  // Databases without the live-score migration lack those columns; fall back to the base set.
+  let res: { data: unknown[] | null; error: unknown } = await c.from("fixtures").select(`${base}, status, live_home, live_away, league`).order("kickoff");
+  // Databases without the newer migrations lack some columns; fall back step by step.
+  if (res.error) res = await c.from("fixtures").select(`${base}, status, live_home, live_away`).order("kickoff");
   if (res.error) res = await c.from("fixtures").select(base).order("kickoff");
   if (res.error) throw res.error;
   return ((res.data ?? []) as Record<string, unknown>[]).map((f) => ({
     id: f.id as string, home: f.home as string, away: f.away as string, kickoff: f.kickoff as string, when: whenOf(f.kickoff as string),
     homeGoals: f.home_goals as number | null, awayGoals: f.away_goals as number | null,
     status: (f.status as string | null) ?? null, liveHome: (f.live_home as number | null) ?? null, liveAway: (f.live_away as number | null) ?? null,
+    league: (f.league as string | null) ?? null,
   }));
 }, FIXTURES);
 export const useFixtures = () => fixtureStore.use();
@@ -365,7 +367,10 @@ export type Contest = {
   prize_structure: "top3" | "top5" | "top10" | "top20" | "all_correct" | "random_draw" | "custom" | "equal_split";
   entry_deadline: string | null; description: string | null;
   custom_shares?: number[] | null;
+  /** football (score predictions) or one multiplayer game played in contest rooms until ends_at. */
+  game?: ContestGame; ends_at?: string | null;
 };
+export type ContestGame = "football" | "arcade" | "bluff" | "fog" | "werewolf";
 const contestStore = shared<Contest[]>(async () => {
   const c = sb();
   if (!c) return [];
@@ -375,7 +380,7 @@ const contestStore = shared<Contest[]>(async () => {
 }, []);
 // ---------- Sponsor dashboard ----------
 export type SponsorMatch = { id: string; home: string; away: string; kickoff: string; home_goals: number | null; away_goals: number | null; sealed: number };
-export type SponsorContest = Contest & { created_at: string; entries: number; funded_zec: number; matches: SponsorMatch[] };
+export type SponsorContest = Contest & { created_at: string; entries: number; funded_zec: number; games_played?: number; matches: SponsorMatch[] };
 export type SponsorDashboard = { name: string; limit_zec: number; owed_zec: number; contests: SponsorContest[] };
 /** The signed-in sponsor's own contests with live numbers; null for anyone who is not a sponsor, undefined while loading. */
 export function useSponsorDashboard(): { data: SponsorDashboard | null | undefined; reload: () => void } {

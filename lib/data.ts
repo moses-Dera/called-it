@@ -1,7 +1,7 @@
 export const art = (n: string) => `/a/${n}.webp`;
 /** Fallback fixtures (used before the database answers, or without accounts). The live list comes
  * from the `fixtures` table, which admins manage at /admin. */
-export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null; status?: string | null; liveHome?: number | null; liveAway?: number | null };
+export type Fixture = { id: string; home: string; away: string; kickoff: string; when: string; homeGoals?: number | null; awayGoals?: number | null; status?: string | null; liveHome?: number | null; liveAway?: number | null; league?: string | null };
 
 // Tip markets a tipster can seal. A pick is "<market>:<selection>"; a Classic Call pick is a score like "2-1".
 export const MARKETS = [
@@ -82,6 +82,15 @@ export const GUIDES: Record<string, Guide> = {
 };
 
 // ---------- Contest display ----------
+/** What a contest is played with: football predictions or one multiplayer game. */
+export const CONTEST_GAMES = [
+  { key: "football", name: "Football predictions", img: "cover_classic", blurb: "Players seal a score for each match you pick." },
+  { key: "arcade", name: "Rock Paper Scissors", img: "cover_arcade", blurb: "Quick 1-on-1 games. Each win counts." },
+  { key: "bluff", name: "Bluff Vault", img: "cover_bluff", blurb: "2 to 6 players bid and bluff with sealed cards." },
+  { key: "fog", name: "Fog of War", img: "cover_fog", blurb: "1-on-1 hidden-move battles." },
+  { key: "werewolf", name: "Werewolf", img: "cover_werewolf", blurb: "Group game of secret roles. The winning team scores." },
+] as const;
+export const contestGame = (key?: string | null) => CONTEST_GAMES.find((g) => g.key === (key ?? "football")) ?? CONTEST_GAMES[0];
 export const SPLIT_LABEL: Record<string, string> = {
   top3: "Top 3 share", top5: "Top 5 share", top10: "Top 10 share", top20: "Top 20 share", custom: "Custom split",
   equal_split: "Equal split", all_correct: "Exact scores split", random_draw: "Lucky draw",

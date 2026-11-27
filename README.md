@@ -94,10 +94,15 @@ Open `/admin` while signed in. The first account to press **Claim admin** become
 none; no other way to add an admin exists in the app). From there:
 
 - **Fixtures:** import real fixtures and results from football-data.org (`FOOTBALL_DATA_KEY`), or add a match by hand.
-- **Contests:** group fixtures into a contest with branding (logo, colour, URL), a description, an entry deadline,
-  a ZEC prize pot and a prize split (top 3/5/10/20, custom percentages, equal split, all exact scores, random draw).
-  Contests settle automatically when their last match finishes (`/api/cron`); winners get verified rewards they
-  withdraw from the Vault.
+  Each match records its league, so match pickers are grouped by league instead of one long list.
+- **Contests:** every contest, including the admin's, is created from the Sponsor dashboard. A contest is either
+  **football predictions** (pick matches by league) or **one multiplayer game** (Rock Paper Scissors, Bluff Vault,
+  Fog of War or Werewolf) that runs for a set time. In a game contest, entrants open or join rooms from the
+  contest page; wins between entrants count, and a player's 2 best games against the same opponents count, so
+  two friends can't farm wins off each other. Prize splits: top 3/5/10/20, winner takes all, custom percentages,
+  equal split, exact scores (football only), lucky draw. Contests settle automatically (`lib/settle.ts`, run from
+  `/api/live` every 15 minutes and the daily `/api/cron`), and one ranking function (`contest_scores`) feeds both
+  the leaderboard and the result.
 - **Prize fund wallet:** your own shielded address, stored in `app_settings`. Boost the Pot pays it through
   ZIP-321 payment QR codes (`lib/zip321.ts`) and stays hidden until it is set. It is only used for contests
   Called It runs itself.

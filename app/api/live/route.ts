@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { settleTips } from "@/lib/tipsters";
+import { leagueName } from "@/lib/leagues";
+import { settleContests } from "@/lib/settle";
 
 const COMPETITIONS = "PL,CL,PD,SA,BL1";
 const LIVE = new Set(["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"]);
@@ -13,8 +15,9 @@ type Match = {
   homeTeam: { name: string; shortName?: string };
   awayTeam: { name: string; shortName?: string };
   score: { fullTime: { home: number | null; away: number | null } };
+  competition?: { code?: string };
 };
-type Row = { id: string; home: string; away: string; kickoff: string; status: string; home_goals?: number | null; away_goals?: number | null; live_home?: number | null; live_away?: number | null };
+type Row = { id: string; league?: string; home: string; away: string; kickoff: string; status: string; home_goals?: number | null; away_goals?: number | null; live_home?: number | null; live_away?: number | null };
 
 type Result = { body: Record<string, unknown>; status: number };
 let lastRun = 0;
@@ -25,6 +28,8 @@ const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toISO
 
 function toRow(m: Match): Row {
   const row: Row = { id: `fd-${m.id}`, home: m.homeTeam.shortName || m.homeTeam.name, away: m.awayTeam.shortName || m.awayTeam.name, kickoff: m.utcDate, status: m.status };
+  const league = leagueName(m.competition?.code);
+  if (league) row.league = league;
   const { home, away } = m.score.fullTime;
   // home_goals is the final result; scoring and contest settlement read it as full time.
   if (FINAL.has(m.status) && home != null && away != null) Object.assign(row, { home_goals: home, away_goals: away, live_home: null, live_away: null });
@@ -53,7 +58,7 @@ async function run(): Promise<{ body: Record<string, unknown>; status: number }>
   const sb = createClient(url, serviceKey, { auth: { persistSession: false } });
   const rows = matches.map(toRow);
   const { data: existing, error: readErr } = await sb.from("fixtures")
-    .select("id, home, away, kickoff, status, home_goals, away_goals, live_home, live_away")
+    .select("id, home, away, kickoff, status, home_goals, away_goals, live_home, live_away, league")
     .in("id", rows.map((r) => r.id));
   if (readErr) return { body: { error: readErr.message }, status: 500 };
 
@@ -73,7 +78,8 @@ async function run(): Promise<{ body: Record<string, unknown>; status: number }>
   }
 
   const tips = await settleTips(sb);
-  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, tipsSettled: tips.settled, at: new Date().toISOString() }, status: 200 };
+  const settled = await settleContests(sb);
+  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, tipsSettled: tips.settled, contests: settled, at: new Date().toISOString() }, status: 200 };
 }
 
 export async function GET() {

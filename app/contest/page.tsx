@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { BoostPotModal } from "@/components/boost-pot-modal";
-import { inkOn } from "@/lib/data";
+import { contestGame, inkOn } from "@/lib/data";
 import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds, useSponsorRecords } from "@/lib/cloud";
+import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds, useNetwork, useSponsorRecords } from "@/lib/cloud";
+import { isShielded, useStore } from "@/lib/store";
 import { SponsorRecordLine, WinnerPayState } from "@/components/sponsor-record";
+import { ContestPlay } from "@/components/contest-play";
 
 const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top5: "Top 5 share: 40 / 25 / 15 / 10 / 10", top10: "Top 10 share the pot", top20: "Top 20 share the pot", custom: "Prize split set by the sponsor", equal_split: "Top winners share equally", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
@@ -24,6 +26,7 @@ export default function ContestPage() {
   const entryCount = useContestEntryCount(c ? c.id : null);
   const fund = useFundAddress();
   const records = useSponsorRecords();
+  const myAddress = useStore().profile.address, network = useNetwork();
   const canJoin = !!c && !c.paused && !c.hidden && !(c.opens_at && now && Date.parse(c.opens_at) > now) && !(c.entry_deadline && now && Date.parse(c.entry_deadline) < now);
   const myIds = useMyContestIds();
   const joined = c ? myIds.includes(c.id) : false;
@@ -95,7 +98,7 @@ export default function ContestPage() {
               </button>}
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
-              {STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. Seal before each kickoff while signed in.
+              {c.prize_structure === "custom" && c.custom_shares?.length === 1 ? "Winner takes all" : STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. {c.game && c.game !== "football" ? `Join, then play ${contestGame(c.game).name} against other players.` : "Seal before each kickoff while signed in."}
             </div>
             {entryCount !== null && <div style={{ fontSize: 13, fontWeight: 800 }}>{entryCount} player{entryCount === 1 ? "" : "s"} entered</div>}
             {c.owner_id && c.prize_zec > 0 && <SponsorRecordLine record={records[c.owner_id]} sponsor={c.sponsor} />}
@@ -113,6 +116,9 @@ export default function ContestPage() {
                 {joining ? "…" : joined ? "Leave contest" : "Join contest"}
               </button>
             )}
+            {joined && c.prize_zec > 0 && !isShielded(myAddress, network) && (
+              <Link href="/profile" style={{ fontSize: 13, fontWeight: 800, textDecoration: "underline" }}>Add your Zcash wallet address in Profile so you can be paid if you win →</Link>
+            )}
             {c.status === "open" && !signedIn && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontWeight: 700 }}>
                 <span>Sign in to join.</span><SignInPill />
@@ -127,6 +133,14 @@ export default function ContestPage() {
             {c.sponsor_url && <a href={c.sponsor_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, textDecoration: "underline" }}>About {c.sponsor || "the sponsor"}</a>}
           </section>
 
+          {c.game && c.game !== "football" ? (
+          <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <ContestPlay c={c} joined={joined} now={now} />
+            <button onClick={share} style={{ minHeight: 42, borderRadius: 14, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 14, marginTop: 4 }}>
+              {shareMsg || "Share this contest"}
+            </button>
+          </section>
+          ) : (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
             {list.map((f) => {
@@ -145,11 +159,12 @@ export default function ContestPage() {
               {shareMsg || "Share this contest"}
             </button>
           </section>
+          )}
 
           <section style={{ background: "var(--paper)", color: "#111", border: "3px solid #111", borderRadius: 26, padding: "14px 20px", display: "flex", flexDirection: "column", gridColumn: "1 / -1" }}>
             <h2 className="display" style={{ margin: "4px 0 6px", fontSize: 22 }}>Contest leaderboard</h2>
             {board === null && <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436" }}>Loading…</div>}
-            {board?.length === 0 && <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436", lineHeight: 1.5 }}>No ranked points yet. They arrive as each fixture&apos;s result is entered.</div>}
+            {board?.length === 0 && <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436", lineHeight: 1.5 }}>{c.game && c.game !== "football" ? "No wins yet. Start a game above." : <>No ranked points yet. They arrive as each fixture&apos;s result is entered.</>}</div>}
             {board?.map((r) => (
               <div key={r.rank + r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.me ? "rgba(198,244,50,.35)" : "transparent" }}>
                 <span className="display" style={{ width: 26, fontSize: 20 }}>{r.rank}</span>
@@ -164,7 +179,7 @@ export default function ContestPage() {
               </button>
             )}
             {!signedIn && <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", fontSize: 13, fontWeight: 700, color: "#4a4436" }}><span style={{ flex: 1 }}>Sign in to enter.</span><SignInPill /></div>}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0 16px" }}><Img n="seal" size={32} /><span style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Every call is sealed and stamped before kickoff — nobody can change their answer.</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0 16px" }}><Img n="seal" size={32} /><span style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>{c.game && c.game !== "football" ? "Every move is sealed before anyone reveals, so nobody can change it after seeing yours." : "Every call is sealed and stamped before kickoff — nobody can change their answer."}</span></div>
           </section>
         </div>
       )}

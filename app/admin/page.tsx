@@ -3,9 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BottomNav, Img } from "@/components/ui";
 import { zip321 } from "@/lib/zip321";
-import { isShieldedFor } from "@/lib/zaddr";
 import { askConfirm, askText } from "@/components/dialog";
-import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useFundAddress, useNetwork, type Contest } from "@/lib/cloud";
+import { LEAGUES, leagueName } from "@/lib/leagues";
+import { Chips } from "@/components/chips";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useNetwork, type Contest } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -266,7 +267,6 @@ function FixturesTab({ act }: { act: Act }) {
   );
 }
 
-const LEAGUES: [string, string][] = [["PL", "Premier League"], ["CL", "Champions League"], ["PD", "La Liga"], ["SA", "Serie A"], ["BL1", "Bundesliga"], ["FL1", "Ligue 1"], ["DED", "Eredivisie"], ["PPL", "Primeira Liga"], ["ELC", "Championship"], ["BSA", "Brasileirão"], ["EC", "Euros"], ["WC", "World Cup"]];
 type Imported = { id: string; home: string; away: string; kickoff: string; homeGoals: number | null; awayGoals: number | null };
 
 /** Real fixtures and results from football-data.org (the key stays on the server). */
@@ -283,7 +283,7 @@ function ImportCard() {
       const have = new Map(fixtures.map((f) => [f.id, f]));
       let n = 0;
       for (const m of matches) {
-        if (kind === "upcoming" && !have.has(m.id)) { await cloudRpc("admin_upsert_fixture", { p_id: m.id, p_home: m.home, p_away: m.away, p_kickoff: m.kickoff }); n++; }
+        if (kind === "upcoming") { if (!have.has(m.id)) n++; await cloudRpc("admin_upsert_fixture", { p_id: m.id, p_home: m.home, p_away: m.away, p_kickoff: m.kickoff, p_league: leagueName(league) }); }
         if (kind === "results" && have.has(m.id) && have.get(m.id)!.homeGoals == null && m.homeGoals != null && m.awayGoals != null) { await cloudRpc("admin_set_result", { p_id: m.id, p_home: m.homeGoals, p_away: m.awayGoals }); n++; }
       }
       await refreshFixtures();
@@ -295,9 +295,7 @@ function ImportCard() {
     <section className="paper" style={{ ...card }}>
       <span className="eyebrow" style={{ color: "#5b6b12" }}>Real fixtures</span>
       <span style={{ fontSize: 13, fontWeight: 600, color: "#4a4436", lineHeight: 1.45 }}>Pull real matches and final scores from football-data.org. Results scored this way need no typing.</span>
-      <select aria-label="Competition" value={league} onChange={(e) => setLeague(e.target.value)} style={field}>
-        {LEAGUES.map(([c, n]) => <option key={c} value={c}>{n}</option>)}
-      </select>
+      <Chips label="Competition" value={league} onChange={setLeague} options={Object.entries(LEAGUES) as [string, string][]} light />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button style={btn("var(--lime)")} disabled={busy} onClick={() => pull("upcoming")}>Import next 10 days</button>
         <button style={btn("#111", "var(--lime)")} disabled={busy} onClick={() => pull("results")}>Fetch results</button>
@@ -353,68 +351,14 @@ function Sponsors({ act }: { act: Act }) {
   );
 }
 
-function FundWallet() {
-  const current = useFundAddress();
-  const network = useNetwork();
-  const [value, setValue] = useState<string | null>(null), [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null), [busy, setBusy] = useState(false);
-  const v = value ?? current ?? "";
-  async function save(next: string) {
-    if (next.trim() && !isShieldedFor(next, network)) return setMsg({ text: `That isn't a complete ${network} shielded address. Copy it again from your wallet.`, bad: true });
-    setBusy(true); setMsg(null);
-    try {
-      await cloudRpc("admin_set_setting", { p_key: "fund_address", p_value: next });
-      await refreshFundAddress(); setValue(null);
-      setMsg({ text: next.trim() ? "Saved. Boost the Pot now sends to this wallet." : "Cleared. Boost the Pot is hidden." });
-    } catch (e) { setMsg({ text: e instanceof Error ? e.message : "Could not save", bad: true }); }
-    setBusy(false);
-  }
-  return (
-    <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-      <label htmlFor="fund-address" className="display" style={{ fontSize: 18 }}>Prize fund wallet</label>
-      <span style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Your own shielded address for Boost the Pot donations. Leave it empty to hide Boost the Pot. Add each boost to the contest&apos;s prize pot after it arrives.</span>
-      <input id="fund-address" value={v} onChange={(e) => setValue(e.target.value)} placeholder="u1…" spellCheck={false} autoComplete="off" className="mono" style={{ height: 44, borderRadius: 12, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 10px", fontSize: 12 }} />
-      <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn" disabled={busy || v.trim() === (current ?? "")} onClick={() => save(v)} style={{ width: "auto", minHeight: 40, padding: "0 16px", background: "var(--lime)", color: "#111" }}>Save</button>
-        {current && <button className="btn btn-quiet" disabled={busy} onClick={() => save("")} style={{ width: "auto", minHeight: 40, padding: "0 16px" }}>Clear</button>}
-      </div>
-      {msg && <div role={msg.bad ? "alert" : "status"} style={{ fontSize: 13, fontWeight: 700, color: msg.bad ? "var(--red)" : "var(--lime)" }}>{msg.text}</div>}
-    </section>
-  );
-}
 
 function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   const network = useNetwork();
   const contests = useAllContests(), fixtures = useFixtures();
   const [contestMsg, setContestMsg] = useState<{ text: string; bad?: boolean } | null>(null);
-  const [title, setTitle] = useState(""), [sponsor, setSponsor] = useState(""), [prize, setPrize] = useState(""), [pick, setPick] = useState<string[]>([]);
-  const [logo, setLogo] = useState(""), [color, setColor] = useState(""), [surl, setSurl] = useState("");
-  const [structure, setStructure] = useState("top3"), [deadline, setDeadline] = useState(""), [desc, setDesc] = useState("");
-  const [customSharesStr, setCustomSharesStr] = useState("50, 30, 20");
-  const [equalCount, setEqualCount] = useState("5");
-  async function create() {
-    if (!title.trim() || !pick.length) return;
-    let customShares: number[] | null = null;
-    if (structure === "custom") {
-      customShares = customSharesStr.split(",").map((s) => Number(s.trim())).filter((n) => !isNaN(n) && n > 0);
-      if (!customShares.length) {
-        setContestMsg({ text: "Enter at least one percentage share (e.g. 50, 30, 20)", bad: true });
-        return;
-      }
-    } else if (structure === "equal_split") {
-      customShares = [Number(equalCount) || 5];
-    }
-    if (await act("admin_upsert_contest", {
-      p_id: slug(title), p_title: title, p_sponsor: sponsor, p_prize: Number(prize) || 0, p_fixtures: pick,
-      p_sponsor_logo: logo || null, p_sponsor_color: color || null, p_sponsor_url: surl || null,
-      p_prize_structure: structure, p_entry_deadline: deadline ? new Date(deadline).toISOString() : null, p_description: desc || null,
-      p_custom_shares: customShares,
-    }, "Contest created. It shows on Home and /contests."))
-      { setTitle(""); setSponsor(""); setPrize(""); setPick([]); setLogo(""); setColor(""); setSurl(""); setStructure("top3"); setDeadline(""); setDesc(""); }
-  }
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <FundWallet />
         <Sponsors act={act} />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
@@ -539,72 +483,8 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
 
       <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
         <span className="eyebrow" style={{ color: "#5b6b12" }}>New contest</span>
-        <input aria-label="Contest title" placeholder="Matchday 12 Pool" value={title} onChange={(e) => setTitle(e.target.value)} style={field} />
-        <textarea aria-label="Description (optional)" placeholder="Description shown on the contest page (optional)" value={desc} onChange={(e) => setDesc(e.target.value)} rows={2} style={{ ...field, height: "auto", padding: "10px 12px", resize: "vertical" }} />
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8 }}>
-          <input aria-label="Sponsor name (optional)" placeholder="Sponsor name" value={sponsor} onChange={(e) => setSponsor(e.target.value)} style={field} />
-          <input aria-label="Prize pot in ZEC" placeholder="Prize ZEC" inputMode="decimal" value={prize} onChange={(e) => setPrize(e.target.value.replace(/[^0-9.]/g, ""))} style={field} />
-        </div>
-        <details style={{ fontSize: 13, fontWeight: 700 }}>
-          <summary style={{ cursor: "pointer", color: "#5b6b12" }}>Sponsor branding (optional)</summary>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8 }}>
-            <input aria-label="Logo URL" placeholder="Logo image URL" value={logo} onChange={(e) => setLogo(e.target.value)} style={field} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <input aria-label="Brand color" placeholder="Brand color (hex)" value={color} onChange={(e) => setColor(e.target.value)} style={field} />
-              <input aria-label="Sponsor website" placeholder="Sponsor URL" value={surl} onChange={(e) => setSurl(e.target.value)} style={field} />
-            </div>
-          </div>
-        </details>
-        <label style={{ fontSize: 12, fontWeight: 800 }}>Prize structure
-          <select value={structure} onChange={(e) => setStructure(e.target.value)} style={{ ...field, marginTop: 4 }}>
-            <option value="top3">Top 3 (50 / 30 / 20)</option>
-            <option value="top5">Top 5 (40 / 25 / 15 / 10 / 10)</option>
-            <option value="top10">Top 10 (Tiered)</option>
-            <option value="top20">Top 20 (Deep Pool)</option>
-            <option value="custom">Custom % shares per rank</option>
-            <option value="equal_split">Equal split (Top N winners)</option>
-            <option value="all_correct">Split among all exact scores</option>
-            <option value="random_draw">Random draw (one winner)</option>
-          </select>
-        </label>
-        {structure === "custom" && (
-          <label style={{ fontSize: 12, fontWeight: 800 }}>Custom shares (% per rank, comma-separated)
-            <input
-              placeholder="e.g. 50, 25, 15, 10 or 60, 25, 15"
-              value={customSharesStr}
-              onChange={(e) => setCustomSharesStr(e.target.value)}
-              style={{ ...field, marginTop: 4 }}
-            />
-          </label>
-        )}
-        {structure === "equal_split" && (
-          <label style={{ fontSize: 12, fontWeight: 800 }}>Number of equal winners
-            <input
-              placeholder="e.g. 5 or 10"
-              type="number"
-              min="1"
-              max="50"
-              value={equalCount}
-              onChange={(e) => setEqualCount(e.target.value)}
-              style={{ ...field, marginTop: 4 }}
-            />
-          </label>
-        )}
-        <label style={{ fontSize: 12, fontWeight: 800 }}>Entry deadline (optional)
-          <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...field, marginTop: 4 }} />
-        </label>
-        <b style={{ fontSize: 13 }}>Fixtures in this contest</b>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {fixtures.map((f) => {
-            const on = pick.includes(f.id);
-            return (
-              <button key={f.id} aria-pressed={on} onClick={() => setPick(on ? pick.filter((x) => x !== f.id) : [...pick, f.id])} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, minHeight: 46, padding: "0 12px", borderRadius: 14, border: "2px solid #111", background: on ? "var(--lime)" : "#fff", color: "#111", fontWeight: 700, fontSize: 14, textAlign: "left" }}>
-                <span>{f.home} vs {f.away}</span><span style={{ fontSize: 12, fontWeight: 600 }}>{on ? "✓ in contest" : f.when}</span>
-              </button>
-            );
-          })}
-        </div>
-        <button className="btn btn-primary" style={{ minHeight: 56, boxShadow: "0 5px 0 #111" }} onClick={create}>Create contest</button>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#4a4436", lineHeight: 1.5 }}>Create contests from your Sponsor dashboard, with the same form every sponsor uses: football or a game, prize and dates. You pay the winners from your own wallet with one tap, exactly like sponsors do, so there is no payout tool to run.</span>
+        <a href="/sponsor" style={{ ...btn("#111", "var(--lime)"), display: "inline-flex", alignItems: "center", alignSelf: "flex-start" }}>Open Sponsor dashboard</a>
       </section>
     </div>
   );
@@ -649,7 +529,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <div style={{ display: "flex", borderRadius: 12, border: "2px solid #111", overflow: "hidden", background: "#fff" }}>
             <button
-              onClick={async () => { if (network !== "mainnet" && await askConfirm({ title: "Switch to mainnet?", body: "Prizes and withdrawals become real ZEC. The prize wallet setting is cleared, so set your mainnet address next.", confirmLabel: "Switch to mainnet", danger: true })) { await act("admin_set_setting", { p_key: "network", p_value: "mainnet" }, "The app now runs on mainnet."); refreshFundAddress(); } }}
+              onClick={async () => { if (network !== "mainnet" && await askConfirm({ title: "Switch to mainnet?", body: "Prizes become real ZEC: winners need mainnet addresses and sponsors pay from mainnet wallets.", confirmLabel: "Switch to mainnet", danger: true })) { await act("admin_set_setting", { p_key: "network", p_value: "mainnet" }, "The app now runs on mainnet."); refreshFundAddress(); } }}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "mainnet" ? "var(--lime)" : "#fff",
@@ -659,7 +539,7 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
               Mainnet (ZEC)
             </button>
             <button
-              onClick={async () => { if (network !== "testnet" && await askConfirm({ title: "Switch to testnet?", body: "For a practice run with test coins. Players see a test-mode banner, only testnet addresses are accepted, and the prize wallet setting is cleared.", confirmLabel: "Switch to testnet" })) { await act("admin_set_setting", { p_key: "network", p_value: "testnet" }, "The app now runs on testnet (test mode)."); refreshFundAddress(); } }}
+              onClick={async () => { if (network !== "testnet" && await askConfirm({ title: "Switch to testnet?", body: "For a practice run with test coins (TAZ). Players see a test-mode banner and only testnet addresses are accepted.", confirmLabel: "Switch to testnet" })) { await act("admin_set_setting", { p_key: "network", p_value: "testnet" }, "The app now runs on testnet (test mode)."); refreshFundAddress(); } }}
               style={{
                 padding: "6px 12px", border: 0, fontSize: 12, fontWeight: 800,
                 background: network === "testnet" ? "var(--amber)" : "#fff",

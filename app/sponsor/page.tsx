@@ -12,7 +12,7 @@ const GETS = [
 ] as const;
 const STEPS = [
   "Sign in with Google and type your brand or community name.",
-  "Create a contest: pick the matches, the prize and how it's split, and when it goes public. New sponsors start with up to 0.5 ZEC in prizes; the limit grows as you pay.",
+  "Create a contest: choose football (pick matches by league) or a game like Rock Paper Scissors or Bluff Vault, then set the prize. New sponsors start with up to 0.5 ZEC in prizes; the limit grows as you pay.",
   "Watch entries live. Results settle automatically at full time and the winners are ranked.",
   "Pay each winner within 72 hours with the one-tap wallet link in your dashboard. Each winner confirms it arrived, and your public record shows you paid.",
 ];
@@ -48,7 +48,7 @@ function SponsorPitch({ signedIn, checking, onStarted }: { signedIn: boolean; ch
     <main className="screen wide hub">
       <TopBar eyebrow="For brands and communities" title="Sponsor a contest" />
       <div className="sponsor-body" style={{ padding: "4px 20px 28px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 820, width: "100%", boxSizing: "border-box" }}>
-        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#c9d3de" }}>Put up a ZEC prize pool on real football matches. Fans play free, and every result can be checked. You set it up yourself in a few minutes.</p>
+        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#c9d3de" }}>Put up a ZEC prize for football predictions or a multiplayer game night. Fans play free, and every result can be checked. You set it up yourself in a few minutes.</p>
 
         <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10, color: "#111" }}>
           {!signedIn ? (

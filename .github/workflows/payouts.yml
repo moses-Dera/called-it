@@ -19,9 +19,8 @@ on:
         description: "Rank to pay (optional: 1, 2, or 3. Leave blank for all winners)"
         required: false
         default: ""
-  schedule:
-    # Optional scheduled run: daily at 00:00 UTC
-    - cron: "0 0 * * *"
+  # No schedule: contest winners are now paid by whoever runs the contest, from their own wallet.
+  # This manual run is only for balances credited before that change.
 
 jobs:
   payout:

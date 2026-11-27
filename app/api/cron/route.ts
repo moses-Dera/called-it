@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { leagueName } from "@/lib/leagues";
+import { settleContests } from "@/lib/settle";
 import { settleTips } from "@/lib/tipsters";
 
 // Auto fixture pipeline: import upcoming matches and fetch results.
@@ -38,7 +40,8 @@ export async function GET(req: Request) {
         const body = (await upcoming.json()) as { matches?: Match[] };
         for (const m of body.matches ?? []) {
           const id = `fd-${m.id}`;
-          const { error } = await sb.from("fixtures").upsert({ id, home: m.homeTeam.shortName || m.homeTeam.name, away: m.awayTeam.shortName || m.awayTeam.name, kickoff: m.utcDate }, { onConflict: "id", ignoreDuplicates: true });
+          // Upserting these columns only refreshes names, kickoff and league; results are left alone.
+          const { error } = await sb.from("fixtures").upsert({ id, home: m.homeTeam.shortName || m.homeTeam.name, away: m.awayTeam.shortName || m.awayTeam.name, kickoff: m.utcDate, league: leagueName(comp) }, { onConflict: "id" });
           if (!error) log.push(`+ ${id}`);
         }
       }
@@ -73,38 +76,7 @@ export async function GET(req: Request) {
     log.push(`! Leaderboard reset: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  // Auto-settle completed contests: when all matches in a contest finish, rank winners automatically.
-  // Funds are NOT sent automatically — they await manual or cloud release by the admin/sponsor.
-  try {
-    const { data: openContests, error: listErr } = await sb
-      .from("contests")
-      .select("id, title, fixture_ids, hidden")
-      .eq("status", "open");
-    if (listErr) log.push(`! Contest list: ${listErr.message}`);
-
-    for (const c of openContests ?? []) {
-      if (!c.fixture_ids || c.fixture_ids.length === 0) continue;
-      // A hidden contest waits for the admin. Sponsor contests settle on their own: the sponsor pays the
-      // winners directly, so closing credits nothing from Called It's wallet.
-      if (c.hidden) { log.push(`⏸ Not auto-settling hidden contest ${c.id}`); continue; }
-      const { data: finished } = await sb
-        .from("fixtures")
-        .select("id")
-        .in("id", c.fixture_ids)
-        .not("home_goals", "is", null);
-
-      if (finished && finished.length === c.fixture_ids.length) {
-        const { error: closeErr } = await sb.rpc("admin_close_contest", { p_id: c.id });
-        if (!closeErr) {
-          log.push(`🏁 Auto-settled contest: "${c.title}" (${c.id})`);
-        } else {
-          log.push(`! Failed to auto-settle contest ${c.id}: ${closeErr.message}`);
-        }
-      }
-    }
-  } catch (e) {
-    log.push(`! Contest auto-settle check error: ${e instanceof Error ? e.message : String(e)}`);
-  }
+  log.push(...(await settleContests(sb)));
 
   return NextResponse.json({ ok: true, log, at: new Date().toISOString() });
 }

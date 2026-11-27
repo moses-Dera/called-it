@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Chips } from "@/components/chips";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
 import { art } from "@/lib/data";
@@ -155,13 +156,9 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
 
       {game !== "capsule" && (
         <div style={{ display: "grid", gridTemplateColumns: game === "bluff" || game === "fog" ? "1fr 1fr" : "1fr", gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 800 }}>Time to act each step
-            <select value={timer} onChange={(e) => setTimer(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>
-              {[2, 5, 10, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}
-            </select>
-          </label>
-          {game === "bluff" && <label style={{ fontSize: 12, fontWeight: 800 }}>Rounds<select value={rounds} onChange={(e) => setRounds(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>{[3, 5, 7].map((n) => <option key={n} value={n}>{n} rounds</option>)}</select></label>}
-          {game === "fog" && <label style={{ fontSize: 12, fontWeight: 800 }}>Turns<select value={turns} onChange={(e) => setTurns(Number(e.target.value))} style={{ ...field, marginTop: 4 }}>{[4, 6, 8].map((n) => <option key={n} value={n}>{n} turns</option>)}</select></label>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Time per move<Chips label="Time per move" value={timer} onChange={setTimer} options={[[2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]} light /></div>
+          {game === "bluff" && <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Rounds<Chips label="Rounds" value={rounds} onChange={setRounds} options={[[3, "3 rounds"], [5, "5 rounds"], [7, "7 rounds"]]} light /></div>}
+          {game === "fog" && <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Turns<Chips label="Turns" value={turns} onChange={setTurns} options={[[4, "4 turns"], [6, "6 turns"], [8, "8 turns"]]} light /></div>}
         </div>
       )}
       <span style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Whoever doesn’t act before the timer runs out loses that round, so a game never gets stuck. Wins with friends count up to 100 ranked points a day.</span>
