@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { openShare } from "@/components/share-sheet";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fixtureOf, Fixture } from "@/lib/data";
@@ -63,7 +64,7 @@ function ChallengeContent() {
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState<number | null>(null);
 
-  const { haptic, shareToTelegram } = useTelegram();
+  const { haptic } = useTelegram();
   const fixtures = useFixtures();
   const fx: Fixture = fixtureOf(fParam, fixtures);
   const closed = now !== null && Date.parse(fx.kickoff) <= now;
@@ -89,11 +90,7 @@ function ChallengeContent() {
   function handleShare(h: number, a: number) {
     const url = typeof window !== "undefined" ? window.location.href : "";
     const text = `I just answered ${challengerName}'s call on ${fx.home} vs ${fx.away} with ${h}–${a}! Can you beat both of us?`;
-    if (navigator.share) {
-      navigator.share({ title: "Called It Challenge", text, url }).catch(() => {});
-    } else {
-      shareToTelegram(text, url);
-    }
+    openShare({ title: "Challenge your friends", text, url });
   }
 
   return (

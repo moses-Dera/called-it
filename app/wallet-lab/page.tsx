@@ -1,12 +1,29 @@
 "use client";
 // Development page for the in-app wallet (testnet only, not linked from the app). Proves a shielded wallet
 // can be created, synced and read entirely in the browser before it is built into the real screens.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { cloudRpc, useCloud } from "@/lib/cloud";
 import type { WalletClient } from "@zcashlabs/zcash.js";
 import { addressOf, balanceOf, createAccount, newPhrase, openWallet, savedPhrase, syncWallet, zecOf } from "@/lib/in-app-wallet";
 
+// On the live site only the admin can open this page; everyone else sees "Page not found".
 export default function WalletLab() {
+  const uid = useCloud().session?.user.id;
+  const dev = process.env.NODE_ENV !== "production";
+  const [admin, setAdmin] = useState<boolean | null>(dev ? true : null);
+  useEffect(() => {
+    if (dev) return;
+    if (!uid) { setAdmin(false); return; }
+    cloudRpc<{ is_admin: boolean }>("admin_status").then((s) => setAdmin(s.is_admin), () => setAdmin(false));
+  }, [uid, dev]);
+  if (admin === null) return null;
+  if (!admin) return <main className="screen" style={{ padding: 24 }}><h1 className="display" style={{ margin: 0 }}>Page not found</h1></main>;
+  return <Lab />;
+}
+
+function Lab() {
   const [log, setLog] = useState<string[]>([]);
+  const [height, setHeight] = useState<number | null>(null), [secs, setSecs] = useState<number | null>(null);
   const [address, setAddress] = useState(""), [balance, setBalance] = useState(""), [phrase, setPhrase] = useState(""), [busy, setBusy] = useState(false);
   const w = useRef<WalletClient | null>(null);
   const say = (m: string) => setLog((l) => [...l, `${new Date().toLocaleTimeString()}  ${m}`]);
@@ -33,8 +50,9 @@ export default function WalletLab() {
   });
   const sync = () => run("Sync and read balance", async () => {
     if (!w.current) throw new Error("Open the wallet first.");
-    const s = await syncWallet(w.current, (x) => say(`status ${JSON.stringify(x, (_, v) => typeof v === "bigint" ? v.toString() : v).slice(0, 200)}`));
-    void s;
+    const t0 = Date.now();
+    const s = await syncWallet(w.current, (x) => say(`status ${JSON.stringify(x, (_, v) => typeof v === "bigint" ? v.toString() : v).slice(0, 200)}`)) as { scan?: { fullyScannedHeight?: number } };
+    setHeight(s?.scan?.fullyScannedHeight ?? null); setSecs(Math.round((Date.now() - t0) / 1000));
     const [acct] = await w.current.accounts.list();
     if (!acct) throw new Error("No account yet.");
     const b = await balanceOf(w.current, acct.id);
@@ -51,8 +69,25 @@ export default function WalletLab() {
         <button style={btn} disabled={busy} onClick={create}>2. Create account</button>
         <button style={btn} disabled={busy} onClick={sync}>3. Sync + balance</button>
       </div>
-      {address && <div className="mono" style={{ fontSize: 12, overflowWrap: "anywhere" }}>Address: {address}</div>}
-      {balance && <div style={{ fontWeight: 800 }}>Balance: {balance}</div>}
+      {address && (
+        <section style={{ background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "6px 6px 0 var(--lime)", borderRadius: 26, padding: 20, display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span className="eyebrow" style={{ color: "#5b6b12" }}>Your Called It wallet · shielded</span>
+            <span className="chip" style={{ background: "var(--amber)", color: "#111", border: 0 }}>TESTNET</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span className="display" style={{ fontSize: 44 }}>{balance ? balance.split(" ")[0] : "…"}</span><b style={{ fontSize: 18 }}>TAZ</b>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 800 }}>Receive address (Ironwood)</span>
+            <span className="mono" style={{ fontSize: 12, overflowWrap: "anywhere", background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px" }}>{address}</span>
+          </div>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13, fontWeight: 700 }}>
+            <span>{height ? `✓ Synced to block ${height.toLocaleString()}` : "Not synced yet"}{secs != null ? ` in ${secs}s` : ""}</span>
+            <span>🔒 Keys stay on this device</span>
+          </div>
+        </section>
+      )}
       {phrase && <details><summary>Recovery phrase (testnet only)</summary><div className="mono" style={{ fontSize: 12 }}>{phrase}</div></details>}
       <pre data-testid="log" style={{ background: "#000", color: "#cfe", padding: 12, borderRadius: 12, fontSize: 12, whiteSpace: "pre-wrap", minHeight: 160 }}>{log.join("\n")}</pre>
     </main>

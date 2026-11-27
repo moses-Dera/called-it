@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { openShare } from "@/components/share-sheet";
 import { useEffect, useState } from "react";
 import { fixtureOf, phaseOf } from "@/lib/data";
 import { announceTip, useCloud, useFixtures } from "@/lib/cloud";
@@ -46,10 +47,9 @@ function Wheel({ v, set, name }: { v: number; set: (n: number) => void; name: st
 export default function SealPage() {
   const [home, setHome] = useState(2), [away, setAway] = useState(1), [side, setSide] = useState(-1);
   const [sealId, setSealId] = useState<string | null>(null), [busy, setBusy] = useState(false);
-  const [shareMsg, setShareMsg] = useState("");
   const fixtures = useFixtures();
   const [fid, setFid] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
-  const { haptic, shareToTelegram, user: tgUser } = useTelegram();
+  const { haptic, user: tgUser } = useTelegram();
   const session = useCloud().session;
   const userName = tgUser?.first_name || session?.user?.user_metadata?.full_name || session?.user?.email?.split("@")[0] || "A Player";
 
@@ -75,14 +75,7 @@ export default function SealPage() {
   function challengeFriends() {
     const url = `${window.location.origin}/call?f=${encodeURIComponent(fx.id)}&h=${home}&a=${away}&by=${encodeURIComponent(userName)}`;
     const text = `I just sealed my call for ${fx.home} vs ${fx.away} (${home} – ${away}) on Called It! Can you beat me? Tail or counter my call now:`;
-    if (navigator.share) {
-      navigator.share({ title: "Called It Challenge", text, url }).catch(() => {});
-    } else {
-      shareToTelegram(text, url);
-      navigator.clipboard?.writeText(url);
-      setShareMsg("Link copied to clipboard!");
-      setTimeout(() => setShareMsg(""), 3000);
-    }
+    openShare({ title: "Challenge your friends", text, url });
   }
   return (
     <main className="screen">
@@ -132,7 +125,6 @@ export default function SealPage() {
               Waiting Room
             </Link>
           </div>
-          {shareMsg && <div style={{ fontSize: 13, color: "var(--lime)", fontWeight: 800 }}>{shareMsg}</div>}
           <button onClick={() => setSealId(null)} style={{ minHeight: 44, background: "transparent", border: 0, color: "var(--lime)", fontWeight: 700, fontSize: 14 }}>Seal another call</button>
         </div>
       )}

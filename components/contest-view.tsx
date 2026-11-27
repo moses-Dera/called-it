@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { openShare } from "./share-sheet";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
@@ -36,7 +37,6 @@ export function ContestView({ id }: { id: string }) {
   const joined = c ? myIds.includes(c.id) : false;
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
   const [joining, setJoining] = useState(false);
-  const [shareMsg, setShareMsg] = useState("");
 
   async function handleJoin() {
     if (!c || joining) return;
@@ -54,8 +54,7 @@ export function ContestView({ id }: { id: string }) {
     const url = new URL(location.href);
     if (uid) url.searchParams.set("ref", uid);
     const text = `Join "${c.title}" on Called It — ${c.prize_zec > 0 ? c.prize_zec + " ZEC prize pool. " : ""}Free to play.`;
-    if (navigator.share) { navigator.share({ title: c.title, text, url: url.toString() }).catch(() => {}); }
-    else { navigator.clipboard?.writeText(url.toString()); setShareMsg("Link copied!"); setTimeout(() => setShareMsg(""), 2000); }
+    openShare({ title: "Share this contest", text, url: url.toString() });
   }
 
   const accent = c?.sponsor_color || "var(--amber)";
@@ -133,7 +132,7 @@ export function ContestView({ id }: { id: string }) {
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <ContestPlay c={c} joined={joined} now={now} />
             <button onClick={share} style={{ minHeight: 42, borderRadius: 14, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 14, marginTop: 4 }}>
-              {shareMsg || "Share this contest"}
+              Share this contest
             </button>
           </section>
           ) : (
@@ -152,7 +151,7 @@ export function ContestView({ id }: { id: string }) {
               );
             })}
             <button onClick={share} style={{ minHeight: 42, borderRadius: 14, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 14, marginTop: 4 }}>
-              {shareMsg || "Share this contest"}
+              Share this contest
             </button>
           </section>
           )}

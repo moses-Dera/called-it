@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { openShare } from "@/components/share-sheet";
+import { useMemo, useState } from "react";
 import { CardBack, Flip, Img, TopBar } from "@/components/ui";
 import { fixtureOf } from "@/lib/data";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
@@ -50,7 +51,6 @@ export default function Reveal() {
   const [shown, setShown] = useState<Seal | null>(null);
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
   const [claim, setClaim] = useState<Claim | { status: "error"; message: string } | null>(null);
-  const [shareMsg, setShareMsg] = useState("");
   const { haptic, shareToTelegram } = useTelegram();
   const signedIn = !!useCloud().session;
   const pending = seals.find((s) => s.game === "classic" && !s.revealed && !!s.move);
@@ -90,13 +90,7 @@ export default function Reveal() {
   function share() {
     const { text, url } = getSharePayload();
     if (!text) return;
-    if (navigator.share) {
-      navigator.share({ title: "Called It Reveal", text, url }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(`${text} ${url}`);
-      setShareMsg("Card link copied!");
-      setTimeout(() => setShareMsg(""), 3000);
-    }
+    openShare({ title: "Share your card", text, url });
   }
 
   function shareX() {
@@ -217,7 +211,7 @@ export default function Reveal() {
             <div style={{ display: "flex", gap: 10 }}>
               <Link href="/vault" className="btn btn-quiet" style={{ width: 110 }}>Proof</Link>
               <button className="btn btn-primary" style={{ flex: 1, minHeight: 52, fontSize: 16, boxShadow: "0 4px 0 var(--text)" }} onClick={share}>
-                {shareMsg || "Share Flex Card"}
+                Share Flex Card
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { openShare } from "./share-sheet";
 import { useEffect, useState } from "react";
 import { BottomNav } from "./ui";
 import { PlayerSearch } from "./player-search";
@@ -10,11 +11,9 @@ import { art } from "@/lib/data";
 export function PlayerView({ handle }: { handle: string }) {
   const [p, setP] = useState<PlayerCard | null | undefined>(undefined);
   useEffect(() => { playerCard(handle).then(setP).catch(() => setP(null)); }, [handle]);
-  const [copied, setCopied] = useState(false);
   const share = () => {
     const url = `${location.origin}/@${handle}`;
-    if (navigator.share) navigator.share({ title: `@${handle} on Called It`, url }).catch(() => {});
-    else navigator.clipboard?.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    openShare({ title: `Share @${handle}`, text: `@${handle} on Called It`, url });
   };
   return (
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
@@ -46,7 +45,7 @@ export function PlayerView({ handle }: { handle: string }) {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {p.tipster && <Link href={`/tipster/${p.handle}`} className="btn" style={{ width: "auto", padding: "0 16px", background: "#111", color: "var(--lime)", border: 0 }}>See their sealed calls</Link>}
               {p.me && <Link href="/profile" className="btn btn-paper" style={{ width: "auto", padding: "0 16px" }}>Edit profile</Link>}
-              <button className="btn btn-paper" onClick={share} style={{ width: "auto", padding: "0 16px" }}>{copied ? "Link copied" : "Share"}</button>
+              <button className="btn btn-paper" onClick={share} style={{ width: "auto", padding: "0 16px" }}>Share</button>
             </div>
             {p.joined && <span style={{ fontSize: 12, color: "#4a4436" }}>Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>}
           </section>
