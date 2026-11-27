@@ -78,12 +78,12 @@ export default function Reveal() {
     if (!seal || !sc) return { text: "", url: "" };
     const f = fixtureOf(seal.round);
     const resultType = sc.exact ? "exact" : sc.result ? "correct" : "wrong";
-    const ogUrl = `${location.origin}/api/og?type=reveal&home=${encodeURIComponent(f.home)}&away=${encodeURIComponent(f.away)}&h=${sc.h}&a=${sc.a}&result=${resultType}`;
+    const ogUrl = `${location.origin}/share?home=${encodeURIComponent(f.home)}&away=${encodeURIComponent(f.away)}&h=${sc.h}&a=${sc.a}&result=${resultType}`;
     const text = sc.exact
-      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY on @CalledItApp! 🎯 Sealed on-chain before kickoff. Can you beat my calls?`
+      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY on Called It! 🎯 Sealed before kickoff and timestamped on Bitcoin. Can you beat my calls?`
       : sc.result
-      ? `I called the right result for ${f.home} vs ${f.away} on @CalledItApp! ⚡ Sealed before kickoff.`
-      : `I sealed my call for ${f.home} vs ${f.away} on @CalledItApp before kickoff. Fair play guaranteed.`;
+      ? `I called the right result for ${f.home} vs ${f.away} on Called It! ⚡ Sealed before kickoff.`
+      : `I sealed my call for ${f.home} vs ${f.away} on Called It before kickoff. Fair play guaranteed.`;
     return { text, url: ogUrl };
   }
 

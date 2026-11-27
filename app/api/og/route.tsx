@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
   const rank = clamp(searchParams.get("rank"), "", 4);
   const points = clamp(searchParams.get("points"), "", 10);
   const prize = clamp(searchParams.get("prize"), "", 10);
+  const game = clamp(searchParams.get("game"), "", 30);
+  const sponsor = clamp(searchParams.get("sponsor"), "", 40);
 
   if (type === "reveal") {
     const isExact = result === "exact";
@@ -68,7 +70,7 @@ export async function GET(req: NextRequest) {
             {/* Main Score Area */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 38, fontWeight: 800, color: "#111", opacity: 0.85, letterSpacing: -0.5 }}>
-                {home} vs {away}
+                {`${home} vs ${away}`}
               </div>
               {scoreH && scoreA && (
                 <div
@@ -85,7 +87,7 @@ export async function GET(req: NextRequest) {
                     boxShadow: "6px 6px 0 #111",
                   }}
                 >
-                  {scoreH} : {scoreA}
+                  {`${scoreH} : ${scoreA}`}
                 </div>
               )}
               <div style={{ background: "#111", color: "#fff", padding: "6px 20px", borderRadius: 16, fontSize: 22, fontWeight: 800, marginTop: 10 }}>
@@ -99,7 +101,7 @@ export async function GET(req: NextRequest) {
                 🔒 Locked before kickoff · Zero chance of foul play
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#111", opacity: 0.75 }}>
-                Timestamped on Bitcoin &amp; Zcash
+                Timestamped on Bitcoin
               </div>
             </div>
           </div>
@@ -113,10 +115,11 @@ export async function GET(req: NextRequest) {
     return new ImageResponse(
       (
         <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0B0F14", color: "#f2f5f7", fontFamily: "sans-serif", padding: 60 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: "#ffb547", marginBottom: 10 }}>CONTEST</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#ffb547", marginBottom: 10 }}>{game ? `${game.toUpperCase()} CONTEST` : "FOOTBALL CONTEST"}</div>
           <div style={{ fontSize: 56, fontWeight: 800, textAlign: "center", maxWidth: 900, lineHeight: 1.1 }}>{contest || "Join the contest"}</div>
-          {prize && <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 20 }}><div style={{ fontSize: 64, fontWeight: 800, color: "#ffb547" }}>{prize}</div><div style={{ fontSize: 28, fontWeight: 700 }}>ZEC prize pot</div></div>}
-          {rank && <div style={{ marginTop: 20, fontSize: 24, fontWeight: 700, color: "#c6f432" }}>#{rank} · {points} points</div>}
+          {prize && <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 20 }}><div style={{ fontSize: 64, fontWeight: 800, color: "#ffb547" }}>{prize}</div><div style={{ fontSize: 28, fontWeight: 700 }}>ZEC prize · free to play</div></div>}
+          {sponsor && <div style={{ marginTop: 12, fontSize: 24, fontWeight: 700, color: "#9aa9ba" }}>{`by ${sponsor}`}</div>}
+          {rank && <div style={{ marginTop: 20, fontSize: 24, fontWeight: 700, color: "#c6f432" }}>{`#${rank} · ${points} points`}</div>}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 30 }}>
             <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: -1 }}>called</div>
             <div style={{ background: "#c6f432", color: "#111", padding: "2px 12px", borderRadius: 10, fontSize: 36, fontWeight: 800 }}>it!</div>
@@ -132,7 +135,7 @@ export async function GET(req: NextRequest) {
       (
         <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0B0F14", color: "#f2f5f7", fontFamily: "sans-serif", padding: 60 }}>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#c6f432", marginBottom: 10 }}>SEALED</div>
-          <div style={{ fontSize: 48, fontWeight: 800, textAlign: "center" }}>{home} vs {away}</div>
+          <div style={{ fontSize: 48, fontWeight: 800, textAlign: "center" }}>{`${home} vs ${away}`}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 30, background: "rgba(198,244,50,0.15)", padding: "16px 32px", borderRadius: 18 }}>
             <div style={{ fontSize: 24, fontWeight: 800 }}>My call is locked. Sealed before kickoff.</div>
           </div>
