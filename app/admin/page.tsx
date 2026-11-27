@@ -480,7 +480,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
               </div>
             ) : <span style={{ fontSize: 13, color: "#4a4436" }}>Closed with no ranked players.</span>)}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <a href={`/contest?c=${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
+              <a href={`/contest/${c.id}`} style={{ ...btn("var(--paper)"), display: "inline-flex", alignItems: "center" }}>View page</a>
               {c.status === "open" && (c.fixture_ids.every((id) => fixtures.some((f) => f.id === id && f.homeGoals != null))
                 ? <button style={btn("var(--amber)")} onClick={async () => { if (await askConfirm({ title: `Close "${c.title}"?`, body: c.owner_id ? "All its matches are finished. Closing ranks the players; the sponsor then has 72 hours to pay them directly." : "All its matches are finished. Closing ranks the players and credits the prizes to the winners' balances.", confirmLabel: "Close and award" })) act("admin_close_contest", { p_id: c.id }, c.owner_id ? "Contest closed. The sponsor has 72 hours to pay the winners." : "Contest closed. Winners can withdraw from the Vault."); }}>Close and award</button>
                 : <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", alignSelf: "center" }}>Closes automatically after its last match</span>)}

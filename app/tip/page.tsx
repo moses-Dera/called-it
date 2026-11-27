@@ -65,7 +65,7 @@ export default function TipPage() {
         ))}
         <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
           {handle === undefined ? "" : handle
-            ? <>This tip goes on your public record <Link href={`/tipster?h=${handle}`}>@{handle}</Link>, and your followers are told you sealed one.</>
+            ? <>This tip goes on your public record <Link href={`/@${handle}`}>@{handle}</Link>, and your followers are told you sealed one.</>
             : <>Want a record people can check? <Link href="/profile">Make your tipster record public</Link> in Profile.</>}
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function TipPage() {
           <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label}<br />Nobody can see or change it before full time.</div>
           <SealStatus seal={seal} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, width: "100%" }}>
-            {handle ? <Link href={`/tipster?h=${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>My record</Link> : <Link href="/profile" className="btn" style={{ background: "var(--lime)", color: "#111" }}>Go public</Link>}
+            {handle ? <Link href={`/@${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>My record</Link> : <Link href="/profile" className="btn" style={{ background: "var(--lime)", color: "#111" }}>Go public</Link>}
             <Link href="/" className="btn btn-paper">Home</Link>
           </div>
         </div>

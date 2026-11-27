@@ -73,7 +73,7 @@ live through Supabase Realtime.
 
 ## Verified tipster records
 
-Any signed-in player can publish a public record at `/tipster?h=<handle>` (Profile > Public tipster record).
+Any signed-in player can publish a public record at `/@<handle>` (Profile > Public tipster record).
 Tipsters seal Classic Calls or market tips at `/tip` (match result, over/under 2.5 goals, both teams to score).
 The record can't be cherry-picked:
 
@@ -94,7 +94,11 @@ Open `/admin` while signed in. The first account to press **Claim admin** become
 none; no other way to add an admin exists in the app). From there:
 
 - **Fixtures:** import real fixtures and results from football-data.org (`FOOTBALL_DATA_KEY`), or add a match by hand.
-  Each match records its league, so match pickers are grouped by league instead of one long list.
+  Each match records its league, so match pickers are grouped by league instead of one long list. All 12 free-plan
+  leagues are imported (Premier League, Championship, La Liga, Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira
+  Liga, Brasileirão, Champions League, Euros, World Cup) with two requests per run; Home filters by league.
+- **Addresses:** contests live at `/contest/<name>` and public tipster records at `/@<handle>`; old `?c=` and `?h=`
+  links redirect.
 - **Contests:** every contest, including the admin's, is created from the Sponsor dashboard. A contest is either
   **football predictions** (pick matches by league) or **one multiplayer game** (Rock Paper Scissors, Bluff Vault,
   Fog of War or Werewolf) that runs for a set time. In a game contest, entrants open or join rooms from the
@@ -121,8 +125,8 @@ none; no other way to add an admin exists in the app). From there:
   unless the winner objects; a winner with no wallet doesn't make the sponsor overdue, and after 30 days the prize
   is marked unclaimed. Disputes go to Admin → Contests, where the admin rules paid or not paid (not paid gives the
   sponsor 72 more hours). Every recorded payment links to a public block explorer.
-- **Fresh accounts:** accounts under 24 hours old can play but don't rank in contests, and games against them
-  don't count, so extra accounts made on the spot win nothing. Game contests have a one-tap **Play now** that joins
+- **One prize per wallet:** when a contest closes, a winner whose wallet already won a higher place in it is
+  skipped and the next player moves up, so extra accounts gain nothing. New accounts can win from day one. Game contests have a one-tap **Play now** that joins
   a waiting game or opens one. A finished contest settles as soon as anyone views it (`/api/settle`).
 - **Network:** mainnet (real ZEC, the default) or testnet for a practice run with test coins. The whole app
   follows it: address checks, the prize wallet (cleared on every switch) and the payout tool, which refuses to

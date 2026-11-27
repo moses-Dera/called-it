@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { settleTips } from "@/lib/tipsters";
-import { leagueName } from "@/lib/leagues";
+import { LEAGUES, leagueName } from "@/lib/leagues";
 import { settleContests } from "@/lib/settle";
 
-const COMPETITIONS = "PL,CL,PD,SA,BL1";
+const COMPETITIONS = Object.keys(LEAGUES).join(",");
 const LIVE = new Set(["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"]);
 const FINAL = new Set(["FINISHED", "AWARDED"]);
 // Every open tab polls this, and the football-data free tier allows 10 requests a minute.

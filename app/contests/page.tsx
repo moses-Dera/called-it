@@ -44,7 +44,7 @@ export default function ContestsPage() {
           const fxs = fixtures.filter((f) => c.fixture_ids.includes(f.id));
           const nextKickoff = fxs.filter((f) => now === null || Date.parse(f.kickoff) > now!).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff))[0];
           return (
-            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", flexDirection: "column", gap: 10, background: c.sponsor_color || "#111", color: inkOn(c.sponsor_color), border: "2px solid var(--line)", borderRadius: 22, padding: 16, position: "relative", overflow: "hidden" }}>
+            <Link key={c.id} href={`/contest/${c.id}`} style={{ display: "flex", flexDirection: "column", gap: 10, background: c.sponsor_color || "#111", color: inkOn(c.sponsor_color), border: "2px solid var(--line)", borderRadius: 22, padding: 16, position: "relative", overflow: "hidden" }}>
               {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 12, top: 12, height: 28, opacity: 0.7 }} />}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {joined && <span className="chip" style={{ background: "var(--lime)", color: "#111", border: 0 }}>JOINED</span>}

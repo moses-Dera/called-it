@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     title: `@${profile.handle} sealed a tip`,
     body: `${fixture.home} vs ${fixture.away}. Revealed after full time.`,
     tag: `tip-${profile.handle}-${fixture.id}`,
-    url: `/tipster?h=${profile.handle}`,
+    url: `/@${profile.handle}`,
   });
   let sent = 0;
   const expired: string[] = [];

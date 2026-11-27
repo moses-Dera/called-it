@@ -140,7 +140,7 @@ function TipsterSettings() {
       <input id="bio" value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Leagues you cover" maxLength={140} style={{ height: 48, borderRadius: 14, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 15 }} />
       {isPublic ? (
         <>
-          <Link href={`/tipster?h=${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>View my public record</Link>
+          <Link href={`/@${handle}`} className="btn" style={{ background: "var(--lime)", color: "#111" }}>View my public record</Link>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
             <button className="btn btn-quiet" disabled={busy} onClick={() => save(true)}>Save changes</button>
             <button className="btn btn-quiet" disabled={busy} onClick={() => save(false)}>Make private</button>

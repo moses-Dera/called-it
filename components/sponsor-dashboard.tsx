@@ -306,8 +306,8 @@ function ContestCard({ c, onChange, onEdit }: { c: SponsorContest; onChange: () 
           ? <button className="btn" onClick={() => control("resume")} style={{ ...btn, background: "var(--lime)", color: "#111" }}>Resume joining</button>
           : <button className="btn btn-quiet" onClick={() => control("pause")} style={btn}>Pause joining</button>)}
         {c.status !== "closed" && <button className="btn btn-quiet" onClick={onEdit} style={btn}>Edit</button>}
-        <Link href={`/contest?c=${c.id}`} className="btn btn-quiet" style={btn}>Public page</Link>
-        <button className="btn btn-quiet" style={btn} onClick={() => { navigator.clipboard?.writeText(`${location.origin}/contest?c=${c.id}`).then(() => setNote("Link copied. Share it anywhere: people who sign in come straight back to this contest."), () => setNote(`Your link: ${location.origin}/contest?c=${c.id}`)); }}>Copy link</button>
+        <Link href={`/contest/${c.id}`} className="btn btn-quiet" style={btn}>Public page</Link>
+        <button className="btn btn-quiet" style={btn} onClick={() => { navigator.clipboard?.writeText(`${location.origin}/contest/${c.id}`).then(() => setNote("Link copied. Share it anywhere: people who sign in come straight back to this contest."), () => setNote(`Your link: ${location.origin}/contest/${c.id}`)); }}>Copy link</button>
       </div>
     </article>
   );

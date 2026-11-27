@@ -14,10 +14,15 @@ import { ContestPlay } from "@/components/contest-play";
 
 const STRUCTURE_LABEL: Record<string, string> = { top3: "Top 3 share: 50 / 30 / 20", top5: "Top 5 share: 40 / 25 / 15 / 10 / 10", top10: "Top 10 share the pot", top20: "Top 20 share the pot", custom: "Prize split set by the sponsor", equal_split: "Top winners share equally", all_correct: "Split among all exact scores", random_draw: "One lucky winner takes all" };
 
-export function ContestView() {
-  const [id, setId] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
+export function ContestView({ id }: { id: string }) {
+  const [now, setNow] = useState<number | null>(null);
   const [ref, setRef] = useState<string | null>(null);
-  useEffect(() => { const p = new URLSearchParams(location.search); setId(p.get("c")); setRef(p.get("ref")); setNow(Date.now()); }, []);
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    setRef(q.get("ref")); setNow(Date.now());
+    // Old ?c= links redirect here with the query still attached; tidy the address bar.
+    if (q.has("c")) { q.delete("c"); history.replaceState(null, "", location.pathname + (q.size ? `?${q}` : "")); }
+  }, []);
   const contests = useAllContests(), fixtures = useFixtures();
   const session = useCloud().session;
   const signedIn = !!session;
@@ -63,7 +68,7 @@ export function ContestView() {
     if (!finished || !c) return;
     fetch(`/api/settle?c=${c.id}`, { method: "POST" }).then(() => refreshContests()).catch(() => {});
   }, [finished, c?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const newAccount = !!session?.user.created_at && now !== null && now - Date.parse(session.user.created_at) < 86_400_000;
+
 
   return (
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
@@ -107,7 +112,6 @@ export function ContestView() {
                 {joining ? "…" : joined ? "Leave contest" : "Join contest"}
               </button>
             )}
-            {joined && newAccount && <div style={{ fontSize: 13, fontWeight: 700 }}>Your account is less than a day old: you can play now, and you&apos;ll appear on the leaderboard once it&apos;s a day old.</div>}
             {joined && c.prize_zec > 0 && !isShielded(myAddress, network) && (
               <Link href="/profile" style={{ fontSize: 13, fontWeight: 800, textDecoration: "underline" }}>Add your Zcash wallet address in Profile so you can be paid if you win →</Link>
             )}

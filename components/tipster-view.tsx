@@ -49,9 +49,8 @@ function TipRow({ t }: { t: TipsterTip }) {
   );
 }
 
-export default function TipsterPage() {
-  const [handle, setHandle] = useState<string | null>(null);
-  useEffect(() => { setHandle(new URLSearchParams(location.search).get("h")); }, []);
+export function TipsterView({ handle }: { handle: string }) {
+  useEffect(() => { if (new URLSearchParams(location.search).has("h")) history.replaceState(null, "", location.pathname); }, []);
   const { tipster: t } = useTipster(handle);
   const signedIn = !!useCloud().session;
   const push = usePush();

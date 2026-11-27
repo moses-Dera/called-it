@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { GUIDES, PLAYERS, art } from "@/lib/data";
 import { cloudReady, useLeaderboard, usePlayerStats } from "@/lib/cloud";
 import { short, totals, useStore } from "@/lib/store";
@@ -11,7 +12,12 @@ const HOW = ["Make your call: a score, a card, a vote or a move.", "It's sealed 
 const BOTS = [410, 355, 320, 290, 240, 150, 95];
 
 /** Desktop-only side dashboard that fills the space beside the game board on every tab. */
+/** Reads the URL inside Suspense so dynamic addresses (like /contest/<name>) can prerender their shell. */
 export function DeskPanel() {
+  return <Suspense fallback={null}><DeskPanelInner /></Suspense>;
+}
+
+function DeskPanelInner() {
   const path = usePathname();
   const s = useStore();
   const t = totals(s);

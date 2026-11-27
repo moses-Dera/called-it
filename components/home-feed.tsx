@@ -1,5 +1,8 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
+import { Chips } from "./chips";
+import { OTHER_LEAGUE } from "@/lib/leagues";
 import { ErrorBoundary, Img, TeamBadge } from "./ui";
 import { refreshFixtures, useContests, useFixtures, useFixturesState, useFixtureSealCounts, useMyContestIds, useNow } from "@/lib/cloud";
 import { phaseOf, type Fixture } from "@/lib/data";
@@ -47,6 +50,7 @@ function HomeFixturesInner() {
   const state = useFixturesState();
   const now = useNow();
   const sealCounts = useFixtureSealCounts();
+  const [league, setLeague] = useState<string>("all"), [showAll, setShowAll] = useState(false);
 
   if (state === "error") {
     return (
@@ -72,25 +76,37 @@ function HomeFixturesInner() {
   const recent = fixtures.filter((f) => phaseOf(f, now) === "final").sort((a, b) => byKickoff(b, a))[0];
   const featured = live ?? open[0] ?? recent;
   const kind = live ? "live" : open[0] ? "next" : "result";
-  const list = open.filter((f) => f !== featured).slice(0, 8);
+  const leagues = [...new Set(open.map((f) => f.league || OTHER_LEAGUE))]
+    .sort((a, b) => (a === OTHER_LEAGUE ? 1 : 0) - (b === OTHER_LEAGUE ? 1 : 0) || open.filter((f) => (f.league || OTHER_LEAGUE) === b).length - open.filter((f) => (f.league || OTHER_LEAGUE) === a).length);
+  const shown = league && leagues.includes(league) ? league : "all";
+  const inLeague = shown === "all" ? open : open.filter((f) => (f.league || OTHER_LEAGUE) === shown);
+  const list = inLeague.filter((f) => f !== featured).slice(0, showAll ? 60 : 8);
 
   return (
     <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {featured && <Featured f={featured} kind={kind} sealed={sealCounts[featured.id] ?? 0} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Seal before kickoff</h2>
-        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{open.length} open</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{inLeague.length} open</span>
       </div>
+      {leagues.length > 1 && (
+        <div style={{ overflowX: "auto", margin: "0 -20px", padding: "0 20px 2px" }}>
+          <div style={{ width: "max-content" }}><Chips label="League" value={shown} onChange={(v) => { setLeague(v); setShowAll(false); }} options={[["all", "All leagues"], ...leagues.map((l) => [l, l] as const)]} /></div>
+        </div>
+      )}
       {open.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No fixtures open right now. New ones appear here.</div>}
       <div className="fixture-grid">{list.map((f) => (
         <Link key={f.id} href={`/seal?f=${f.id}`} style={{ display: "flex", alignItems: "stretch", color: "#111", background: "var(--paper)", borderRadius: 16, overflow: "hidden", minHeight: 64 }}>
           <div style={{ flex: 1, padding: "10px 14px", display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, borderRight: "2px dashed #c9bfa6", minWidth: 0 }}>
             <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
-            <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>Kickoff {f.when}{sealCounts[f.id] > 0 ? ` · ${sealCounts[f.id]} sealed` : ""}</div>
+            <div style={{ fontSize: 12, color: "#4a4436", fontWeight: 600 }}>{shown === "all" && f.league ? `${f.league} · ` : ""}Kickoff {f.when}{sealCounts[f.id] > 0 ? ` · ${sealCounts[f.id]} sealed` : ""}</div>
           </div>
           <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
         </Link>
       ))}</div>
+      {!showAll && inLeague.filter((f) => f !== featured).length > 8 && (
+        <button className="btn btn-quiet" onClick={() => setShowAll(true)} style={{ minHeight: 42 }}>Show all {inLeague.length} {shown === "all" ? "" : shown + " "}matches</button>
+      )}
     </section>
   );
 }
@@ -130,7 +146,7 @@ function HomeFeedInner() {
         {contests.slice(0, 3).map((c) => {
           const joined = myIds.includes(c.id);
           return (
-            <Link key={c.id} href={`/contest?c=${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
+            <Link key={c.id} href={`/contest/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
               {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, opacity: 0.5 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="display" style={{ fontSize: 19 }}>{c.title}</div>
