@@ -5,10 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * contests once their end time passes. Closing ranks the winners; sponsors then pay them directly.
  * Runs from the daily cron and from /api/live (every 15 minutes), with the service role.
  */
-export async function settleContests(sb: SupabaseClient): Promise<string[]> {
+export async function settleContests(sb: SupabaseClient, only?: string): Promise<string[]> {
   const log: string[] = [];
   try {
-    const { data: open, error } = await sb.from("contests").select("id, title, fixture_ids, hidden, game, ends_at").eq("status", "open");
+    let q = sb.from("contests").select("id, title, fixture_ids, hidden, game, ends_at").eq("status", "open");
+    if (only) q = q.eq("id", only);
+    const { data: open, error } = await q;
     if (error) return [`! Contest list: ${error.message}`];
     for (const c of open ?? []) {
       const isGame = c.game && c.game !== "football";
@@ -25,6 +27,9 @@ export async function settleContests(sb: SupabaseClient): Promise<string[]> {
       const { error: closeErr } = await sb.rpc("admin_close_contest", { p_id: c.id });
       log.push(closeErr ? `! Could not settle ${c.id}: ${closeErr.message}` : `🏁 Settled "${c.title}" (${c.id})`);
     }
+    // Sent with a transaction ID and undisputed for 7 days counts as paid; no address after 30 days is unclaimed.
+    const { data: n, error: autoErr } = await sb.rpc("auto_settle_prizes");
+    if (autoErr) log.push(`! Prize auto-settle: ${autoErr.message}`); else if (n) log.push(`✓ ${n} prize${n === 1 ? "" : "s"} settled automatically`);
   } catch (e) {
     log.push(`! Contest settle error: ${e instanceof Error ? e.message : String(e)}`);
   }

@@ -22,6 +22,11 @@ export function ContestPlay({ c, joined, now }: { c: Contest; joined: boolean; n
     return () => { on = false; };
   }, [c.id, joined, live, tick]);
 
+  async function quick() {
+    setBusy(true); setMsg("");
+    try { router.push(`/room?id=${await cloudRpc<string>("contest_quick_match", { p_contest: c.id })}`); }
+    catch (e) { setMsg(e instanceof Error ? e.message : "Could not find a game."); setBusy(false); }
+  }
   async function start() {
     setBusy(true); setMsg("");
     try { const r = await cloudRpc<{ id: string }>("create_contest_room", { p_contest: c.id }); router.push(`/room?id=${r.id}`); }
@@ -45,7 +50,9 @@ export function ContestPlay({ c, joined, now }: { c: Contest; joined: boolean; n
       {live && !joined && <div style={{ fontSize: 14, fontWeight: 700 }}>Join the contest to play.</div>}
       {live && joined && (
         <>
-          <button className="btn" disabled={busy} onClick={start} style={{ background: "var(--lime)", color: "#111", border: "3px solid #111" }}>{busy ? "Opening…" : `Start a ${g.name} game`}</button>
+          <button className="btn" disabled={busy} onClick={quick} style={{ background: "var(--lime)", color: "#111", border: "3px solid #111" }}>{busy ? "Finding a game…" : "Play now"}</button>
+          <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Play now joins a game someone is waiting in, or opens one for others to join. Share the contest link so friends can jump in.</span>
+          <button className="btn btn-quiet" disabled={busy} onClick={start} style={{ minHeight: 40 }}>Open a new game instead</button>
           <span className="eyebrow" style={{ color: "var(--muted)" }}>Games waiting for players</span>
           {rooms === null && <span style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</span>}
           {rooms?.length === 0 && <span style={{ fontSize: 13, color: "var(--muted)" }}>None right now. Start one and share the contest link so others can join.</span>}

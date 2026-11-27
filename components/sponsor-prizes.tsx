@@ -3,6 +3,7 @@ import { useState } from "react";
 import { confirmPrize, syncNow, useMySponsorPrizes, useNetwork, useNow } from "@/lib/cloud";
 import { isShielded, saveProfile, useStore } from "@/lib/store";
 import { askConfirm } from "./dialog";
+import { explorerTx } from "@/lib/explorer";
 
 /** Prizes a player won in sponsor contests: the sponsor pays them directly and the player confirms they arrived. */
 export function SponsorPrizes() {
@@ -12,7 +13,7 @@ export function SponsorPrizes() {
   const now = useNow();
   const [addr, setAddr] = useState(""), [msg, setMsg] = useState("");
   if (!prizes?.length) return null;
-  const waiting = prizes.some((p) => p.status !== "paid");
+  const waiting = prizes.some((p) => p.status !== "paid" && p.status !== "unclaimed");
 
   async function saveAddress() {
     const a = addr.trim();
@@ -36,7 +37,7 @@ export function SponsorPrizes() {
       {waiting && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sponsors pay these straight to your wallet within 72 hours. The sponsor sees your saved address so they can pay you.</p>}
       {waiting && !isShielded(saved, network) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, background: "var(--panel)", border: "2px solid var(--amber)", borderRadius: 14, padding: 12 }}>
-          <label htmlFor="prize-addr" style={{ fontSize: 13, fontWeight: 800 }}>Add your shielded Zcash address so the sponsor can pay you{network === "testnet" ? " (testnet)" : ""}</label>
+          <label htmlFor="prize-addr" style={{ fontSize: 13, fontWeight: 800 }}>Add your shielded Zcash address so the sponsor can pay you{network === "testnet" ? " (testnet)" : ""}. No wallet? <a href="https://electriccoin.co/zashi/" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>Get Zashi free</a>, then copy its address here.</label>
           <input id="prize-addr" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder={network === "testnet" ? "utest1…" : "u1…"} autoComplete="off" spellCheck={false} className="mono"
             style={{ height: 44, borderRadius: 12, border: "2px solid #111", background: "var(--paper)", color: "#111", padding: "0 12px", fontSize: 13 }} />
           <button className="btn" onClick={saveAddress} style={{ background: "var(--amber)", color: "#111", border: "2px solid #111" }}>Save address</button>
@@ -51,10 +52,10 @@ export function SponsorPrizes() {
               <b style={{ color: "var(--lime)", whiteSpace: "nowrap" }}>{p.zec} ZEC</b>
             </div>
             <span style={{ fontSize: 12, fontWeight: 700, color: late || p.status === "disputed" ? "var(--red)" : "var(--muted)" }}>
-              {p.status === "paid" ? "✓ Received" : p.status === "sent" ? "The sponsor says it's sent. Check your wallet." : p.status === "disputed" ? "You reported it hasn't arrived. The sponsor has been asked to send it again." : late ? "⚠ Overdue: the sponsor missed the 72-hour deadline and can't start new contests until you're paid." : "Waiting for the sponsor to pay"}
+              {p.status === "paid" ? "✓ Received" : p.status === "unclaimed" ? "Unclaimed: no wallet was added within 30 days." : p.status === "sent" ? "The sponsor says it's sent. Check your wallet." : p.status === "disputed" ? "You reported it hasn't arrived. The sponsor has been asked to send it again." : late ? "⚠ Overdue: the sponsor missed the 72-hour deadline and can't start new contests until you're paid." : "Waiting for the sponsor to pay"}
             </span>
-            {p.txid && <span className="mono" style={{ fontSize: 11, color: "var(--muted)", overflowWrap: "anywhere" }}>Transaction {p.txid}</span>}
-            {p.status !== "paid" && (
+            {p.txid && <a href={explorerTx(p.txid, network)} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: 11, color: "var(--muted)", overflowWrap: "anywhere", textDecoration: "underline" }}>Transaction {p.txid} ↗</a>}
+            {p.status !== "paid" && p.status !== "unclaimed" && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button className="btn" onClick={() => answer(p.contest_id, p.rank, true, p.zec)} style={{ width: "auto", minHeight: 40, padding: "0 14px", background: "var(--lime)", color: "#111", border: "2px solid #111" }}>I got it</button>
                 {p.status === "sent" && <button className="btn btn-quiet" onClick={() => answer(p.contest_id, p.rank, false, p.zec)} style={{ width: "auto", minHeight: 40, padding: "0 14px" }}>Not received</button>}

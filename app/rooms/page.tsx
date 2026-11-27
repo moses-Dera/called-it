@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Chips } from "@/components/chips";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { art } from "@/lib/data";
+import { MODES, art } from "@/lib/data";
 import { cloudReady, useCloud } from "@/lib/cloud";
 import { GAME_INFO, answerInvite, createRoom, joinRoom, listPlayers, useMyRooms, type Game, type RoomSummary } from "@/lib/rooms";
 
@@ -102,6 +102,18 @@ export default function Rooms() {
           <NewRoom game={game} setGame={setGame} onError={setMsg} onCreated={(id) => router.push(`/room?id=${id}`)} />
         </div>
       )}
+      <section style={{ display: "flex", flexDirection: "column", gap: 10, padding: "20px 0" }}>
+        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Practice vs bots</h2>
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>Learn a game on your own first. Practice games don&apos;t count for points or contests.</span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 10 }}>
+          {MODES.filter((m) => m.key !== "classic").map((m) => (
+            <Link key={m.key} href={m.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text)" }}>
+              <Img n={m.img} size={64} style={{ borderRadius: 16, border: "2px solid #111" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.name}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
       <BottomNav active="/rooms" />
     </main>
   );

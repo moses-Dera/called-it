@@ -358,7 +358,7 @@ if (typeof window !== "undefined") {
 }
 
 /** pending → sending → paid for prizes Called It pays; pending → sent → paid (or disputed) when the sponsor pays. */
-export type WinnerStatus = "pending" | "sending" | "sent" | "disputed" | "paid";
+export type WinnerStatus = "pending" | "sending" | "sent" | "disputed" | "paid" | "unclaimed";
 export type Contest = {
   id: string; title: string; sponsor: string | null; prize_zec: number; fixture_ids: string[];
   status: "open" | "closed"; winners: { rank: number; name: string; points: number; zec: number; address?: string; user_id?: string; status?: WinnerStatus; txid?: string | null }[] | null;

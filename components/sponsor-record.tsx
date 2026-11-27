@@ -25,6 +25,7 @@ export function SponsorRecordLine({ record, sponsor, short }: { record?: Sponsor
 export function WinnerPayState({ status, payBy, now }: { status?: WinnerStatus; payBy?: string | null; now: number | null }) {
   const late = !!payBy && !!now && Date.parse(payBy) < now;
   const label = status === "paid" ? "✓ received"
+    : status === "unclaimed" ? "unclaimed"
     : status === "sent" ? "sent, awaiting winner"
     : status === "disputed" ? "⚠ not received"
     : late ? "⚠ unpaid" : "to be paid";

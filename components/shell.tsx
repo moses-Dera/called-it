@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { MODES, art } from "@/lib/data";
 import { DeskPanel } from "./desk-panel";
 import { SideLink } from "./side-link";
 import { CloudSync } from "./cloud-sync";
@@ -11,7 +10,7 @@ import { SidebarAccount } from "./account";
 // --z: phones (fit 390-wide design to the screen, and shrink further on very short phones).
 const FIT = `(function(){function f(){var w=document.documentElement.clientWidth||innerWidth,h=innerHeight,s=document.documentElement.style;s.setProperty('--w',w+'px');s.setProperty('--z',Math.min(w/390,h/700).toFixed(4));}f();addEventListener('resize',f);})();`;
 
-const NAV = [["/", "Home"], ["/play/arena", "Live Arena"], ["/rooms", "Play with friends"], ["/contests", "Contests"], ["/ranks", "Ranks"], ["/vault", "Vault"], ["/profile", "Profile"]];
+const NAV = [["/", "Home"], ["/contests", "Contests"], ["/rooms", "Play with friends"], ["/vault", "My prizes and proofs"], ["/ranks", "Ranks"], ["/play/arena", "Live Arena"], ["/sponsor", "Run a contest"], ["/profile", "Profile and wallet"]];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,13 +28,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="sidebar-nav">
           {NAV.map(([href, label]) => <SideLink key={href} href={href}>{label}</SideLink>)}
-          <div className="eyebrow" style={{ color: "var(--muted)", padding: "16px 10px 4px" }}>Games</div>
-          {MODES.map((m) => (
-            <SideLink key={m.key} href={m.href}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={art(m.img)} alt="" width={30} height={30} />{m.name}
-            </SideLink>
-          ))}
           <div style={{ flex: 1 }} />
           <SidebarAccount />
           <SideLink href="/how">How your seal works</SideLink>

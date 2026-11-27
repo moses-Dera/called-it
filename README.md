@@ -117,6 +117,13 @@ none; no other way to add an admin exists in the app). From there:
   at most 0.5 ZEC across open prizes and unpaid winners, the limit grows by every ZEC winners confirm, a sponsor
   with winners unpaid past the deadline can't start another contest, and every contest shows its sponsor's public
   payment record (`sponsor_records`).
+- **Fair payment rules:** a prize the sponsor marked sent with a transaction ID counts as received after 7 days
+  unless the winner objects; a winner with no wallet doesn't make the sponsor overdue, and after 30 days the prize
+  is marked unclaimed. Disputes go to Admin → Contests, where the admin rules paid or not paid (not paid gives the
+  sponsor 72 more hours). Every recorded payment links to a public block explorer.
+- **Fresh accounts:** accounts under 24 hours old can play but don't rank in contests, and games against them
+  don't count, so extra accounts made on the spot win nothing. Game contests have a one-tap **Play now** that joins
+  a waiting game or opens one. A finished contest settles as soon as anyone views it (`/api/settle`).
 - **Network:** mainnet (real ZEC, the default) or testnet for a practice run with test coins. The whole app
   follows it: address checks, the prize wallet (cleared on every switch) and the payout tool, which refuses to
   run on the other network. Players see a test-mode banner on testnet.

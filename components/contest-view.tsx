@@ -3,12 +3,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { BoostPotModal } from "@/components/boost-pot-modal";
 import { contestGame, inkOn } from "@/lib/data";
 import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useFundAddress, useMyContestIds, useNetwork, useSponsorRecords } from "@/lib/cloud";
+import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useMyContestIds, useNetwork, useSponsorRecords, refreshContests } from "@/lib/cloud";
 import { isShielded, useStore } from "@/lib/store";
+import { explorerTx } from "@/lib/explorer";
 import { SponsorRecordLine, WinnerPayState } from "@/components/sponsor-record";
 import { ContestPlay } from "@/components/contest-play";
 
@@ -24,7 +24,6 @@ export function ContestView() {
   const c = contests.find((x) => x.id === id);
   const { rows: board, loadMore: boardMore, hasMore: boardHasMore, loading: boardLoading } = useContestBoard(c ? c.id : null);
   const entryCount = useContestEntryCount(c ? c.id : null);
-  const fund = useFundAddress();
   const records = useSponsorRecords();
   const myAddress = useStore().profile.address, network = useNetwork();
   const canJoin = !!c && !c.paused && !c.hidden && !(c.opens_at && now && Date.parse(c.opens_at) > now) && !(c.entry_deadline && now && Date.parse(c.entry_deadline) < now);
@@ -33,7 +32,6 @@ export function ContestView() {
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
   const [joining, setJoining] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
-  const [boostOpen, setBoostOpen] = useState(false);
 
   async function handleJoin() {
     if (!c || joining) return;
@@ -57,6 +55,16 @@ export function ContestView() {
 
   const accent = c?.sponsor_color || "var(--amber)";
 
+  // A finished contest settles the moment someone looks at it, instead of waiting for the next scheduled run.
+  const finished = !!c && c.status === "open" && now !== null && (c.game && c.game !== "football"
+    ? !!c.ends_at && Date.parse(c.ends_at) <= now
+    : c.fixture_ids.length > 0 && c.fixture_ids.every((fid) => fixtures.some((f) => f.id === fid && f.homeGoals != null)));
+  useEffect(() => {
+    if (!finished || !c) return;
+    fetch(`/api/settle?c=${c.id}`, { method: "POST" }).then(() => refreshContests()).catch(() => {});
+  }, [finished, c?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const newAccount = !!session?.user.created_at && now !== null && now - Date.parse(session.user.created_at) < 86_400_000;
+
   return (
     <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
       {!c ? (
@@ -78,24 +86,7 @@ export function ContestView() {
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                 <span className="display" style={{ fontSize: 44 }}>{c.prize_zec}</span><b>ZEC prize pot</b>
               </div>
-              {fund && !c.owner_id && c.status === "open" && canJoin && <button
-                onClick={() => setBoostOpen(true)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "8px 14px",
-                  borderRadius: 14,
-                  background: "#111",
-                  color: "var(--lime)",
-                  border: "2px solid #111",
-                  fontWeight: 800,
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
-                ⚡ Boost Pot
-              </button>}
+              
             </div>
             <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
               {c.prize_structure === "custom" && c.custom_shares?.length === 1 ? "Winner takes all" : STRUCTURE_LABEL[c.prize_structure] || STRUCTURE_LABEL.top3}. Free to play. {c.game && c.game !== "football" ? `Join, then play ${contestGame(c.game).name} against other players.` : "Seal before each kickoff while signed in."}
@@ -116,6 +107,7 @@ export function ContestView() {
                 {joining ? "…" : joined ? "Leave contest" : "Join contest"}
               </button>
             )}
+            {joined && newAccount && <div style={{ fontSize: 13, fontWeight: 700 }}>Your account is less than a day old: you can play now, and you&apos;ll appear on the leaderboard once it&apos;s a day old.</div>}
             {joined && c.prize_zec > 0 && !isShielded(myAddress, network) && (
               <Link href="/profile" style={{ fontSize: 13, fontWeight: 800, textDecoration: "underline" }}>Add your Zcash wallet address in Profile so you can be paid if you win →</Link>
             )}
@@ -127,7 +119,7 @@ export function ContestView() {
             {c.winners && c.winners.length > 0 && (
               <div style={{ background: "#111", color: "var(--paper)", borderRadius: 16, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="eyebrow" style={{ color: "var(--lime)" }}>Winners</span>
-                {c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC{c.owner_id && w.zec > 0 ? <WinnerPayState status={w.status} payBy={c.pay_by} now={now} /> : null}</b></div>)}
+                {c.winners.map((w) => <div key={w.rank} style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>#{w.rank} {w.name}</span><b>{w.points} pts · {w.zec} ZEC{c.owner_id && w.zec > 0 ? <WinnerPayState status={w.status} payBy={c.pay_by} now={now} /> : null}{w.txid && /^[0-9a-f]{64}$/.test(w.txid) ? <> · <a href={explorerTx(w.txid, network)} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>payment ↗</a></> : null}</b></div>)}
               </div>
             )}
             {c.sponsor_url && <a href={c.sponsor_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 700, textDecoration: "underline" }}>About {c.sponsor || "the sponsor"}</a>}
@@ -183,8 +175,7 @@ export function ContestView() {
           </section>
         </div>
       )}
-      {boostOpen && c && fund && <BoostPotModal contest={c} address={fund} onClose={() => setBoostOpen(false)} />}
-      <BottomNav active="/" />
+      <BottomNav active="/contests" />
     </main>
   );
 }

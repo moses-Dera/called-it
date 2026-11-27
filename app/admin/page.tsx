@@ -324,6 +324,38 @@ function ContestControls({ c, act }: { c: Contest; act: Act }) {
 }
 
 type SponsorRow = { email: string; name: string; contests: number; added_at: string; blocked: boolean };
+type Dispute = { contest_id: string; title: string; sponsor: string | null; rank: number; winner: string; zec: number; txid: string | null; status_at: string | null };
+
+/** Winners who say a sponsor's payment never arrived. The admin checks and rules. */
+function Disputes({ act }: { act: Act }) {
+  const [rows, setRows] = useState<Dispute[] | null>(null), [n, setN] = useState(0);
+  const net = useNetwork();
+  useEffect(() => { cloudRpc<Dispute[]>("admin_prize_disputes").then(setRows).catch(() => setRows([])); }, [n]);
+  if (!rows?.length) return null;
+  const rule = async (d: Dispute, paid: boolean) => {
+    const ok = await askConfirm(paid
+      ? { title: `Count #${d.rank} ${d.winner} as paid?`, body: "Do this when the transaction ID shows the payment went through (or the sponsor proved it another way).", confirmLabel: "Count as paid" }
+      : { title: `Ask ${d.sponsor ?? "the sponsor"} to pay again?`, body: "The prize goes back to waiting, and the sponsor gets 72 more hours before they are marked overdue.", confirmLabel: "Not paid", danger: true });
+    if (ok && await act("admin_resolve_prize", { p_contest_id: d.contest_id, p_rank: d.rank, p_paid: paid }, paid ? "Counted as paid." : "Sent back to the sponsor.")) setN((x) => x + 1);
+  };
+  return (
+    <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--red)" }}>
+      <span className="eyebrow" style={{ color: "#9a2d1d" }}>Payment disputes · {rows.length}</span>
+      {rows.map((d) => (
+        <div key={`${d.contest_id}-${d.rank}`} style={{ display: "flex", flexDirection: "column", gap: 6, borderBottom: "1px dashed #d8cfb8", paddingBottom: 8, fontSize: 13 }}>
+          <b>{d.title} · #{d.rank} {d.winner} · {d.zec} ZEC</b>
+          <span style={{ color: "#4a4436" }}>{d.sponsor ?? "Sponsor"} marked it sent{d.txid ? "" : " without a transaction ID"}; the winner says it hasn&apos;t arrived.</span>
+          {d.txid && <a href={`https://blockexplorer.one/zcash/${net === "testnet" ? "testnet" : "mainnet"}/tx/${d.txid}`} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: 11, overflowWrap: "anywhere", textDecoration: "underline" }}>Check transaction {d.txid}</a>}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button style={btn("var(--lime)")} onClick={() => rule(d, true)}>It was paid</button>
+            <button style={btn("#fff")} onClick={() => rule(d, false)}>Not paid</button>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function Sponsors({ act }: { act: Act }) {
   const [list, setList] = useState<SponsorRow[] | null>(null);
   const [email, setEmail] = useState(""), [name, setName] = useState("");
@@ -359,6 +391,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Disputes act={act} />
         <Sponsors act={act} />
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contests</h2>
         {contestMsg && (
@@ -389,7 +422,7 @@ function ContestsTab({ act, onReload }: { act: Act; onReload?: () => void }) {
                         <span className="chip" style={{ background: "var(--lime)", fontSize: 11, padding: "2px 8px" }}>PAID ✓ {w.txid ? short(w.txid) : ""}</span>
                       ) : c.owner_id ? (
                         <span className="chip" style={{ background: w.status === "disputed" || (c.pay_by && Date.parse(c.pay_by) < Date.now()) ? "var(--red)" : "var(--amber)", fontSize: 11, padding: "2px 8px" }}>
-                          SPONSOR PAYS · {w.status === "sent" ? "SENT, AWAITING WINNER" : w.status === "disputed" ? "WINNER SAYS NOT RECEIVED" : c.pay_by && Date.parse(c.pay_by) < Date.now() ? "OVERDUE" : "PENDING"}
+                          SPONSOR PAYS · {w.status === "sent" ? "SENT, AWAITING WINNER" : w.status === "disputed" ? "WINNER SAYS NOT RECEIVED" : w.status === "unclaimed" ? "UNCLAIMED" : c.pay_by && Date.parse(c.pay_by) < Date.now() ? "OVERDUE" : "PENDING"}
                         </span>
                       ) : (
                         <>

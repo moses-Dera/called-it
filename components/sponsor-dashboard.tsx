@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { cloudRpc, refreshContests, sponsorMarkSent, sponsorPayees, useFixtures, useNetwork, type ContestGame, type Payee, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
 import { askText } from "./dialog";
+import { explorerTx } from "@/lib/explorer";
 import { CONTEST_GAMES, contestGame, phaseOf } from "@/lib/data";
 import { OTHER_LEAGUE } from "@/lib/leagues";
 import { Chips } from "./chips";
@@ -33,10 +34,11 @@ function state(c: SponsorContest, now: number) {
 }
 
 function PayeeRow({ c, p, onSent }: { c: SponsorContest; p: Payee; onSent: () => void }) {
+  const network = useNetwork();
   const [qr, setQr] = useState(""), [err, setErr] = useState("");
   const link = p.address ? zip321(p.address, p.zec, `Called It · ${c.title} · #${p.rank} prize`) : "";
   async function sent() {
-    const tx = await askText({ title: `Sent ${p.zec} ZEC to ${p.name}?`, body: "Paste the transaction ID from your wallet if you have it (optional). It lets the winner and anyone else look the payment up on a block explorer.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark as sent" });
+    const tx = await askText({ title: `Sent ${p.zec} ZEC to ${p.name}?`, body: "Paste the transaction ID from your wallet (in the payment's details). With it, the prize counts as received after 7 days even if the winner forgets to confirm, and anyone can look the payment up on a block explorer.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark as sent" });
     if (tx === null) return;
     setErr("");
     try { await sponsorMarkSent(c.id, p.rank, tx.trim() || null); onSent(); } catch (e) { setErr(e instanceof Error ? e.message : "Could not save."); }
@@ -46,9 +48,9 @@ function PayeeRow({ c, p, onSent }: { c: SponsorContest; p: Payee; onSent: () =>
     <div style={{ background: "var(--paper)", color: "#111", borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <b style={{ fontSize: 15 }}>#{p.rank} {p.name} · {p.zec} ZEC</b>
-        <span style={{ fontSize: 13, fontWeight: 800 }}>{p.status === "paid" ? "✓ Received" : p.status === "sent" ? "Sent · waiting for the winner to confirm" : p.status === "disputed" ? "⚠ Winner says it hasn't arrived" : "To pay"}</span>
+        <span style={{ fontSize: 13, fontWeight: 800 }}>{p.status === "paid" ? "✓ Received" : p.status === "unclaimed" ? "Unclaimed (no wallet added in 30 days)" : p.status === "sent" ? (p.txid ? "Sent · counts as received after 7 days unless the winner objects" : "Sent · waiting for the winner to confirm") : p.status === "disputed" ? "⚠ Winner says it hasn't arrived" : "To pay"}</span>
       </div>
-      {p.txid && <span className="mono" style={{ fontSize: 11, overflowWrap: "anywhere", color: "#4a4436" }}>Transaction {p.txid}</span>}
+      {p.txid && <a href={explorerTx(p.txid, network)} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: 11, overflowWrap: "anywhere", color: "#4a4436", textDecoration: "underline" }}>Transaction {p.txid} ↗</a>}
       {due && !p.address && <span style={{ fontSize: 13, lineHeight: 1.5 }}>Waiting for {p.name} to add a shielded Zcash address in their Vault. The payment link appears here as soon as they do.</span>}
       {due && p.address && (
         <>
@@ -77,7 +79,7 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
     return () => { live = false; };
   }, [c.id, n, c.winners]);
   if (!c.winners?.some((w) => w.zec > 0)) return null;
-  const open = payees?.filter((p) => p.zec > 0 && p.status !== "paid").length ?? 0;
+  const open = payees?.filter((p) => p.zec > 0 && p.status !== "paid" && p.status !== "unclaimed").length ?? 0;
   const late = c.pay_by && Date.parse(c.pay_by) < now;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

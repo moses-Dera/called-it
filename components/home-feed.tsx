@@ -155,10 +155,10 @@ function HomeFeedInner() {
           <div style={{ fontSize: 14, fontWeight: 800 }}>How your seal works</div>
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Three steps. Zero trust required.</div>
         </Link>
-        <Link href="/syndicates" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
-          <Img n="cover_arcade" size={32} style={{ borderRadius: 8 }} />
-          <div style={{ fontSize: 14, fontWeight: 800 }}>Syndicates</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Team up. Compete as a group.</div>
+        <Link href="/sponsor" style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: "14px 14px" }}>
+          <Img n="cover_classic" size={32} style={{ borderRadius: 8 }} />
+          <div style={{ fontSize: 14, fontWeight: 800 }}>Run a contest</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", lineHeight: 1.4 }}>Put up a prize for your community.</div>
         </Link>
       </div>
     </div>

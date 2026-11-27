@@ -149,16 +149,16 @@ export const CardBack = ({ radius = 10 }: { radius?: number }) => (
 
 const NAV = [
   { href: "/", label: "Home", d: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" },
-  { href: "/play/arena", label: "Live", d: "M13 2L4 14h7l-1 8 9-12h-7z" },
+  { href: "/contests", label: "Contests", d: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" },
   null,
-  { href: "/ranks", label: "Ranks", d: "M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" },
+  { href: "/rooms", label: "Friends", d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" },
 ];
 const MORE = [
-  { href: "/rooms", label: "Play with friends" },
-  { href: "/contests", label: "Contests" },
-  { href: "/vault", label: "Vault" },
-  { href: "/syndicates", label: "Syndicates" },
-  { href: "/profile", label: "Profile" },
+  { href: "/vault", label: "My prizes and proofs" },
+  { href: "/profile", label: "Profile and wallet" },
+  { href: "/ranks", label: "Ranks" },
+  { href: "/play/arena", label: "Live Arena" },
+  { href: "/sponsor", label: "Run a contest" },
   { href: "/how", label: "How your seal works" },
 ];
 const MORE_ICON = "M4 6h16M4 12h16M4 18h16";
