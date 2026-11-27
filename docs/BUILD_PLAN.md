@@ -4,7 +4,7 @@ This document is for the engineer (human or AI model) who continues building Cal
 changing anything. It covers what the product is, where the code stands, the rules you must follow, lessons
 already learned the hard way, and the work still to do, in order, with acceptance criteria.
 
-Last updated: 2026-11-27.
+Last updated: 2026-11-28.
 
 ---
 
@@ -60,7 +60,7 @@ Called It is a free-to-play football prediction and party-game app.
 ## 2. Current state
 
 ### Live (production, vercel.app) vs local
-The live site is behind. At the time of writing **11 commits and 6 migrations are committed locally but not
+The live site is behind. At the time of writing **13 commits and 7 migrations are committed locally but not
 pushed** (`git log origin/main..HEAD`). Until the owner pushes, production still shows old bugs (for example
 "Sync problem", because production rejects Bitcoin-mode seals; fixed by
 `20261126100000_fix_drift_and_contest_close.sql`).
@@ -96,7 +96,7 @@ pushed** (`git log origin/main..HEAD`). Until the owner pushes, production still
 | Admin | `app/admin/page.tsx` |
 | Wallet advice per network | `lib/wallets.ts` (Zashi on mainnet; Zingo/Zkool + fauzec.com faucet on testnet) |
 | Payment links | `lib/zip321.ts`; explorer links `lib/explorer.ts` |
-| Migrations | `supabase/migrations/` (37 files) |
+| Migrations | `supabase/migrations/` (38 files) |
 | Node wallet tool (legacy payouts, anchoring) | `services/anchor/` |
 
 ### Key database functions (latest definitions win; grep the newest migration)
@@ -142,6 +142,12 @@ pushed** (`git log origin/main..HEAD`). Until the owner pushes, production still
 
 ## 4. The work, in order
 
+**Build order right now:** 1.4 Privacy by default → 1.1 Offline-aware sync → 3 Send from the browser wallet →
+4 Background sync → 5 The wallet inside the app → 6 One-tap Pay winners → 7 Automatic prize detection →
+1.2 Error monitoring and 1.3 Clean wallet pages → 8 Security and launch. Phase 2 (the server) starts as soon as
+the owner has the server and domain, in parallel with the wallet work. Phase 0 (push and two-phone test) is the
+owner's and should happen first.
+
 Each task has a goal, the steps, and how to know it's done. Do them in order unless a task says otherwise.
 
 ### Phase 0: Ship and prove what exists (owner + you)
@@ -171,6 +177,20 @@ Sentry's free tier). Scrub anything that looks like a 24-word phrase, a Zcash ke
 when actually inside Telegram (or only on pages that need it), and never on wallet pages. Add a strict
 Content-Security-Policy for wallet routes (self, the relay origin, Supabase). **Done when** wallet pages load no
 third-party scripts (check the Network tab) and still work.
+
+**1.4 Privacy by default.** The owner wants total privacy. Today `/@username` (`player_card`) shows points,
+contest wins and total ZEC received to anyone, and `search_players` finds anyone by name.
+- New migration: `profiles.show_stats boolean not null default false` and `profiles.searchable boolean not null
+  default true`. `player_card` returns points and contest wins only when `show_stats` or the viewer is the owner;
+  it **never** returns ZEC received to anyone but the owner. `search_players` matches names only for
+  `searchable` players (an exact @username still resolves).
+- Public contest results (`contests.winners`) keep rank, name, points and status, but must not let strangers sum
+  a person's winnings: check `contest-view.tsx` and `sponsor-record.tsx` show amounts per rank, not per person
+  totals anywhere.
+- Profile gets two switches: "Show my stats on my public page" (off by default) and "Hide me from name search".
+- Wallet addresses are already never public (`20261128090000_no_public_addresses.sql`); keep it that way.
+**Done when** a logged-out visitor to `/@someone` sees only username, name and avatar (unless stats are on), ZEC
+received is visible only to its owner, and a hidden player is found only by exact @username.
 
 ### Phase 2: Infrastructure on one server (needs owner: server + domain)
 Target: one Hetzner VPS (4 vCPU, 8 GB, Ubuntu LTS), Docker Compose, Cloudflare free plan in front.
@@ -241,6 +261,8 @@ In the winner's wallet, after each sync, read received notes and their memos; wh
 prize of theirs (contest title and rank) with at least the expected amount, call `confirm_prize` for it
 automatically and show "Prize received". **Done when** a paid winner never has to tap "I got it" and the
 contest shows "✓ received" within a minute of the payment confirming.
+Also give each prize a fresh receive address (Zcash diversified addresses from the same wallet), so one shared
+address can't link a player's prizes together.
 
 ### Phase 8: Security and launch
 - Security review: RLS on every table, every `SECURITY DEFINER` function checks the caller, no secrets in the
