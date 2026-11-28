@@ -141,7 +141,7 @@ button { font-family: inherit; cursor: pointer; }
   .stage:has(.screen.wide) .desk { display: none; }
 
   .hub { max-width: none; margin: 0; display: grid; gap: 22px 26px; align-items: start; }
-  .hub-inner { max-width: 780px; }
+  .hub-inner { width: 100%; max-width: 860px; margin-inline: auto; }
 
   /* Home: balanced 2-column split (fixtures left, contests/social right) */
   .home-head { max-width: none; }

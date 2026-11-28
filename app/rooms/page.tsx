@@ -6,7 +6,7 @@ import { Chips } from "@/components/chips";
 import { PlayerSearch } from "@/components/player-search";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { MODES, art } from "@/lib/data";
+import { art } from "@/lib/data";
 import { cloudReady, useCloud } from "@/lib/cloud";
 import { GAME_INFO, answerInvite, createRoom, joinRoom, listPlayers, useMyRooms, type Game, type RoomSummary } from "@/lib/rooms";
 
@@ -99,23 +99,18 @@ export default function Rooms() {
                 </Link>
               ))}
             </section>
+
+            <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+              <span className="eyebrow" style={{ color: "var(--lime)" }}>How it works</span>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.55 }}>1. Pick a game on the right and invite players or share the 6-letter code.</div>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.55 }}>2. Everyone seals their move privately — nobody sees a choice until all players lock in.</div>
+              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.55 }}>3. First time playing a mode? Try it solo against bots from the selected game card.</div>
+            </section>
           </div>
 
           <NewRoom game={game} setGame={setGame} onError={setMsg} onCreated={(id) => router.push(`/room?id=${id}`)} />
         </div>
       )}
-      <section style={{ display: "flex", flexDirection: "column", gap: 10, paddingBottom: 16 }}>
-        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Practice vs bots</h2>
-        <span style={{ fontSize: 13, color: "var(--muted)" }}>Learn a game on your own first. Practice games don&apos;t count for points or contests.</span>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 10 }}>
-          {MODES.filter((m) => m.key !== "classic").map((m) => (
-            <Link key={m.key} href={m.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, color: "var(--text)" }}>
-              <Img n={m.img} size={64} style={{ borderRadius: 16, border: "2px solid #111" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, textAlign: "center", lineHeight: 1.2 }}>{m.name}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
       <BottomNav active="/rooms" />
     </main>
   );
@@ -145,12 +140,15 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
   }
 
   return (
-    <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
-      <span className="eyebrow" style={{ color: "#5b6b12" }}>New game</span>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+    <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, boxShadow: "6px 6px 0 var(--lime)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span className="eyebrow" style={{ color: "#5b6b12" }}>New game</span>
+        <Link href={`/play/${game}`} style={{ fontSize: 12, fontWeight: 800, color: "#111", textDecoration: "underline" }}>Practice {GAME_INFO[game].name} vs bots →</Link>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>
         {GAMES.map((g) => (
-          <button key={g} aria-pressed={game === g} onClick={() => setGame(g)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: 8, borderRadius: 16, border: `3px solid ${game === g ? "#111" : "transparent"}`, background: game === g ? "var(--lime)" : "transparent", color: "#111" }}>
-            <Img n={GAME_INFO[g].img} size={52} style={{ borderRadius: 14, border: "2px solid #111" }} />
+          <button key={g} aria-pressed={game === g} onClick={() => setGame(g)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: 6, borderRadius: 14, border: `3px solid ${game === g ? "#111" : "transparent"}`, background: game === g ? "var(--lime)" : "transparent", color: "#111" }}>
+            <Img n={GAME_INFO[g].img} size={46} style={{ borderRadius: 12, border: "2px solid #111" }} />
             <span style={{ fontSize: 11, fontWeight: 800, textAlign: "center", lineHeight: 1.15 }}>{GAME_INFO[g].name}</span>
           </button>
         ))}
@@ -180,7 +178,7 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <b style={{ fontSize: 13 }}>{game === "arcade" ? "Choose your opponent" : `Invite players (up to ${max})`}{pick.length ? ` · ${pick.length} picked` : ""}</b>
         <input aria-label="Search players" placeholder="Search players by name" value={search} onChange={(e) => setSearch(e.target.value)} style={field} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 6, maxHeight: 168, overflowY: "auto" }}>
           {people.length === 0 && <span style={{ fontSize: 12, color: "#4a4436" }}>No players found. You can also share the room code after creating it.</span>}
           {people.map((p) => {
             const on = pick.includes(p.id);

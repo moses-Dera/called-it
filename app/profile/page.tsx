@@ -98,12 +98,16 @@ export default function Profile() {
                 <span className="display" style={{ fontSize: 36 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
                 <b style={{ fontSize: 14, color: "#111" }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
               </div>
-              {ws.address && (
+              {ws.missingAccount ? (
+                <div style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.4 }}>This browser doesn&apos;t have your wallet keys stored locally yet.</div>
+              ) : ws.address ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>YOUR ADDRESS</span>
-                  <button onClick={() => { navigator.clipboard.writeText(ws.address!); setMsg("Address copied."); }} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                  <button onClick={() => { navigator.clipboard.writeText(ws.address!); setMsg("Address copied."); }} style={{ background: "#fff", color: "#111", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
                   <span style={{ fontSize: 11, color: "#4a4436" }}>Tap to copy</span>
                 </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "#4a4436" }}>{ws.status === "error" ? (ws.error || "Could not open wallet.") : "Opening local wallet…"}</div>
               )}
               {ws.height && <span style={{ fontSize: 11, fontWeight: 700, color: "#4a4436" }}>Synced to block {ws.height.toLocaleString()}</span>}
               <Link href="/vault" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, textAlign: "center", fontSize: 14 }}>Send, receive and proofs</Link>

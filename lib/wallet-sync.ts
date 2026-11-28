@@ -14,14 +14,19 @@ type WalletState = {
   height: number | null;
   error: string | null;
   lastSync: number | null;
+  missingAccount: boolean;
 };
 
 const SYNC_INTERVAL = 90_000;
-const initial: WalletState = { status: "idle", address: null, balance: null, accountId: null, height: null, error: null, lastSync: null };
+const RETRY_DELAYS = [15_000, 30_000, 60_000];
+const initial: WalletState = { status: "idle", address: null, balance: null, accountId: null, height: null, error: null, lastSync: null, missingAccount: false };
 
 let state: WalletState = initial;
 let wallet: WalletClient | null = null;
+let walletNet: Network | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
+let failCount = 0;
 let syncing = false;
 const listeners = new Set<() => void>();
 
@@ -41,31 +46,55 @@ async function requestPersistence() {
 
 async function doSync(network: Network) {
   if (syncing) return;
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   syncing = true;
   try {
+    if (wallet && walletNet !== network) {
+      wallet = null;
+      walletNet = null;
+      set({ address: null, balance: null, accountId: null, height: null, error: null, missingAccount: false });
+    }
     if (!wallet) {
-      set({ status: "opening" });
+      set({ status: "opening", error: null, missingAccount: false });
       wallet = await openWallet(network);
+      walletNet = network;
     }
     const [acct] = await wallet.accounts.list();
-    if (!acct) { set({ status: "ready", accountId: null }); syncing = false; return; }
+    if (!acct) {
+      set({ status: "ready", accountId: null, address: null, balance: null, height: null, error: null, missingAccount: true });
+      return;
+    }
 
-    set({ status: "syncing", accountId: acct.id });
-    const s = await syncWallet(wallet) as { scan?: { fullyScannedHeight?: number } };
-    const h = s?.scan?.fullyScannedHeight ?? null;
-    const addr = await addressOf(wallet, acct.id);
+    // Read cached OPFS address & balance immediately so the UI renders even before the relay answers.
+    const addr = state.address ?? await addressOf(wallet, acct.id);
     const bal = await balanceOf(wallet, acct.id);
-    set({ status: "ready", address: addr, balance: bal, height: h, error: null, lastSync: Date.now() });
+    set({ status: "syncing", accountId: acct.id, address: addr, balance: bal, error: null, missingAccount: false });
+
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      set({ status: "error", error: "Offline" });
+      return;
+    }
+
+    const s = await syncWallet(wallet, undefined, 2) as { scan?: { fullyScannedHeight?: number } };
+    const h = s?.scan?.fullyScannedHeight ?? null;
+    const freshAddr = await addressOf(wallet, acct.id);
+    const freshBal = await balanceOf(wallet, acct.id);
+    failCount = 0;
+    set({ status: "ready", address: freshAddr, balance: freshBal, height: h, error: null, lastSync: Date.now(), missingAccount: false });
 
     try {
       const prizes = await cloudRpc<SponsorPrize[]>("my_sponsor_prizes");
       if (prizes?.length) await detectPrizes(wallet, acct.id, prizes);
     } catch {}
   } catch (e) {
+    failCount += 1;
     set({ status: "error", error: (e as Error).message ?? String(e) });
-    setTimeout(() => doSync(network), 10_000);
+    if (failCount <= RETRY_DELAYS.length && (typeof navigator === "undefined" || navigator.onLine)) {
+      retryTimer = setTimeout(() => { retryTimer = null; doSync(network); }, RETRY_DELAYS[failCount - 1]);
+    }
+  } finally {
+    syncing = false;
   }
-  syncing = false;
 }
 
 function startBackground(network: Network) {
@@ -79,6 +108,7 @@ function startBackground(network: Network) {
 
 function stopBackground() {
   if (timer) { clearInterval(timer); timer = null; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
 }
 
 /** True when this device has a wallet for this network. */
@@ -94,8 +124,14 @@ export function useWalletSync(network: Network, enabled = true) {
     const onVis = () => {
       if (document.visibilityState === "visible" && state.lastSync && Date.now() - state.lastSync > SYNC_INTERVAL) doSync(network);
     };
+    const onOnline = () => { failCount = 0; doSync(network); };
     document.addEventListener("visibilitychange", onVis);
-    return () => { document.removeEventListener("visibilitychange", onVis); stopBackground(); };
+    window.addEventListener("online", onOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("online", onOnline);
+      stopBackground();
+    };
   }, [network, enabled]);
 
   return useSyncExternalStore(
@@ -105,6 +141,6 @@ export function useWalletSync(network: Network, enabled = true) {
   );
 }
 
-export function triggerSync(network: Network) { doSync(network); }
+export function triggerSync(network: Network) { failCount = 0; doSync(network); }
 
 export { zecOf };

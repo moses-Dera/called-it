@@ -11,7 +11,7 @@ import { SidebarAccount } from "./account";
 // --z: smoothly shrink narrow phones below 390px without magnifying wider viewports past 1x.
 const FIT = `(function(){function f(){var w=document.documentElement.clientWidth||innerWidth,s=document.documentElement.style;s.setProperty('--w',w+'px');s.setProperty('--z',Math.min(1,Math.max(0.82,w/390)).toFixed(4));}f();addEventListener('resize',f);})();`;
 
-const NAV = [["/", "Home"], ["/contests", "Contests"], ["/rooms", "Play with friends"], ["/vault", "My prizes and proofs"], ["/ranks", "Ranks"], ["/play/arena", "Live Arena"], ["/sponsor", "Run a contest"], ["/profile", "Profile and wallet"]];
+const NAV = [["/", "Home"], ["/contests", "Contests"], ["/rooms", "Play with friends"], ["/vault", "My prizes and proofs"], ["/ranks", "Ranks"], ["/play/arena", "Live Arena"], ["/profile", "Profile and wallet"]];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (

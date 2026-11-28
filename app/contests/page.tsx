@@ -19,9 +19,12 @@ export default function ContestsPage() {
   return (
     <main className="screen wide hub hub-pad">
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>Contests</h1>
-          <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)" }}>FREE TO PLAY</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>Contests</h1>
+            <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)" }}>FREE TO PLAY</span>
+          </div>
+          <Link href="/sponsor" className="btn" style={{ width: "auto", minHeight: 40, padding: "0 16px", background: "var(--lime)", color: "#111", border: "2px solid #111", fontSize: 13 }}>Run a contest</Link>
         </div>
         <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--muted)", lineHeight: 1.5 }}>
           Join a contest. Your sealed calls count toward its leaderboard. Win prizes.

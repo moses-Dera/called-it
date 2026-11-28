@@ -392,7 +392,11 @@ export function SponsorDashboardView({ data, reload }: { data: SponsorDashboard;
       </div>
       {form && <ContestForm key={form === "new" ? "new" : form.id} edit={form === "new" ? undefined : form} limit={data.limit_zec} onDone={done} />}
       {data.contests.length === 0 && !form && <p style={{ margin: 0, fontSize: 14, color: "var(--muted)" }}>No contests yet. Create your first one: pick matches, set the prize and choose when it goes public.</p>}
-      {data.contests.map((c) => <ContestCard key={c.id} c={c} onChange={changed} onEdit={() => { setForm(c); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
+      {data.contests.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: data.contests.length > 1 ? "repeat(auto-fit, minmax(min(100%, 420px), 1fr))" : "1fr", gap: 16, alignItems: "start" }}>
+          {data.contests.map((c) => <ContestCard key={c.id} c={c} onChange={changed} onEdit={() => { setForm(c); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
+        </div>
+      )}
       <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>Your contests settle automatically when their last match finishes. You then have 72 hours to pay each winner in shielded ZEC, and each winner confirms when it arrives. Your public record shows how many contests you paid in full. Only you can see and change your contests here.</p>
     </div>
   );

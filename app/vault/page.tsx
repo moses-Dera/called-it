@@ -8,8 +8,7 @@ import { SponsorPrizes } from "@/components/sponsor-prizes";
 import { WalletStatus } from "@/components/wallet-status";
 import { WalletSetup } from "@/components/wallet-setup";
 import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
-import { hasWallet } from "@/lib/wallet-sync";
-import { useWalletSync, zecOf } from "@/lib/wallet-sync";
+import { hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -19,7 +18,7 @@ export default function Vault() {
   const s = useStore();
   const network = useNetwork();
   const t = totals(s);
-  const [addr, setAddr] = useState(""), [msg, setMsg] = useState("");
+  const [addr, setAddr] = useState(""), [msg, setMsg] = useState(""), [copied, setCopied] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const saved = s.profile.address;
   const [checks, setChecks] = useState<Record<string, string>>({});
@@ -81,9 +80,9 @@ export default function Vault() {
             <WalletSetup network={network} onDone={(a) => { setShowSetup(false); if (a && !saved) saveProfile({ address: a }); }} />
           </section>
         )}
-        {hasInApp && ws.address && (
+        {hasInApp && (
           <section style={{ padding: 18, borderRadius: 24, background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
               <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet · shielded</span>
               {network === "testnet" && <span className="chip" style={{ background: "var(--amber)", color: "#111", border: 0 }}>TESTNET</span>}
             </div>
@@ -91,12 +90,32 @@ export default function Vault() {
               <span className="display" style={{ fontSize: 42 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
               <b style={{ fontSize: 16 }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 11, fontWeight: 800 }}>RECEIVE ADDRESS</span>
-              <button onClick={() => navigator.clipboard.writeText(ws.address!)} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
-              <span style={{ fontSize: 11, color: "#4a4436" }}>Tap to copy</span>
+            {ws.missingAccount ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>Wallet keys are missing from this browser&apos;s local storage. Open Called It in the browser profile where you created it, or check again.</span>
+                <button type="button" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={() => triggerSync(network)}>Check again</button>
+              </div>
+            ) : ws.address ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 800 }}>RECEIVE ADDRESS</span>
+                <button type="button" onClick={() => { navigator.clipboard?.writeText(ws.address!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: "#fff", color: "#111", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                <span style={{ fontSize: 11, color: "#4a4436" }}>{copied ? "Copied to clipboard" : "Tap to copy"}</span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>
+                {ws.status === "error" ? `Could not reach sync server (${ws.error || "offline"}).` : "Opening your local shielded wallet…"}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>
+                {ws.status === "error" ? "Sync paused · local wallet still works"
+                  : ws.status === "syncing" ? "Syncing latest blocks…"
+                  : ws.height ? `Synced to block ${ws.height.toLocaleString()}` : "Ready"}
+              </span>
+              {(ws.status === "error" || ws.status === "ready") && (
+                <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
+              )}
             </div>
-            {ws.height && <span style={{ fontSize: 12, fontWeight: 700 }}>Synced to block {ws.height.toLocaleString()}</span>}
           </section>
         )}
 

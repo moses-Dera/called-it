@@ -20,17 +20,30 @@ const STEPS = [
 export default function SponsorPage() {
   const signedIn = !!useCloud().session;
   const { data: dash, reload } = useSponsorDashboard();
+  if (signedIn && dash === undefined) {
+    return (
+      <main className="screen wide hub hub-pad">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
+          <span className="eyebrow" style={{ color: "var(--muted)" }}>Sponsor dashboard</span>
+          <div style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 18, padding: 20, fontSize: 14, color: "var(--muted)" }}>
+            Opening your sponsor dashboard…
+          </div>
+        </div>
+        <BottomNav active="/sponsor" />
+      </main>
+    );
+  }
   if (signedIn && dash) {
     return (
       <main className="screen wide hub hub-pad">
-        <div className="hub-inner" style={{ paddingBottom: 24 }}>
+        <div style={{ width: "100%", paddingBottom: 24 }}>
           <SponsorDashboardView data={dash} reload={reload} />
         </div>
         <BottomNav active="/sponsor" />
       </main>
     );
   }
-  return <SponsorPitch signedIn={signedIn} checking={signedIn && dash === undefined} onStarted={reload} />;
+  return <SponsorPitch signedIn={signedIn} checking={false} onStarted={reload} />;
 }
 
 function SponsorPitch({ signedIn, checking, onStarted }: { signedIn: boolean; checking: boolean; onStarted: () => void }) {

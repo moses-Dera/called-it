@@ -66,47 +66,47 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 440 }}>
       {step === "passphrase" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Set up your wallet</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Choose a strong passphrase. You&apos;ll need it to restore your wallet on another device.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>Choose a strong passphrase. You&apos;ll need it to restore your wallet on another device.</p>
         <input style={inp} type="password" placeholder="Passphrase (8+ characters)" value={pass} onChange={(e) => setPass(e.target.value)} autoComplete="new-password" />
         <input style={inp} type="password" placeholder="Confirm passphrase" value={pass2} onChange={(e) => setPass2(e.target.value)} autoComplete="new-password" />
-        {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
+        {error && <div style={{ color: "#9a2d1d", fontSize: 13, fontWeight: 700 }}>{error}</div>}
         <button style={btn} onClick={create}>Create wallet</button>
       </>}
 
       {step === "creating" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Creating your wallet…</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>This takes a moment. Your keys are generated on this device only.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>This takes a moment. Your keys are generated on this device only.</p>
       </>}
 
       {step === "show-phrase" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Write down your recovery phrase</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>These 24 words are the only way to recover your wallet if you lose access. Write them on paper and keep them safe.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>These 24 words are the only way to recover your wallet if you lose access. Write them on paper and keep them safe.</p>
         <div style={{ background: "#fff", border: "2px solid #111", borderRadius: 14, padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px 10px" }}>
           {phrase.split(" ").map((w, i) => (
-            <span key={i} style={{ fontSize: 13, fontWeight: 600 }}><b style={{ color: "var(--muted)", fontWeight: 400 }}>{i + 1}.</b> {w}</span>
+            <span key={i} style={{ fontSize: 13, fontWeight: 600 }}><b style={{ color: "#4a4436", fontWeight: 500 }}>{i + 1}.</b> {w}</span>
           ))}
         </div>
-        {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
+        {error && <div style={{ color: "#9a2d1d", fontSize: 13, fontWeight: 700 }}>{error}</div>}
         <button style={btn} onClick={startQuiz}>I&apos;ve written them down</button>
       </>}
 
       {step === "quiz" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Confirm your phrase</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Enter the requested words to prove you saved them.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>Enter the requested words to prove you saved them.</p>
         {quizIdx.map((idx, i) => (
           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, minWidth: 60 }}>Word #{idx + 1}</span>
             <input style={inp} value={answers[i]} onChange={(e) => { const a = [...answers]; a[i] = e.target.value; setAnswers(a); }} autoComplete="off" autoCapitalize="off" />
           </div>
         ))}
-        {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
+        {error && <div style={{ color: "#9a2d1d", fontSize: 13, fontWeight: 700 }}>{error}</div>}
         <button style={btn} onClick={checkQuiz}>Verify</button>
-        <button style={{ ...btn, background: "transparent", border: "2px solid #ccc", color: "#666", fontSize: 13 }} onClick={() => { markWalletCreated(network); setStep("done"); const addr = (window as { __walletAddr?: string }).__walletAddr ?? ""; delete (window as { __walletAddr?: string }).__walletAddr; onDone(addr); }}>Skip for now (not recommended)</button>
+        <button style={{ ...btn, background: "transparent", border: "2px solid #9e9682", color: "#4a4436", fontSize: 13 }} onClick={() => { markWalletCreated(network); setStep("done"); const addr = (window as { __walletAddr?: string }).__walletAddr ?? ""; delete (window as { __walletAddr?: string }).__walletAddr; onDone(addr); }}>Skip for now (not recommended)</button>
       </>}
 
       {step === "done" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Wallet ready</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Your shielded wallet is set up. Prizes arrive here automatically.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "#4a4436" }}>Your shielded wallet is set up. Prizes arrive here automatically.</p>
       </>}
     </div>
   );
