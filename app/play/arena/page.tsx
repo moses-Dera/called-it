@@ -28,7 +28,8 @@ export default function Arena() {
   const isLive = !!live;
   const hasResult = match?.homeGoals != null;
   const score = hasResult ? `${match!.homeGoals}–${match!.awayGoals}` : isLive && match!.liveHome != null ? `${match!.liveHome}–${match!.liveAway}` : "vs";
-  const label = now == null ? "Loading" : isLive ? "LIVE" : hasResult ? "Full time" : "Next up";
+  const label = now == null ? "Loading" : isLive ? "LIVE" : hasResult ? "FULL TIME" : "NEXT UP";
+  const canPlay = isLive;
 
   const [n, setN] = useState(0), [secs, setSecs] = useState(15), [pick, setPick] = useState<number | null>(null);
   const [settled, setSettled] = useState(false), [combo, setCombo] = useState(0), [done, setDone] = useState<Done[]>([]);
@@ -38,10 +39,10 @@ export default function Arena() {
   const Q = { ...rawQ, q: rawQ.q, a: rawQ.a.map((a) => a.replace("{home}", home).replace("{away}", away)) };
 
   useEffect(() => {
-    if (settled) return;
+    if (settled || !canPlay) return;
     const iv = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(iv);
-  }, [settled, n]);
+  }, [settled, n, canPlay]);
   useEffect(() => {
     if (secs > 0 || settled) return;
     const t = setTimeout(() => {
@@ -56,7 +57,7 @@ export default function Arena() {
   }, [secs, settled]);
 
   async function choose(i: number) {
-    if (pick !== null || secs === 0) return;
+    if (!canPlay || pick !== null || secs === 0) return;
     setPick(i);
     const s = await createSeal("arena", `arena-${Date.now()}`, Q.a[i], `Arena: ${Q.q} → ${Q.a[i]}`);
     setSealId(s.id);
@@ -81,6 +82,7 @@ export default function Arena() {
         </div>
       </div>
 
+      {canPlay ? (
       <section className="paper" style={{ margin: "18px 20px 0", borderRadius: 28, boxShadow: "6px 6px 0 var(--lime)", padding: 18, display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span className="eyebrow">Quick call</span>
@@ -103,6 +105,13 @@ export default function Arena() {
         {seal && <div style={{ textAlign: "center" }}><SealStatus seal={seal} /></div>}
         {settled && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={next}>Next call</button>}
       </section>
+      ) : (
+      <section className="paper" style={{ margin: "18px 20px 0", borderRadius: 28, boxShadow: "6px 6px 0 var(--lime)", padding: 18, display: "flex", flexDirection: "column", gap: 14, alignItems: "center", textAlign: "center" }}>
+        <span className="eyebrow">{hasResult ? "Match ended" : "Waiting for kickoff"}</span>
+        <div className="display" style={{ fontSize: 22 }}>{hasResult ? "This match is over." : upcoming ? `${home} vs ${away} hasn't started yet.` : "No matches right now."}</div>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#4a4436" }}>{hasResult ? "Quick calls are only available during live matches. Come back when the next match kicks off." : "Quick calls open the moment the match goes live."}</span>
+      </section>
+      )}
 
       <section style={{ padding: "18px 20px 24px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 18 }}>Resolved this match</h2>
