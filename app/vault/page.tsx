@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
@@ -28,6 +28,13 @@ export default function Vault() {
   const hasInApp = hasWallet(network);
   const ws = useWalletSync(network, hasInApp);
   const [showSetup, setShowSetup] = useState(false);
+
+  // Auto-save wallet address to profile when in-app wallet is ready but no address saved
+  useEffect(() => {
+    if (hasInApp && ws.address && !saved) {
+      saveProfile({ address: ws.address });
+    }
+  }, [hasInApp, ws.address, saved]);
 
   async function withdraw() {
     // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.

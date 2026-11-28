@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { newPhrase, openWallet, createAccount, addressOf, markWalletCreated } from "@/lib/in-app-wallet";
-import { encryptPhrase, quizIndices, type EncryptedPhrase } from "@/lib/wallet-crypto";
+import { encryptPhrase, quizIndices } from "@/lib/wallet-crypto";
 import { saveWalletBackup, verifyWalletBackup } from "@/lib/cloud";
 import type { Network } from "@/lib/zaddr";
 
@@ -25,7 +25,6 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
       const wallet = await openWallet(network);
       const acct = await createAccount(wallet, network, p, false);
       const addr = await addressOf(wallet, acct.id);
-      markWalletCreated(network);
 
       const enc = await encryptPhrase(p, pass);
       await saveWalletBackup(network, enc.ciphertext, enc.iv, enc.salt, enc.kdf);
@@ -52,6 +51,7 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
       }
     }
     setError("");
+    markWalletCreated(network);
     try { await verifyWalletBackup(); } catch {}
     setStep("done");
     const addr = (window as { __walletAddr?: string }).__walletAddr ?? "";
@@ -66,7 +66,7 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 440 }}>
       {step === "passphrase" && <>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Set up your wallet</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Choose a strong passphrase. You'll need it to restore your wallet on another device.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Choose a strong passphrase. You&apos;ll need it to restore your wallet on another device.</p>
         <input style={inp} type="password" placeholder="Passphrase (8+ characters)" value={pass} onChange={(e) => setPass(e.target.value)} autoComplete="new-password" />
         <input style={inp} type="password" placeholder="Confirm passphrase" value={pass2} onChange={(e) => setPass2(e.target.value)} autoComplete="new-password" />
         {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
@@ -87,7 +87,7 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
           ))}
         </div>
         {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
-        <button style={btn} onClick={startQuiz}>I've written them down</button>
+        <button style={btn} onClick={startQuiz}>I&apos;ve written them down</button>
       </>}
 
       {step === "quiz" && <>
@@ -101,6 +101,12 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
         ))}
         {error && <div style={{ color: "#c33", fontSize: 13, fontWeight: 700 }}>{error}</div>}
         <button style={btn} onClick={checkQuiz}>Verify</button>
+        <button style={{ ...btn, background: "transparent", border: "2px solid #ccc", color: "#666", fontSize: 13 }} onClick={() => { markWalletCreated(network); setStep("done"); const addr = (window as { __walletAddr?: string }).__walletAddr ?? ""; delete (window as { __walletAddr?: string }).__walletAddr; onDone(addr); }}>Skip for now (not recommended)</button>
+      </>}
+
+      {step === "done" && <>
+        <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Wallet ready</h2>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>Your shielded wallet is set up. Prizes arrive here automatically.</p>
       </>}
     </div>
   );

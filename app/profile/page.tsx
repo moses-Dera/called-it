@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Img, TopBar } from "@/components/ui";
 import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork, myPrivacy, setPrivacy, type Privacy } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
-import { hasWallet } from "@/lib/wallet-sync";
+import { hasWallet, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { WalletSetup } from "@/components/wallet-setup";
 import { WalletStatus } from "@/components/wallet-status";
 
@@ -19,7 +19,16 @@ export default function Profile() {
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
   const [showWalletSetup, setShowWalletSetup] = useState(false);
   const hasInApp = hasWallet(network);
+  const ws = useWalletSync(network, hasInApp);
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
+
+  // Auto-save wallet address when in-app wallet is ready but no profile address set
+  useEffect(() => {
+    if (hasInApp && ws.address && !s.profile.address && !addr) {
+      saveProfile({ address: ws.address });
+      setAddr(ws.address);
+    }
+  }, [hasInApp, ws.address, s.profile.address, addr]);
   const myHandle = useMyHandle();
   const [handle, setHandle] = useState<string | null>(null);
   const handleV = handle ?? myHandle ?? "";
@@ -98,12 +107,24 @@ export default function Profile() {
           </section>
         )}
         {hasInApp && (
-          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
+              <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet · shielded</span>
               <WalletStatus />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Your shielded wallet is active. Manage it in <Link href="/vault" style={{ textDecoration: "underline", fontWeight: 800 }}>My prizes and proofs</Link>.</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span className="display" style={{ fontSize: 36 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
+              <b style={{ fontSize: 14, color: "#111" }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
+            </div>
+            {ws.address && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>YOUR ADDRESS</span>
+                <button onClick={() => { navigator.clipboard.writeText(ws.address!); setMsg("Address copied."); }} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                <span style={{ fontSize: 11, color: "var(--muted)" }}>Tap to copy</span>
+              </div>
+            )}
+            {ws.height && <span style={{ fontSize: 11, fontWeight: 700, color: "#4a4436" }}>Synced to block {ws.height.toLocaleString()}</span>}
+            <Link href="/vault" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, textAlign: "center", fontSize: 14 }}>Send, receive and proofs</Link>
           </section>
         )}
 
