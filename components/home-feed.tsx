@@ -52,11 +52,11 @@ function HomeFixturesInner() {
   const sealCounts = useFixtureSealCounts();
   const [league, setLeague] = useState<string>("all"), [showAll, setShowAll] = useState(false);
 
-  if (state === "error") {
+  if (state === "error" || state === "offline") {
     return (
-      <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 22, padding: 18 }}>
-        <div className="display" style={{ fontSize: 20 }}>Couldn&apos;t load fixtures</div>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Check your connection and try again.</div>
+      <section className="home-fixtures" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", background: "var(--panel)", border: `2px solid ${state === "offline" ? "var(--amber)" : "var(--line)"}`, borderRadius: 22, padding: 18 }}>
+        <div className="display" style={{ fontSize: 20 }}>{state === "offline" ? "Offline, retrying…" : "Couldn\u2019t load fixtures"}</div>
+        <div style={{ fontSize: 13, color: "var(--muted)" }}>{state === "offline" ? "Waiting for your connection to come back." : "Check your connection and try again."}</div>
         <button className="btn" style={{ width: "auto", padding: "0 18px" }} onClick={() => refreshFixtures()}>Try again</button>
       </section>
     );

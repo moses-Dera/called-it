@@ -16,13 +16,52 @@ export const cloudReady = !!(URL && KEY);
 let client: SupabaseClient | null = null;
 export function sb() { return cloudReady ? (client ??= createClient(URL!, KEY!, { auth: { flowType: "pkce" } })) : null; }
 
-type Cloud = { session: Session | null; status: "off" | "idle" | "syncing" | "synced" | "error"; error?: string };
+type Cloud = { session: Session | null; status: "off" | "idle" | "syncing" | "synced" | "offline" | "error"; error?: string };
 let cloud: Cloud = { session: null, status: cloudReady ? "idle" : "off" };
 const SERVER: Cloud = { session: null, status: "off" };
 const listeners = new Set<() => void>();
 function set(patch: Partial<Cloud>) { cloud = { ...cloud, ...patch }; listeners.forEach((l) => l()); }
 export function useCloud(): Cloud {
   return useSyncExternalStore((l) => { listeners.add(l); return () => listeners.delete(l); }, () => cloud, () => SERVER);
+}
+
+const RETRY_DELAYS = [5_000, 15_000, 30_000, 60_000];
+const retryDelay = (attempt: number) => RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length - 1)];
+
+/** True when an error looks like an unreachable network, offline browser, or request timeout. */
+export function isNetworkError(e: unknown): boolean {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  const name = (e as { name?: string } | null)?.name ?? "";
+  if (name === "AbortError" || name === "TimeoutError") return true;
+  const msg = e instanceof Error ? e.message
+    : typeof e === "object" && e !== null && "message" in e ? String((e as { message: unknown }).message)
+    : String(e ?? "");
+  if (e instanceof TypeError && (!msg || /fetch|network|load failed/i.test(msg))) return true;
+  return /failed to fetch|networkerror|network error|load failed|fetch failed|internet disconnected|err_network|name not resolved|timed out|timeout|aborted/i.test(msg);
+}
+
+/** Schedule retries with escalating backoff (5s, 15s, 30s, 60s...) and immediate recovery on `online`. */
+function retryWhenOnline(fn: () => void) {
+  let attempt = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let unsubOnline: (() => void) | null = null;
+  const clear = () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (unsubOnline) { unsubOnline(); unsubOnline = null; }
+  };
+  return {
+    schedule(alive: () => boolean) {
+      if (timer || !alive()) return;
+      const delay = retryDelay(attempt++);
+      timer = setTimeout(() => { timer = null; if (alive()) fn(); }, delay);
+      if (!unsubOnline && typeof window !== "undefined") {
+        const onOnline = () => { clear(); attempt = 0; if (alive()) fn(); };
+        window.addEventListener("online", onOnline);
+        unsubOnline = () => window.removeEventListener("online", onOnline);
+      }
+    },
+    reset() { attempt = 0; clear(); },
+  };
 }
 
 export async function signInWithGoogle() {
@@ -96,14 +135,35 @@ async function push(uid: string) {
   if (err) throw new Error(err.message);
 }
 
-let timer: ReturnType<typeof setTimeout> | null = null, busy = false, again = false;
+let timer: ReturnType<typeof setTimeout> | null = null, retryTimer: ReturnType<typeof setTimeout> | null = null;
+let retryAttempt = 0, needPull = false, busy = false, again = false;
+function clearSyncRetry() { if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } }
+function scheduleSyncRetry() {
+  if (retryTimer || !cloud.session) return;
+  const delay = retryDelay(retryAttempt++);
+  retryTimer = setTimeout(() => { retryTimer = null; sync(); }, delay);
+}
 async function sync(first = false) {
   const uid = cloud.session?.user.id;
   if (!uid) return;
+  if (first) needPull = true;
   if (busy) { again = true; return; }
+  clearSyncRetry();
   busy = true; set({ status: "syncing", error: undefined });
-  try { if (first) await pull(uid); await push(uid); set({ status: "synced" }); }
-  catch (e) { set({ status: "error", error: e instanceof Error ? e.message : "Sync failed" }); }
+  try {
+    if (needPull) { await pull(uid); needPull = false; }
+    await push(uid);
+    retryAttempt = 0;
+    set({ status: "synced", error: undefined });
+  } catch (e) {
+    if (isNetworkError(e)) {
+      set({ status: "offline", error: undefined });
+      scheduleSyncRetry();
+    } else {
+      retryAttempt = 0;
+      set({ status: "error", error: e instanceof Error ? e.message : "Sync failed" });
+    }
+  }
   busy = false;
   if (again) { again = false; sync(); }
 }
@@ -153,15 +213,24 @@ export function useLeaderboard(period: "week" | "all"): { rows: Rank[] | null; e
     const c = sb();
     if (!c) return;
     let live = true;
-    setRows(null); setHasMore(false);
-    c.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: 0 }).then(({ data, error: err }) => {
-      if (!live) return;
-      if (err) { setError(err.message); setRows([]); return; }
-      const mapped = (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points), user_id: r.user_id ?? undefined }));
-      setRows(mapped);
-      setHasMore(mapped.length >= LB_PAGE);
-    });
-    return () => { live = false; };
+    const retry = retryWhenOnline(() => load());
+    setRows(null); setError(undefined); setHasMore(false);
+    function load() {
+      c!.rpc("leaderboard", { p_period: period, p_limit: LB_PAGE, p_offset: 0 }).then(({ data, error: err }) => {
+        if (!live) return;
+        if (err) {
+          if (isNetworkError(err)) { retry.schedule(() => live); return; }
+          setError(err.message); setRows([]); return;
+        }
+        retry.reset();
+        setError(undefined);
+        const mapped = (data as Rank[]).map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points), user_id: r.user_id ?? undefined }));
+        setRows(mapped);
+        setHasMore(mapped.length >= LB_PAGE);
+      });
+    }
+    load();
+    return () => { live = false; retry.reset(); };
   }, [key, period]);
 
   function loadMore() {
@@ -221,12 +290,18 @@ export function useTipster(handle: string | null): { tipster: Tipster | null | u
     if (!handle) return;
     if (!c) { setState({ handle, tipster: null, error: "Accounts are not configured." }); return; }
     let live = true;
-    c.rpc("tipster_profile", { p_handle: handle }).then(({ data, error }) => {
-      if (!live) return;
-      // A failed background refresh keeps what is already on screen.
-      setState((prev) => error && prev.handle === handle && prev.tipster ? prev : { handle, tipster: error ? null : (data as Tipster | null), error: error?.message });
-    });
-    return () => { live = false; };
+    const retry = retryWhenOnline(() => load());
+    function load() {
+      c!.rpc("tipster_profile", { p_handle: handle }).then(({ data, error }) => {
+        if (!live) return;
+        if (error && isNetworkError(error)) { retry.schedule(() => live); return; }
+        retry.reset();
+        // A failed background refresh keeps what is already on screen.
+        setState((prev) => error && prev.handle === handle && prev.tipster ? prev : { handle, tipster: error ? null : (data as Tipster | null), error: error?.message });
+      });
+    }
+    load();
+    return () => { live = false; retry.reset(); };
   }, [handle, tick]);
   return state.handle === handle ? state : { tipster: undefined };
 }
@@ -272,19 +347,35 @@ export function useTipHistory(): Tip[] | null {
 
 // ---------- Fixtures and contests (public tables) ----------
 type Listener = () => void;
-export type LoadState = "loading" | "ready" | "error";
+export type LoadState = "loading" | "ready" | "offline" | "error";
 function shared<T>(load: () => Promise<T>, initial: T) {
   let value = initial, state: LoadState = "loading", loading = false;
   const subs = new Set<Listener>();
+  const retry = retryWhenOnline(() => refresh());
   const refresh = async () => {
     if (loading) return;
     loading = true;
     // After a successful load, a failed refresh keeps showing the last good data.
-    try { value = await load(); state = "ready"; } catch { if (state !== "ready") state = "error"; }
+    try {
+      value = await load();
+      state = "ready";
+      retry.reset();
+    } catch (e) {
+      if (isNetworkError(e)) {
+        if (state !== "ready") state = "offline";
+        retry.schedule(() => subs.size > 0);
+      } else if (state !== "ready") {
+        state = "error";
+      }
+    }
     loading = false;
     subs.forEach((l) => l());
   };
-  const sub = (l: Listener) => { subs.add(l); if (state !== "ready") refresh(); return () => { subs.delete(l); }; };
+  const sub = (l: Listener) => {
+    subs.add(l);
+    if (state !== "ready") refresh();
+    return () => { subs.delete(l); if (subs.size === 0) retry.reset(); };
+  };
   return {
     refresh,
     get: () => value,
@@ -391,10 +482,20 @@ export function useSponsorDashboard(): { data: SponsorDashboard | null | undefin
   useEffect(() => {
     if (!uid || !sb()) { setData(null); return; }
     let live = true;
-    cloudRpc<SponsorDashboard | null>("sponsor_dashboard").then((d) => {
-      if (live) setData(d && { ...d, limit_zec: Number(d.limit_zec ?? 0.5), owed_zec: Number(d.owed_zec ?? 0), contests: d.contests.map((c) => ({ ...c, prize_zec: Number(c.prize_zec), funded_zec: Number(c.funded_zec) })) });
-    }).catch(() => live && setData((prev) => prev ?? null));
-    return () => { live = false; };
+    const retry = retryWhenOnline(() => load());
+    function load() {
+      cloudRpc<SponsorDashboard | null>("sponsor_dashboard").then((d) => {
+        if (!live) return;
+        retry.reset();
+        setData(d && { ...d, limit_zec: Number(d.limit_zec ?? 0.5), owed_zec: Number(d.owed_zec ?? 0), contests: d.contests.map((c) => ({ ...c, prize_zec: Number(c.prize_zec), funded_zec: Number(c.funded_zec) })) });
+      }).catch((e) => {
+        if (!live) return;
+        if (isNetworkError(e)) { retry.schedule(() => live); return; }
+        setData((prev) => prev ?? null);
+      });
+    }
+    load();
+    return () => { live = false; retry.reset(); };
   }, [uid, tick, n]);
   return { data, reload: () => setN((x) => x + 1) };
 }
@@ -419,8 +520,20 @@ export function useMySponsorPrizes(): { prizes: SponsorPrize[] | null; reload: (
   useEffect(() => {
     if (!uid || !sb()) { setPrizes(null); return; }
     let live = true;
-    cloudRpc<SponsorPrize[]>("my_sponsor_prizes").then((r) => live && setPrizes(r.map((p) => ({ ...p, zec: Number(p.zec) })))).catch(() => live && setPrizes((x) => x ?? []));
-    return () => { live = false; };
+    const retry = retryWhenOnline(() => load());
+    function load() {
+      cloudRpc<SponsorPrize[]>("my_sponsor_prizes").then((r) => {
+        if (!live) return;
+        retry.reset();
+        setPrizes(r.map((p) => ({ ...p, zec: Number(p.zec) })));
+      }).catch((e) => {
+        if (!live) return;
+        if (isNetworkError(e)) { retry.schedule(() => live); return; }
+        setPrizes((x) => x ?? []);
+      });
+    }
+    load();
+    return () => { live = false; retry.reset(); };
   }, [uid, tick, n]);
   return { prizes, reload: () => setN((x) => x + 1) };
 }
@@ -549,16 +662,25 @@ export function useContestBoard(id: string | null): { rows: Rank[] | null; loadM
   useEffect(() => {
     if (!id || !sb()) return;
     let live = true;
+    const retry = retryWhenOnline(() => load());
     setCurId(id); setRows(null); setHasMore(false);
-    cloudRpc<Rank[]>("contest_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: 0 })
-      .then((data) => {
-        if (!live) return;
-        const mapped = data.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
-        setRows(mapped);
-        setHasMore(mapped.length >= LB_PAGE);
-      })
-      .catch(() => live && setRows([]));
-    return () => { live = false; };
+    function load() {
+      cloudRpc<Rank[]>("contest_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: 0 })
+        .then((data) => {
+          if (!live) return;
+          retry.reset();
+          const mapped = data.map((r) => ({ ...r, rank: Number(r.rank), points: Number(r.points) }));
+          setRows(mapped);
+          setHasMore(mapped.length >= LB_PAGE);
+        })
+        .catch((e) => {
+          if (!live) return;
+          if (isNetworkError(e)) { retry.schedule(() => live); return; }
+          setRows([]);
+        });
+    }
+    load();
+    return () => { live = false; retry.reset(); };
   }, [id]);
 
   // Keep the first page current while the page is open; leave it alone once more pages are loaded.
@@ -633,8 +755,27 @@ export function startCloud() {
       const q = new URLSearchParams(location.search); q.delete("code");
       history.replaceState(history.state, "", location.pathname + (q.size ? "?" + q : "") + location.hash);
     }
-    if (event === "SIGNED_OUT") set({ status: "idle", error: undefined });
+    if (event === "SIGNED_OUT") { clearSyncRetry(); retryAttempt = 0; needPull = false; set({ status: "idle", error: undefined }); }
   });
+  if (typeof window !== "undefined") {
+    window.addEventListener("online", () => {
+      clearSyncRetry();
+      retryAttempt = 0;
+      if (cloud.session && (cloud.status === "offline" || needPull)) sync().then(autoClaim);
+      else if (cloud.session) autoClaim();
+      fixtureStore.refresh();
+      contestStore.refresh();
+      recordStore.refresh();
+      handleStore.refresh();
+      settingsStore.refresh();
+    });
+    window.addEventListener("offline", () => {
+      if (cloud.session && !busy) {
+        set({ status: "offline", error: undefined });
+        scheduleSyncRetry();
+      }
+    });
+  }
   setInterval(() => { autoClaim(); fixtureStore.refresh(); contestStore.refresh(); }, 5 * 60_000);
   subscribe(() => {
     if (!cloud.session || busy) return;

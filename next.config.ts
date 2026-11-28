@@ -13,8 +13,40 @@ const nextConfig: NextConfig = {
     ];
   },
   // The in-app wallet engine checks each file's exact type; .mjs must be text/javascript.
+  // Wallet routes enforce a strict CSP so third-party scripts (such as Telegram) can never run alongside keys.
   async headers() {
-    return [{ source: "/zcash/:engine/:dir/:file*.mjs", headers: [{ key: "Content-Type", value: "text/javascript" }] }];
+    const originOf = (u?: string) => { try { return u ? new URL(u).origin : ""; } catch { return ""; } };
+    const sbOrigin = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
+    const sbWs = sbOrigin ? sbOrigin.replace(/^http/, "ws") : "";
+    const sentryOrigin = originOf(process.env.NEXT_PUBLIC_SENTRY_DSN);
+    const relayTestnet = originOf(process.env.NEXT_PUBLIC_ZCASH_RELAY_TESTNET) || "https://zcash-testnet.chainsafe.dev";
+    const relayMainnet = originOf(process.env.NEXT_PUBLIC_ZCASH_RELAY_MAINNET) || "https://zcash-mainnet.chainsafe.dev";
+    const isDev = process.env.NODE_ENV !== "production";
+    const connectSrc = ["'self'", relayTestnet, relayMainnet, sbOrigin, sbWs, sentryOrigin].filter(Boolean).join(" ");
+    const walletCsp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self'",
+      `connect-src ${connectSrc}`,
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      ...(isDev ? [] : ["upgrade-insecure-requests"]),
+    ].join("; ");
+    const walletHeaders = [{ key: "Content-Security-Policy", value: walletCsp }];
+    return [
+      { source: "/zcash/:engine/:dir/:file*.mjs", headers: [{ key: "Content-Type", value: "text/javascript" }] },
+      { source: "/wallet-lab", headers: walletHeaders },
+      { source: "/wallet-lab/:path*", headers: walletHeaders },
+      { source: "/wallet", headers: walletHeaders },
+      { source: "/wallet/:path*", headers: walletHeaders },
+      { source: "/vault", headers: walletHeaders },
+      { source: "/vault/:path*", headers: walletHeaders },
+    ];
   },
   async rewrites() {
     return [{ source: "/@:handle", destination: "/u/:handle" }];

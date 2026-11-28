@@ -1,6 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportError } from "@/lib/errors";
+
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    void reportError(error, {
+      source: "global-error-boundary",
+      route: typeof window !== "undefined" ? window.location.pathname : undefined,
+      extra: error.digest ? { digest: error.digest } : undefined,
+    });
+  }, [error]);
+
   return (
     <html lang="en">
       <body style={{ margin: 0, minHeight: "100dvh", background: "#0B0F14", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 20, fontFamily: "system-ui, -apple-system, sans-serif" }}>

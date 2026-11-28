@@ -77,6 +77,17 @@ declare global {
   }
 }
 
+const WALLET_PATH = /^\/(?:wallet(?:-lab)?|vault)(?:\/|$)/;
+const TG_SCRIPT_SRC = "https://telegram.org/js/telegram-web-app.js";
+
+function inTelegramContext(): boolean {
+  if (typeof window === "undefined" || WALLET_PATH.test(window.location.pathname)) return false;
+  if (window.Telegram?.WebApp) return true;
+  if ((window as { TelegramWebviewProxy?: unknown }).TelegramWebviewProxy !== undefined) return true;
+  const params = `${window.location.search}${window.location.hash}`;
+  return /tgWebApp(?:Data|Platform|Version)=/.test(params);
+}
+
 export function useTelegram() {
   const [tg, setTg] = useState<TelegramWebApp | null>(null);
   const [isTelegram, setIsTelegram] = useState(false);
@@ -84,9 +95,12 @@ export function useTelegram() {
   const [startParam, setStartParam] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const webapp = window.Telegram?.WebApp;
-    if (webapp && webapp.initData) {
+    if (!inTelegramContext()) return;
+    let live = true;
+    const attach = () => {
+      if (!live) return;
+      const webapp = window.Telegram?.WebApp;
+      if (!webapp || !webapp.initData) return;
       setTg(webapp);
       setIsTelegram(true);
       try {
@@ -95,14 +109,24 @@ export function useTelegram() {
         if (webapp.setHeaderColor) webapp.setHeaderColor("#0B0F14");
         if (webapp.setBackgroundColor) webapp.setBackgroundColor("#0B0F14");
       } catch {}
+      if (webapp.initDataUnsafe?.user) setUser(webapp.initDataUnsafe.user);
+      if (webapp.initDataUnsafe?.start_param) setStartParam(webapp.initDataUnsafe.start_param);
+    };
 
-      if (webapp.initDataUnsafe?.user) {
-        setUser(webapp.initDataUnsafe.user);
-      }
-      if (webapp.initDataUnsafe?.start_param) {
-        setStartParam(webapp.initDataUnsafe.start_param);
-      }
+    if (window.Telegram?.WebApp) {
+      attach();
+      return () => { live = false; };
     }
+    // Load Telegram's SDK only when actually inside a Telegram Mini App (never on normal or wallet pages).
+    let script = document.querySelector<HTMLScriptElement>(`script[src="${TG_SCRIPT_SRC}"]`);
+    if (!script) {
+      script = document.createElement("script");
+      script.src = TG_SCRIPT_SRC;
+      script.async = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener("load", attach);
+    return () => { live = false; script?.removeEventListener("load", attach); };
   }, []);
 
   const haptic = useCallback(

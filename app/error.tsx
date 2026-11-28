@@ -1,6 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { reportError } from "@/lib/errors";
+import { scrubText } from "@/lib/scrub";
+
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    void reportError(error, {
+      source: "error-boundary",
+      route: typeof window !== "undefined" ? window.location.pathname : undefined,
+      extra: error.digest ? { digest: error.digest } : undefined,
+    });
+  }, [error]);
+
+  const safeMsg = error.message ? scrubText(error.message) : "";
   return (
     <div style={{ minHeight: "100dvh", background: "#0B0F14", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 20 }}>
       <div style={{ width: 80, height: 80, borderRadius: 24, background: "#FF8FB1", border: "3px solid #111", boxShadow: "4px 4px 0 #111", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, transform: "rotate(-6deg)" }}>
@@ -14,9 +27,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#5b6878", maxWidth: 360, lineHeight: 1.5 }}>
         The play was interrupted. This shouldn&apos;t happen — but every good game has a restart button.
       </p>
-      {error.message && (
+      {safeMsg && (
         <div style={{ fontSize: 12, fontWeight: 600, color: "#5b6878", background: "rgba(255,255,255,0.05)", padding: "8px 16px", borderRadius: 12, maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {error.message}
+          {safeMsg}
         </div>
       )}
       <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
