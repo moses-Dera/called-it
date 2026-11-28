@@ -32,13 +32,13 @@ export default function Capsule() {
         <Img n="cover_capsule" size={220} alt="Capsule" style={{ borderRadius: 40, border: "3px solid #111", boxShadow: "6px 6px 0 #111", transform: buried ? "translateY(40px) rotate(18deg) scale(.5)" : "rotate(-4deg)", transition: "transform 700ms cubic-bezier(.5,-0.4,.4,1.4)" }} />
       </div>
       {!buried ? (
-        <section style={{ margin: "6px 20px 0", padding: 16, borderRadius: 24, background: "#fff", border: "3px solid #111", display: "flex", flexDirection: "column", gap: 12 }}>
+        <section className="paper" style={{ margin: "10px 20px 0", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-            {KINDS.map((k, i) => <button key={k} aria-pressed={kind === i} onClick={() => { setKind(i); setErr(""); }} style={{ height: 56, borderRadius: 16, border: "2px solid #111", background: kind === i ? "var(--yellow)" : "#fff", color: "#111", fontWeight: 800, fontSize: 13 }}>{k}</button>)}
+            {KINDS.map((k, i) => <button key={k} aria-pressed={kind === i} onClick={() => { setKind(i); setErr(""); }} style={{ height: 52, borderRadius: 16, border: "2px solid #111", background: kind === i ? "var(--yellow)" : "#fff", color: "#111", fontWeight: 800, fontSize: 13 }}>{k}</button>)}
           </div>
           {kind === 0 ? (
             <><label htmlFor="note" style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>Write to the future</label>
-              <textarea id="note" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Where I think we'll all be in 5 years…" style={{ borderRadius: 14, border: "2px solid #111", padding: "10px 12px", font: "500 15px var(--font-inter), sans-serif", resize: "none", background: "var(--paper)", color: "#111" }} /></>
+              <textarea id="note" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Where I think we'll all be in 5 years…" style={{ borderRadius: 14, border: "2px solid #111", padding: "10px 12px", font: "500 15px var(--font-inter), sans-serif", resize: "none", background: "#fff", color: "#111" }} /></>
           ) : (
             <><label htmlFor="file" style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>{kind === 1 ? "Pick a photo to seal" : "Pick or record a voice note"}</label>
               <input id="file" type="file" accept={kind === 1 ? "image/*" : "audio/*"} onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ fontSize: 13, minHeight: 44 }} /></>
@@ -49,14 +49,13 @@ export default function Capsule() {
           </div>
         </section>
       ) : (
-        <section className="paper pop" style={{ margin: "6px 20px 0", padding: 18, display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
+        <section className="paper pop" style={{ margin: "10px 20px 0", padding: 18, display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start" }}>
           <span className="display" style={{ fontSize: 26 }}>Buried until {opens}</span>
           <span style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.5 }}>Its fingerprint is sealed, proving it existed today. The content never left your phone.</span>
           <SealStatus seal={seal} />
         </section>
       )}
-      <div style={{ flex: 1, minHeight: 16 }} />
-      <div style={{ padding: "0 20px 28px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "16px 20px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
         {err && <div role="alert" style={{ fontSize: 13, fontWeight: 800 }}>{err}</div>}
         <button className="btn btn-primary" style={{ background: "#111", color: "var(--sky)", boxShadow: "0 6px 0 var(--blue)" }} onClick={bury}>{buried ? "Bury another" : "Seal and bury"}</button>
       </div>

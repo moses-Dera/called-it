@@ -60,10 +60,9 @@ export default function Werewolf() {
           : <>Day 1: the village voted out <b style={{ color: "var(--text)" }}>Bayo</b>, a villager. Votes were sealed before anyone saw the others.</>}
         <div className="mono" style={{ marginTop: 8, fontSize: 11, opacity: 0.85 }}>role deal sealed: {short(deal?.hash)}{audit === null ? "" : audit ? " · ✓ deal matches its seal" : " · ✗ mismatch"}</div>
       </div>
-      <div style={{ flex: 1, minHeight: 16 }} />
-      <div style={{ padding: "0 20px 28px", display: "flex", gap: 10, position: "relative" }}>
+      <div style={{ padding: "18px 20px 24px", display: "flex", gap: 10, position: "relative" }}>
         <button className="btn btn-quiet" style={{ flex: 1 }} onClick={runAudit}>Audit deal</button>
-        <button className="btn btn-primary" style={{ flex: 2, background: "var(--lilac)", minHeight: 56, fontSize: 16 }} onClick={inspect}>{seen !== null ? "Sealed for tonight" : `Seal: inspect ${PLAYERS[pick].name}`}</button>
+        <button className="btn btn-primary" style={{ flex: 2, background: "var(--lilac)", minHeight: 52, fontSize: 16 }} onClick={inspect}>{seen !== null ? "Sealed for tonight" : `Seal: inspect ${PLAYERS[pick].name}`}</button>
       </div>
     </main>
   );

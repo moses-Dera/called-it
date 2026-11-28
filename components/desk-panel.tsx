@@ -72,8 +72,8 @@ function DeskPanelInner() {
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: p.me ? "rgba(198,244,50,.12)" : "transparent", borderRadius: 10, padding: "2px 4px" }}>
             <span className="display" style={{ width: 18, fontSize: 16 }}>{i + 1}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={p.av} alt="" width={30} height={30} style={{ borderRadius: 10, border: "2px solid #111" }} />
-            <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{p.name}</span><span className="display" style={{ fontSize: 16 }}>{p.pts}</span>
+            <img src={p.av} alt="" width={30} height={30} style={{ borderRadius: 10, border: "2px solid #111", flexShrink: 0 }} />
+            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 14, fontWeight: 700 }}>{p.name}</span><span className="display" style={{ fontSize: 16, flexShrink: 0 }}>{p.pts}</span>
           </div>
         ))}
       </section>

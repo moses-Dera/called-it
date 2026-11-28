@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Img, TopBar } from "@/components/ui";
+import { BottomNav, Img, TopBar } from "@/components/ui";
 import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork, myPrivacy, setPrivacy, type Privacy } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 import { hasWallet, useWalletSync, zecOf } from "@/lib/wallet-sync";
@@ -45,113 +45,117 @@ export default function Profile() {
   return (
     <main className="screen wide hub">
       <TopBar eyebrow="Profile" title={s.profile.name || "Your profile"} />
-      <div className="profile-body" style={{ padding: "8px 20px 28px", display: "flex", flexDirection: "column", gap: 18, flex: 1 }}>
-        <section style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Img n={`avatar_${s.profile.avatar}`} size={84} alt="Your avatar" style={{ borderRadius: 26, border: "3px solid var(--lime)" }} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 8, flex: 1 }}>
-            {([["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length], ["Streak", streak]] as const).map(([k, v]) => (
-              <div key={k} style={{ background: k === "Streak" && streak >= 3 ? "rgba(255,107,53,.2)" : "var(--panel)", border: `2px solid ${k === "Streak" && streak >= 3 ? "#FF6B35" : "var(--line)"}`, borderRadius: 14, padding: "8px 6px", textAlign: "center" }}><div className="display" style={{ fontSize: 22 }}>{v}{k === "Streak" && streak >= 3 ? "🔥" : ""}</div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
-            ))}
-          </div>
-        </section>
-
-        {streak >= 3 && (
-          <div style={{ background: "rgba(255,107,53,.12)", border: "2px solid #FF6B35", borderRadius: 14, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#FF6B35" }}>
-            Streak bonus active: {streak >= 14 ? "3x" : streak >= 7 ? "2x" : "1.5x"} multiplier on all scored points!
-            {streak < 7 ? ` Reach 7 days for 2x.` : streak < 14 ? ` Reach 14 days for 3x.` : ""}
-          </div>
-        )}
-
-
-        <PlayerBadges />
-
-        <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
-          <div className="avatars" style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 6 }}>
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
-              <button key={n} aria-label={`Avatar ${n}`} aria-pressed={s.profile.avatar === n} onClick={() => saveProfile({ avatar: n })} style={{ padding: 0, background: "transparent", border: 0, minHeight: 44 }}>
-                <Img n={`avatar_${n}`} size={40} style={{ width: "100%", height: "auto", aspectRatio: "1", borderRadius: 12, border: `3px solid ${s.profile.avatar === n ? "var(--lime)" : "transparent"}` }} />
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="paper p-form" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          {user && <>
-            <label htmlFor="uname" style={{ fontSize: 12, fontWeight: 800 }}>Username</label>
-            <div style={{ display: "flex", alignItems: "center", height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", padding: "0 12px", gap: 2 }}>
-              <b style={{ color: "#4a4436", fontSize: 16 }}>@</b>
-              <input id="uname" value={handleV} onChange={(e) => setHandle(e.target.value.replace(/^@/, ""))} maxLength={20} autoComplete="off" spellCheck={false} style={{ flex: 1, minWidth: 0, height: "100%", border: 0, outline: "none", background: "transparent", color: "#111", fontSize: 16, fontWeight: 600 }} />
+      <div className="profile-body" style={{ padding: "4px 18px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="profile-col">
+          <section style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Img n={`avatar_${s.profile.avatar}`} size={76} alt="Your avatar" style={{ borderRadius: 22, border: "3px solid var(--lime)", flexShrink: 0 }} />
+            <div className="profile-stats">
+              {([["Ranked", t.ranked], ["Practice", t.points - t.ranked], ["Seals", s.seals.length], ["Streak", streak]] as const).map(([k, v]) => (
+                <div key={k} style={{ background: k === "Streak" && streak >= 3 ? "rgba(255,107,53,.2)" : "var(--panel)", border: `2px solid ${k === "Streak" && streak >= 3 ? "#FF6B35" : "var(--line)"}`, borderRadius: 14, padding: "8px 4px", textAlign: "center" }}><div className="display" style={{ fontSize: 20 }}>{v}{k === "Streak" && streak >= 3 ? "🔥" : ""}</div><div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>{k}</div></div>
+              ))}
             </div>
-            {myHandle && <Link href={`/@${myHandle}`} style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", textDecoration: "underline" }}>Your page: called-it-kappa.vercel.app/@{myHandle}</Link>}
-          </>}
-          <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
-          <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
-          {!hasInApp && <>
-            <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Prize wallet (shielded Zcash address)</label>
-            <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
-            <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Contest prizes are paid straight here. Only the sponsor paying you sees it.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
-          </>}
-          <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
-          {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
-        </section>
+          </section>
 
-        {user && !hasInApp && !showWalletSetup && (
-          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-            <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Get a shielded wallet built into the app. Contest prizes arrive here automatically.</span>
-            <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowWalletSetup(true)}>Set up wallet</button>
-          </section>
-        )}
-        {showWalletSetup && !hasInApp && (
-          <section className="paper" style={{ padding: 16 }}>
-            <WalletSetup network={network} onDone={(a) => { setShowWalletSetup(false); if (a && !s.profile.address) { saveProfile({ address: a }); setAddr(a); } }} />
-          </section>
-        )}
-        {hasInApp && (
-          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet · shielded</span>
-              <WalletStatus />
+          {streak >= 3 && (
+            <div style={{ background: "rgba(255,107,53,.12)", border: "2px solid #FF6B35", borderRadius: 14, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#FF6B35" }}>
+              Streak bonus active: {streak >= 14 ? "3x" : streak >= 7 ? "2x" : "1.5x"} multiplier on all scored points!
+              {streak < 7 ? ` Reach 7 days for 2x.` : streak < 14 ? ` Reach 14 days for 3x.` : ""}
             </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span className="display" style={{ fontSize: 36 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
-              <b style={{ fontSize: 14, color: "#111" }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
-            </div>
-            {ws.address && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>YOUR ADDRESS</span>
-                <button onClick={() => { navigator.clipboard.writeText(ws.address!); setMsg("Address copied."); }} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
-                <span style={{ fontSize: 11, color: "var(--muted)" }}>Tap to copy</span>
-              </div>
-            )}
-            {ws.height && <span style={{ fontSize: 11, fontWeight: 700, color: "#4a4436" }}>Synced to block {ws.height.toLocaleString()}</span>}
-            <Link href="/vault" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, textAlign: "center", fontSize: 14 }}>Send, receive and proofs</Link>
-          </section>
-        )}
-
-        {user && <PrivacySettings />}
-
-        {user && <TipsterSettings />}
-
-        <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-          <span className="display" style={{ fontSize: 18 }}>Account</span>
-          {user ? (
-            <>
-              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up, and your sealed moves follow you to any device where you sign in. Other players can never see them before the reveal.</div>
-              <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" || cloud.status === "offline" || cloud.status === "syncing" ? "var(--amber)" : "var(--lime)" }}>{cloud.status === "error" || cloud.status === "offline" ? "Syncing…" : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
-              <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>You&apos;re playing as a guest. Your seals, points and profile are stored on this device only.</div>
-              <button className="btn btn-paper" disabled={!cloudReady} style={{ opacity: cloudReady ? 1 : 0.6 }} onClick={signInWithGoogle}>{cloudReady ? "Sign in with Google" : "Sign in with Google (not connected yet)"}</button>
-              {cloud.status === "error" && <div role="alert" style={{ fontSize: 12, fontWeight: 700, color: "var(--red)" }}>{cloud.error}</div>}
-            </>
           )}
-          <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>player id {s.player}</div>
-        </section>
+
+          <PlayerBadges />
+
+          <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className="eyebrow" style={{ color: "var(--muted)" }}>Pick your avatar</span>
+            <div className="avatars" style={{ display: "grid", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gap: 6 }}>
+              {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+                <button key={n} aria-label={`Avatar ${n}`} aria-pressed={s.profile.avatar === n} onClick={() => saveProfile({ avatar: n })} style={{ padding: 0, background: "transparent", border: 0, minHeight: 44 }}>
+                  <Img n={`avatar_${n}`} size={40} style={{ width: "100%", height: "auto", aspectRatio: "1", borderRadius: 12, border: `3px solid ${s.profile.avatar === n ? "var(--lime)" : "transparent"}` }} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {user && !hasInApp && !showWalletSetup && (
+            <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Get a shielded wallet built into the app. Contest prizes arrive here automatically.</span>
+              <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowWalletSetup(true)}>Set up wallet</button>
+            </section>
+          )}
+          {showWalletSetup && !hasInApp && (
+            <section className="paper" style={{ padding: 16 }}>
+              <WalletSetup network={network} onDone={(a) => { setShowWalletSetup(false); if (a && !s.profile.address) { saveProfile({ address: a }); setAddr(a); } }} />
+            </section>
+          )}
+          {hasInApp && (
+            <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet · shielded</span>
+                <WalletStatus />
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span className="display" style={{ fontSize: 36 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
+                <b style={{ fontSize: 14, color: "#111" }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
+              </div>
+              {ws.address && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>YOUR ADDRESS</span>
+                  <button onClick={() => { navigator.clipboard.writeText(ws.address!); setMsg("Address copied."); }} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                  <span style={{ fontSize: 11, color: "#4a4436" }}>Tap to copy</span>
+                </div>
+              )}
+              {ws.height && <span style={{ fontSize: 11, fontWeight: 700, color: "#4a4436" }}>Synced to block {ws.height.toLocaleString()}</span>}
+              <Link href="/vault" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, textAlign: "center", fontSize: 14 }}>Send, receive and proofs</Link>
+            </section>
+          )}
+
+          {user && <PrivacySettings />}
+
+          {user && <TipsterSettings />}
+        </div>
+
+        <div className="profile-col">
+          <section className="paper p-form" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
+            {user && <>
+              <label htmlFor="uname" style={{ fontSize: 12, fontWeight: 800 }}>Username</label>
+              <div style={{ display: "flex", alignItems: "center", height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", padding: "0 12px", gap: 2 }}>
+                <b style={{ color: "#4a4436", fontSize: 16 }}>@</b>
+                <input id="uname" value={handleV} onChange={(e) => setHandle(e.target.value.replace(/^@/, ""))} maxLength={20} autoComplete="off" spellCheck={false} style={{ flex: 1, minWidth: 0, height: "100%", border: 0, outline: "none", background: "transparent", color: "#111", fontSize: 16, fontWeight: 600 }} />
+              </div>
+              {myHandle && <Link href={`/@${myHandle}`} style={{ fontSize: 12, fontWeight: 700, color: "#4a4436", textDecoration: "underline" }}>Your page: called-it-kappa.vercel.app/@{myHandle}</Link>}
+            </>}
+            <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
+            <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
+            {!hasInApp && <>
+              <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Prize wallet (shielded Zcash address)</label>
+              <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
+              <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Contest prizes are paid straight here. Only the sponsor paying you sees it.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
+            </>}
+            <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
+            {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
+          </section>
+
+          <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <span className="display" style={{ fontSize: 18 }}>Account</span>
+            {user ? (
+              <>
+                <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up, and your sealed moves follow you to any device where you sign in. Other players can never see them before the reveal.</div>
+                <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" || cloud.status === "offline" || cloud.status === "syncing" ? "var(--amber)" : "var(--lime)" }}>{cloud.status === "error" || cloud.status === "offline" ? "Syncing…" : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
+                <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>You&apos;re playing as a guest. Your seals, points and profile are stored on this device only.</div>
+                <button className="btn btn-paper" disabled={!cloudReady} style={{ opacity: cloudReady ? 1 : 0.6 }} onClick={signInWithGoogle}>{cloudReady ? "Sign in with Google" : "Sign in with Google (not connected yet)"}</button>
+                {cloud.status === "error" && <div role="alert" style={{ fontSize: 12, fontWeight: 700, color: "var(--red)" }}>{cloud.error}</div>}
+              </>
+            )}
+            <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>player id {s.player}</div>
+          </section>
+        </div>
       </div>
+      <BottomNav active="/profile" />
     </main>
   );
 }

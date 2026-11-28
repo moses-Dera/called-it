@@ -41,7 +41,7 @@ export function Onboarding() {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(5,7,10,.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 400, background: STEPS[step].bg, color: "#111", borderRadius: 28, border: "3px solid #111", boxShadow: "6px 6px 0 #111", padding: "28px 24px", display: "flex", flexDirection: "column", gap: 16, textAlign: "center" }}>
+      <div style={{ width: "100%", maxWidth: 400, maxHeight: "calc(100dvh - 32px)", overflowY: "auto", background: STEPS[step].bg, color: "#111", borderRadius: 24, border: "3px solid #111", boxShadow: "6px 6px 0 #111", padding: "24px 20px", display: "flex", flexDirection: "column", gap: 14, textAlign: "center" }}>
         <Img n={STEPS[step].img} size={80} style={{ margin: "0 auto" }} />
         <div className="display" style={{ fontSize: 28 }}>{STEPS[step].title}</div>
         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>{STEPS[step].desc}</p>

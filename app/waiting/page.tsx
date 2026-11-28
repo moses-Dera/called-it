@@ -33,15 +33,14 @@ export default function Waiting() {
           </div>
         ))}
       </div>
-      <div style={{ margin: "18px 20px 0", background: "var(--paper)", color: "#111", borderRadius: 18, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ margin: "16px 20px 0", background: "var(--paper)", color: "#111", borderRadius: 18, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <span className="eyebrow" style={{ color: "#6b6455" }}>Your call</span>
         {mine ? (<><div className="display" style={{ fontSize: 24 }}>{mine.label}</div><div><SealStatus seal={mine} /></div></>)
           : <div style={{ fontSize: 14, fontWeight: 600 }}>You haven&apos;t sealed yet. <Link href="/seal" style={{ textDecoration: "underline", fontWeight: 800 }}>Seal your call</Link></div>}
       </div>
-      <div style={{ flex: 1, minHeight: 16 }} />
-      <div style={{ padding: "0 20px 28px", display: "flex", gap: 10 }}>
+      <div style={{ padding: "16px 20px 24px", display: "flex", gap: 10 }}>
         <button className="btn btn-quiet" style={{ flex: 1 }} onClick={() => setNudged(true)}>{nudged ? "Ify just sealed!" : "Nudge Ify and Bayo"}</button>
-        <Link href="/reveal" className="btn btn-primary" style={{ flex: 1, minHeight: 56, fontSize: 16, boxShadow: "0 5px 0 var(--text)" }}>Skip to reveal</Link>
+        <Link href="/reveal" className="btn btn-primary" style={{ flex: 1, fontSize: 16, boxShadow: "0 5px 0 var(--text)" }}>Skip to reveal</Link>
       </div>
     </main>
   );

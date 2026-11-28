@@ -96,7 +96,7 @@ function ChallengeContent() {
   return (
     <main className="screen">
       <TopBar mode="classic" eyebrow="PvP Challenge" title={`${fx.home} vs ${fx.away}`} />
-      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Challenge Hero Header */}
         <div style={{ background: "var(--amber)", color: "#111", borderRadius: 18, padding: "12px 16px", border: "2px solid #111", boxShadow: "4px 4px 0 var(--text)", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -217,11 +217,11 @@ function ChallengeContent() {
       </div>
 
       {/* Action Button */}
-      <div style={{ padding: "14px 20px 30px" }}>
+      <div style={{ padding: "14px 20px 24px" }}>
         {mode === "tail" ? (
           <button
             className="btn btn-primary"
-            style={{ width: "100%", opacity: closed ? 0.5 : 1 }}
+            style={{ width: "100%", minHeight: 58, opacity: closed ? 0.5 : 1 }}
             disabled={closed || busy}
             onClick={() => handleSeal(challengerHome, challengerAway, true)}
           >
@@ -230,8 +230,8 @@ function ChallengeContent() {
           </button>
         ) : (
           <button
-            className="btn"
-            style={{ width: "100%", background: "var(--pink)", color: "#111", border: "3px solid #111", fontWeight: 800, fontSize: 17, minHeight: 52, boxShadow: "0 4px 0 var(--text)", opacity: closed ? 0.5 : 1 }}
+            className="btn btn-primary"
+            style={{ width: "100%", minHeight: 58, background: "var(--pink)", color: "#111", fontSize: 17, opacity: closed ? 0.5 : 1 }}
             disabled={closed || busy}
             onClick={() => handleSeal(counterHome, counterAway, false)}
           >
@@ -243,7 +243,7 @@ function ChallengeContent() {
 
       {/* Success Modal */}
       {seal && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(11,15,20,.96)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 26, textAlign: "center" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 20, background: "rgba(11,15,20,.96)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, textAlign: "center", overflowY: "auto" }}>
           <Img n="seal" size={170} alt="Wax seal" className="stamp" />
           <div className="display" style={{ fontSize: 36 }}>Challenge Accepted!</div>
           <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>

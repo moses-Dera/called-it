@@ -59,26 +59,29 @@ export default function Bluff() {
     <main className="screen">
       <TopBar mode="bluff" eyebrow="Bluff Vault" title={`Round ${round} · ${chips} chips`} accent="var(--pink)" />
       <RealPlay game="bluff" />
-      <section style={{ position: "relative", margin: "8px 12px 0", height: 410, borderRadius: 40, overflow: "hidden", border: "3px solid #111", boxShadow: "0 6px 0 #3b2a1a", backgroundImage: `url(${art("felt")})`, backgroundSize: "cover" }}>
-        {SEATS.map((s, i) => (
-          <div key={s.p.name} style={{ position: "absolute", left: `calc(50% - 183px + ${s.x}px)`, top: s.y, width: 110, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-            <div style={{ position: "relative" }}>
-              { }
-              <img src={s.p.av} alt={s.p.name} width={46} height={46} style={{ borderRadius: 14, border: "2px solid var(--paper)" }} />
-              {sealed && !flipped && i === round % 3 && <span style={{ position: "absolute", left: 40, top: -22, whiteSpace: "nowrap", background: "var(--paper)", color: "#111", border: "2px solid #111", borderRadius: "12px 12px 12px 2px", padding: "4px 9px", fontSize: 12, fontWeight: 700 }}>{TAUNTS[round % 3]}</span>}
+      <section style={{ position: "relative", margin: "10px 20px 0", padding: "16px 12px 18px", borderRadius: 32, overflow: "hidden", border: "3px solid #111", boxShadow: "0 6px 0 #3b2a1a", backgroundImage: `url(${art("felt")})`, backgroundSize: "cover", display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, alignItems: "start" }}>
+          {SEATS.map((s, i) => (
+            <div key={s.p.name} style={{ marginTop: i === 1 ? 0 : 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+              <div style={{ position: "relative" }}>
+                <img src={s.p.av} alt={s.p.name} width={46} height={46} style={{ borderRadius: 14, border: "2px solid var(--paper)" }} />
+                {sealed && !flipped && i === round % 3 && (
+                  <span style={{ position: "absolute", ...(i === 2 ? { right: 0 } : { left: "50%", transform: "translateX(-50%)" }), top: -24, whiteSpace: "nowrap", background: "var(--paper)", color: "#111", border: "2px solid #111", borderRadius: 10, padding: "3px 8px", fontSize: 11, fontWeight: 700, zIndex: 2 }}>{TAUNTS[round % 3]}</span>
+                )}
+              </div>
+              <Flip on={flipped} w={58} h={81} delay={i * 150} front={<CardBack radius={8} />}
+                back={<div style={{ width: "100%", height: "100%", borderRadius: 8, background: BG(bots[i]?.card ?? "2"), border: "2px solid #111", color: "#111", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}><span className="display" style={{ fontSize: 28 }}>{bots[i]?.card}</span><span style={{ fontSize: 8, fontWeight: 800 }}>{TAG(bots[i]?.card ?? "2")}</span></div>} />
+              <span style={{ fontSize: 11, fontWeight: 800, background: w.includes(i + 1) ? "var(--lime)" : "#111", color: w.includes(i + 1) ? "#111" : "var(--text)", borderRadius: 99, padding: "3px 9px" }}>{s.p.name} · bid 60</span>
             </div>
-            <Flip on={flipped} w={58} h={81} delay={i * 150} front={<CardBack radius={8} />}
-              back={<div style={{ width: "100%", height: "100%", borderRadius: 8, background: BG(bots[i]?.card ?? "2"), border: "2px solid #111", color: "#111", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}><span className="display" style={{ fontSize: 28 }}>{bots[i]?.card}</span><span style={{ fontSize: 8, fontWeight: 800 }}>{TAG(bots[i]?.card ?? "2")}</span></div>} />
-            <span style={{ fontSize: 11, fontWeight: 800, background: w.includes(i + 1) ? "var(--lime)" : "#111", color: w.includes(i + 1) ? "#111" : "var(--text)", borderRadius: 99, padding: "3px 9px" }}>{s.p.name} · bid 60</span>
-          </div>
-        ))}
-        <div style={{ position: "absolute", left: "50%", top: "58%", transform: "translate(-50%, -50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: 220 }}>
+          ))}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <span className="display" style={{ fontSize: 38, color: "var(--paper)", textShadow: "3px 3px 0 #111" }}>240</span><span className="eyebrow" style={{ color: "var(--paper)" }}>Pot</span>
           <span role="status" className="chip" style={{ marginTop: 4, background: flipped ? "var(--amber)" : "var(--lime)", fontSize: 12 }}>{banner}</span>
           {verified !== null && <span style={{ fontSize: 11, fontWeight: 800, color: "var(--paper)" }}>✓ {verified}/3 opponent seals verified</span>}
         </div>
       </section>
-      <div style={{ padding: "12px 20px 0", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+      <div style={{ padding: "14px 20px 0", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}><span>{sealed ? "Your sealed card" : "Your hand · tap one"}</span><span style={{ color: "var(--muted)" }}>Shield beats Steal beats numbers</span></div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", paddingTop: 10 }}>
           {hand.map((c, i) => {
@@ -91,7 +94,7 @@ export default function Bluff() {
           })}
         </div>
       </div>
-      <div style={{ padding: "10px 20px 28px" }}>
+      <div style={{ padding: "16px 20px 24px" }}>
         <button className="btn btn-primary" style={{ width: "100%", background: "var(--pink)" }} onClick={act}>{!sealed ? "Seal my card" : !flipped ? "Flip all cards" : "Next round"}</button>
       </div>
     </main>

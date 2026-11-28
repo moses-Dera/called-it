@@ -65,7 +65,7 @@ export default function RoomPage() {
 
   return (
     <Shell>
-      <div className="room-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))", gap: 18, alignItems: "start" }}>
+      <div className="room-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 18, alignItems: "start" }}>
         <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 24, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Img n={info.img} size={56} style={{ borderRadius: 16, border: "2px solid #111" }} />
@@ -151,9 +151,9 @@ export default function RoomPage() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
-      <Link href="/rooms" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)" }}>← Your games</Link>
-      <div style={{ padding: "12px 0 28px" }}>{children}</div>
+    <main className="screen wide hub hub-pad">
+      <Link href="/rooms" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)", alignSelf: "flex-start" }}>← Your games</Link>
+      <div style={{ paddingBottom: 24 }}>{children}</div>
       <BottomNav active="/rooms" />
     </main>
   );

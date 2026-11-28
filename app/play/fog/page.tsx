@@ -30,7 +30,7 @@ export default function Fog() {
         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>targets hidden from Emeka</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}><b style={{ fontSize: 13 }}>5 units</b><Img n="avatar_3" size={32} style={{ borderRadius: 10, border: "2px solid var(--pink)" }} /></div>
       </div>
-      <div className="fog-board" style={{ margin: "16px 16px 0", padding: 10, borderRadius: 26, background: "#12302a", border: "3px solid #111", boxShadow: "0 8px 0 #0a1a16", transform: "perspective(900px) rotateX(14deg)", transformOrigin: "50% 100%" }}>
+      <div className="fog-board" style={{ margin: "14px 20px 0", padding: 10, borderRadius: 24, background: "#12302a", border: "3px solid #111", boxShadow: "0 8px 0 #0a1a16", transform: "perspective(900px) rotateX(14deg)", transformOrigin: "50% 100%" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 5 }}>
           {Array.from({ length: 36 }, (_, i) => {
             const fog = Math.floor(i / 6) < 2, picked = picks.includes(i);
@@ -45,17 +45,16 @@ export default function Fog() {
           })}
         </div>
       </div>
-      <section className="paper" style={{ margin: "22px 20px 0", borderRadius: 20, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <section className="paper" style={{ margin: "18px 20px 0", borderRadius: 20, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span className="display" style={{ fontSize: 18 }}>{revealed ? (hits.length ? `${hits.length} hit${hits.length > 1 ? "s" : ""}!` : "No hits this turn") : "Plan your sealed moves"}</span>
           <span className="chip" style={{ background: "var(--mint)" }}>{picks.length} / 3 TARGETS</span>
         </div>
         <div role="status" style={{ fontSize: 13, fontWeight: 600, color: "#4a4436", lineHeight: 1.45 }}>{revealed ? "Both turns revealed together. Your targets matched their seal." : "Tap fog or field to target. Seal the turn and nobody can see or change it."}</div>
       </section>
-      <div style={{ flex: 1, minHeight: 16 }} />
-      <div style={{ padding: "0 20px 28px", display: "flex", gap: 10 }}>
+      <div style={{ padding: "16px 20px 24px", display: "flex", gap: 10 }}>
         <button className="btn btn-quiet" style={{ flex: 1 }} onClick={() => { setPicks([]); setRevealed(false); }}>Clear</button>
-        <button className="btn btn-primary" style={{ flex: 2, background: "var(--mint)", minHeight: 56, fontSize: 17, opacity: picks.length || revealed ? 1 : 0.5 }} onClick={act}>{revealed ? "Next turn" : "Seal turn"}</button>
+        <button className="btn btn-primary" style={{ flex: 2, background: "var(--mint)", minHeight: 52, fontSize: 17, opacity: picks.length || revealed ? 1 : 0.5 }} onClick={act}>{revealed ? "Next turn" : "Seal turn"}</button>
       </div>
     </main>
   );

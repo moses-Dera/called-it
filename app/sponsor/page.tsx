@@ -22,8 +22,8 @@ export default function SponsorPage() {
   const { data: dash, reload } = useSponsorDashboard();
   if (signedIn && dash) {
     return (
-      <main className="screen wide hub">
-        <div style={{ padding: "18px 20px 28px", maxWidth: 820, width: "100%", boxSizing: "border-box" }}>
+      <main className="screen wide hub hub-pad">
+        <div className="hub-inner" style={{ paddingBottom: 24 }}>
           <SponsorDashboardView data={dash} reload={reload} />
         </div>
         <BottomNav active="/sponsor" />
@@ -46,8 +46,9 @@ function SponsorPitch({ signedIn, checking, onStarted }: { signedIn: boolean; ch
 
   return (
     <main className="screen wide hub">
-      <TopBar eyebrow="For brands and communities" title="Sponsor a contest" />
-      <div className="sponsor-body" style={{ padding: "4px 20px 28px", display: "flex", flexDirection: "column", gap: 20, maxWidth: 820, width: "100%", boxSizing: "border-box" }}>
+      <div className="hub-inner">
+        <TopBar eyebrow="For brands and communities" title="Sponsor a contest" />
+        <div className="sponsor-body" style={{ padding: "4px 18px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
         <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: "#c9d3de" }}>Put up a ZEC prize for football predictions or a multiplayer game night. Fans play free, and every result can be checked. You set it up yourself in a few minutes.</p>
 
         <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10, color: "#111" }}>
@@ -92,6 +93,7 @@ function SponsorPitch({ signedIn, checking, onStarted }: { signedIn: boolean; ch
             ))}
           </ol>
         </section>
+        </div>
       </div>
       <BottomNav active="/sponsor" />
     </main>

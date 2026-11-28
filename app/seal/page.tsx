@@ -80,7 +80,7 @@ export default function SealPage() {
   return (
     <main className="screen">
       <TopBar mode="classic" eyebrow="Classic Call" title={`${fx.home} vs ${fx.away}`} />
-      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ background: closed ? "var(--pink)" : "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600, transform: "rotate(-1deg)" }}>{closed ? <><b>Sealing closed.</b> This match kicked off {fx.when}.</> : <><b>Early bird x2</b> if sealed a day before kickoff · Kickoff {fx.when}</>}</div>
         <div className="paper" style={{ borderRadius: 28, padding: "20px 16px", display: "flex", flexDirection: "column", gap: 14, boxShadow: "6px 6px 0 var(--lime)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around" }}>
@@ -98,14 +98,14 @@ export default function SealPage() {
             ))}
           </div>
         </div>
-        {!closed && <Link href={`/tip?f=${encodeURIComponent(fx.id)}`} style={{ fontSize: 13, fontWeight: 700 }}>Rather tip the result, goals or both teams scoring? Seal a tip instead</Link>}
+        {!closed && <Link href={`/tip?f=${encodeURIComponent(fx.id)}`} style={{ fontSize: 13, fontWeight: 700, color: "var(--lime)", textDecoration: "underline" }}>Rather tip the result, goals or both teams scoring? Seal a tip instead</Link>}
       </div>
-      <div style={{ padding: "14px 20px 30px" }}>
+      <div style={{ padding: "14px 20px 24px" }}>
         <button className="btn btn-primary" style={{ width: "100%", opacity: closed ? 0.5 : 1 }} disabled={closed} onClick={doSeal}><Lock />{closed ? "Kickoff passed" : busy ? "Sealing…" : `Seal ${home} – ${away}`}</button>
       </div>
 
       {seal && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(11,15,20,.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 30, textAlign: "center" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(11,15,20,.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 24, textAlign: "center", overflowY: "auto" }}>
           <Img n="seal" size={200} alt="Wax seal" className="stamp" />
           <div className="display" style={{ fontSize: 40 }}>Sealed.</div>
           <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label} is locked.<br />Only its fingerprint is timestamped. Nobody can see your call before the reveal.</div>

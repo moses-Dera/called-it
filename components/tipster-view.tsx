@@ -75,8 +75,9 @@ export function TipsterView({ handle }: { handle: string }) {
 
   return (
     <main className="screen wide hub">
-      <TopBar eyebrow="Verified record" title={t ? `@${t.handle}` : "Tipster"} />
-      <div style={{ padding: "4px 20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+      <div className="hub-inner">
+      <TopBar eyebrow="Verified record" title={t ? `@${t.handle}` : "Tipster"} keepBack />
+      <div className="hub-pad" style={{ paddingTop: 0, paddingBottom: 24, display: "flex", flexDirection: "column", gap: 16 }}>
         {(handle === null || t === undefined) && <div style={{ height: 320, borderRadius: 22, background: "var(--panel)" }} />}
         {handle !== null && t === null && (
           <section style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 20, padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -162,7 +163,8 @@ export function TipsterView({ handle }: { handle: string }) {
           </>
         )}
       </div>
-      <BottomNav active="/tipster" />
+      </div>
+      <BottomNav active="/ranks" />
     </main>
   );
 }

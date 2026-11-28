@@ -275,7 +275,7 @@ function ContestForm({ edit, limit, onDone }: { edit?: SponsorContest; limit: nu
       )}
 
       {step(4, "Prize")}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <input aria-label="Prize in ZEC" disabled={locked} value={prize} onChange={(e) => setPrize(e.target.value)} inputMode="decimal" placeholder="0.1" style={{ ...field, width: 140 }} />
         <b>ZEC</b>
         <span style={{ fontSize: 12, color: "#4a4436" }}>Your limit: {limit} ZEC</span>
@@ -307,8 +307,8 @@ function ContestForm({ edit, limit, onDone }: { edit?: SponsorContest; limit: nu
 
       {msg && <div role="alert" style={{ fontSize: 13, fontWeight: 800, color: "#9a2d1d" }}>{msg}</div>}
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn" disabled={busy} onClick={save} style={{ background: "#111", color: "var(--lime)", border: 0 }}>{busy ? "Saving…" : edit ? "Save changes" : openMode === "now" ? "Publish contest" : "Schedule contest"}</button>
-        <button className="btn btn-paper" onClick={onDone} style={{ width: "auto", padding: "0 16px" }}>Cancel</button>
+        <button className="btn" disabled={busy} onClick={save} style={{ flex: 1, background: "#111", color: "var(--lime)", border: 0 }}>{busy ? "Saving…" : edit ? "Save changes" : openMode === "now" ? "Publish contest" : "Schedule contest"}</button>
+        <button className="btn btn-paper" onClick={onDone} style={{ padding: "0 18px" }}>Cancel</button>
       </div>
     </section>
   );
@@ -383,7 +383,7 @@ export function SponsorDashboardView({ data, reload }: { data: SponsorDashboard;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div><span className="eyebrow" style={{ color: "var(--muted)" }}>Sponsor dashboard</span><h1 className="display" style={{ margin: 0, fontSize: 30 }}>{data.name}</h1></div>
+        <div><span className="eyebrow" style={{ color: "var(--muted)" }}>Sponsor dashboard</span><h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>{data.name}</h1></div>
         {!form && <button className="btn" onClick={() => setForm("new")} style={{ width: "auto", padding: "0 18px", background: "var(--lime)", color: "#111" }}>New contest</button>}
       </div>
       <div style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 16, padding: 12, fontSize: 13, lineHeight: 1.5 }}>

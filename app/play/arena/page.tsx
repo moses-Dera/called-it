@@ -68,7 +68,7 @@ export default function Arena() {
   return (
     <main className="screen">
       <div style={{ background: "#1e7a47", borderBottom: "3px solid #111", position: "relative", overflow: "hidden" }}>
-        <TopBar mode="arena" eyebrow={`${label} · Matchday Arena`} title={`${home} vs ${away}`} accent="#111" />
+        <TopBar mode="arena" eyebrow={`${label} · Matchday Arena`} title={`${home} vs ${away}`} accent="var(--lime)" />
         <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 10, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <TeamBadge name={home} size={46} side="home" />
@@ -93,7 +93,7 @@ export default function Arena() {
         <div className="display" style={{ fontSize: 28 }}>{Q.q}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
           {Q.a.map((label, i) => (
-            <button key={label} onClick={() => choose(i)} className="display" style={{ position: "relative", height: 76, borderRadius: 20, border: "3px solid #111", background: settled && i === rawQ.right ? "var(--lime)" : pick === i ? "var(--amber)" : "#fff", boxShadow: "0 5px 0 #111", color: "#111", fontSize: 20, overflow: "hidden" }}>
+            <button key={label} onClick={() => choose(i)} className="display" style={{ position: "relative", minHeight: 76, padding: "10px 12px", borderRadius: 20, border: "3px solid #111", background: settled && i === rawQ.right ? "var(--lime)" : pick === i ? "var(--amber)" : "#fff", boxShadow: "0 5px 0 #111", color: "#111", fontSize: 18, overflow: "hidden" }}>
               <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: locked || settled ? rawQ.split[i] + "%" : 0, background: "rgba(17,17,17,.12)", transition: "width 500ms" }} />
               <span style={{ position: "relative" }}>{label}{locked || settled ? ` ${rawQ.split[i]}%` : ""}</span>
             </button>
@@ -113,7 +113,7 @@ export default function Arena() {
       </section>
       )}
 
-      <section style={{ padding: "18px 20px 24px", display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+      <section style={{ padding: "18px 20px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 18 }}>Resolved this match</h2>
         {done.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>Your settled calls will appear here.</div>}
         {done.map((c, i) => (

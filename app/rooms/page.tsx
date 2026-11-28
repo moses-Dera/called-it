@@ -46,22 +46,22 @@ export default function Rooms() {
   }
 
   return (
-    <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
+    <main className="screen wide hub hub-pad">
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <span className="eyebrow" style={{ color: "var(--lime)" }}>Real players</span>
-        <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Play with friends</h1>
+        <h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>Play with friends</h1>
         <p style={{ margin: 0, fontSize: 14, color: "#c9d3de", lineHeight: 1.5, maxWidth: 640 }}>Pick your opponents, everyone seals a move, then all moves open together. No player can peek or change their mind, not even the host.</p>
         <div style={{ maxWidth: 520, marginTop: 6 }}><PlayerSearch /></div>
       </div>
-      {msg && <div role="status" style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--pink)" }}>{msg}</div>}
+      {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700, color: "var(--pink)" }}>{msg}</div>}
 
-      {!cloudReady ? <p style={{ color: "var(--muted)" }}>Accounts are not configured on this deployment.</p> : !signedIn ? (
-        <section className="paper" style={{ marginTop: 18, padding: 18, display: "flex", alignItems: "center", gap: 12, maxWidth: 560 }}>
+      {!cloudReady ? <p style={{ color: "var(--muted)", margin: 0 }}>Accounts are not configured on this deployment.</p> : !signedIn ? (
+        <section className="paper" style={{ padding: 18, display: "flex", alignItems: "center", gap: 12, maxWidth: 560 }}>
           <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>Sign in to invite friends and get invited.</span><SignInPill />
         </section>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start", padding: "18px 0 28px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 20, alignItems: "start" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {invites.length > 0 && (
               <section style={{ background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", borderRadius: 24, padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                 <span className="eyebrow">Invites for you</span>
@@ -87,7 +87,7 @@ export default function Rooms() {
             <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Your games</h2>
               {rooms === null && <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>}
-              {rooms && mine.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No games yet. Start one on the right.</div>}
+              {rooms && mine.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>No games yet. Start a game from the New game card.</div>}
               {mine.map((r) => (
                 <Link key={r.id} href={`/room?id=${r.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--paper)", color: "#111", borderRadius: 16, padding: "10px 12px" }}>
                   <Img n={GAME_INFO[r.game].img} size={42} style={{ borderRadius: 12, border: "2px solid #111" }} />
@@ -104,7 +104,7 @@ export default function Rooms() {
           <NewRoom game={game} setGame={setGame} onError={setMsg} onCreated={(id) => router.push(`/room?id=${id}`)} />
         </div>
       )}
-      <section style={{ display: "flex", flexDirection: "column", gap: 10, padding: "20px 0" }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 10, paddingBottom: 16 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Practice vs bots</h2>
         <span style={{ fontSize: 13, color: "var(--muted)" }}>Learn a game on your own first. Practice games don&apos;t count for points or contests.</span>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 10 }}>

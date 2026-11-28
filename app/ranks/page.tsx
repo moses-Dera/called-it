@@ -30,26 +30,26 @@ export default function Ranks() {
 
   return (
     <main className="screen wide hub ranks">
-      <div className="ranks-head" style={{ padding: "18px 20px 10px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Ranks</h1>
-          <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)", padding: "6px 10px" }}>{cloudReady ? "VERIFIED POINTS" : "DEMO PLAYERS"}</span>
+      <div className="ranks-head" style={{ padding: "16px 18px 10px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          <h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>Ranks</h1>
+          <span className="chip" style={{ background: "var(--amber)", transform: "rotate(2deg)", padding: "6px 10px", flexShrink: 0 }}>{cloudReady ? "VERIFIED POINTS" : "DEMO PLAYERS"}</span>
         </div>
-        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
+        <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
           {([["week", "This week"], ["all", "All time"]] as const).map(([k, t]) => (
             <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} style={{ height: 44, borderRadius: 12, border: `2px solid ${tab === k ? "#111" : "var(--line)"}`, background: tab === k ? "var(--lime)" : "var(--panel)", color: tab === k ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13 }}>{t}</button>
           ))}
         </div>
       </div>
 
-      <div className="ranks-pod" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8, padding: "18px 20px 0" }}>
+      <div className="ranks-pod" style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 10, padding: "10px 18px 0" }}>
         {POD.map((d, i) => {
           const p = pod[i];
           return (
-            <div key={d.rank} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: 108 }}>
+            <div key={d.rank} className="ranks-pod-col" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
               {p ? <img src={p.av} alt="" width={d.size} height={d.size} style={{ borderRadius: 20, border: "3px solid #111", boxShadow: `3px 3px 0 ${d.bg}`, transform: `rotate(${d.rot}deg)` }} />
                 : <div className="display" style={{ width: d.size, height: d.size, borderRadius: 20, border: "3px dashed #5b6878", display: "flex", alignItems: "center", justifyContent: "center", color: "#5b6878", fontSize: 24 }}>?</div>}
-              <b style={{ fontSize: 13, maxWidth: 108, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: p ? "var(--text)" : "var(--muted)" }}>{p ? p.name : "Open spot"}</b>
+              <b style={{ fontSize: 13, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: p ? "var(--text)" : "var(--muted)" }}>{p ? p.name : "Open spot"}</b>
               <div style={{ width: "100%", height: d.h, borderRadius: "16px 16px 0 0", background: d.bg, border: "3px solid #111", borderBottom: 0, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8, color: "#111", opacity: p ? 1 : 0.45, transition: "height 300ms" }}>
                 <span className="display" style={{ fontSize: 36 }}>{d.rank}</span><b style={{ fontSize: 13 }}>{p ? p.pts : "–"}</b>
               </div>
@@ -58,7 +58,7 @@ export default function Ranks() {
         })}
       </div>
 
-      <div className="ranks-list" style={{ background: "var(--paper)", color: "#111", borderRadius: "26px 26px 0 0", padding: "12px 20px 0", display: "flex", flexDirection: "column", flex: 1 }}>
+      <div className="ranks-list" style={{ background: "var(--paper)", color: "#111", borderRadius: "24px 24px 0 0", padding: "12px 18px 16px", display: "flex", flexDirection: "column" }}>
         {rows === null && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "10px 0" }}>
             {Array.from({ length: 5 }, (_, i) => (
@@ -77,16 +77,16 @@ export default function Ranks() {
           </div>
         )}
         {rows?.slice(3).map((r, i) => (
-          <div key={r.rank + r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.me ? "rgba(198,244,50,.35)" : "transparent" }}>
+          <div key={r.rank + r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "2px dashed #d8cfb8", background: r.me ? "rgba(198,244,50,.35)" : "transparent" }}>
             <span className="display" style={{ width: 22, fontSize: 20 }}>{r.rank}</span>
             <img src={r.av} alt="" width={38} height={38} style={{ borderRadius: 12, border: "2px solid #111" }} />
             <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div><div style={{ fontSize: 11, fontWeight: 800, color: "#4a4436" }}>{BADGES[i % BADGES.length]}</div></div>
             <span className="display" style={{ fontSize: 20 }}>{r.pts}</span>
-            {signedIn && !r.me && r.uid && <button onClick={() => setTipTarget({ uid: r.uid!, name: r.name })} style={{ padding: "4px 8px", borderRadius: 8, border: "2px solid #111", background: "var(--amber)", fontWeight: 800, fontSize: 11, cursor: "pointer", color: "#111" }}>Tip</button>}
+            {signedIn && !r.me && r.uid && <button onClick={() => setTipTarget({ uid: r.uid!, name: r.name })} style={{ minHeight: 34, padding: "0 12px", borderRadius: 10, border: "2px solid #111", background: "var(--amber)", fontWeight: 800, fontSize: 12, cursor: "pointer", color: "#111" }}>Tip</button>}
           </div>
         ))}
         {cloudReady && board.hasMore && (
-          <button onClick={board.loadMore} disabled={board.loading} style={{ margin: "10px 0", padding: "10px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800, fontSize: 13 }}>
+          <button onClick={board.loadMore} disabled={board.loading} style={{ margin: "12px 0 0", minHeight: 44, padding: "0 16px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800, fontSize: 13 }}>
             {board.loading ? "Loading…" : "Load more"}
           </button>
         )}
@@ -96,12 +96,14 @@ export default function Ranks() {
             {!signedIn && <SignInPill />}
           </div>
         )}
-        <Link href="/syndicates" style={{ margin: "12px 0 8px", display: "flex", alignItems: "center", gap: 12, background: "var(--sky)", color: "#111", borderRadius: 18, padding: "12px 14px", border: "2px solid #111" }}>
-          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Syndicates</b><div style={{ fontSize: 12, color: "#333" }}>Team up and climb the group leaderboard together.</div></div><span style={{ fontWeight: 800 }}>→</span>
-        </Link>
-        <Link href="/vault" style={{ margin: "0 0 16px", display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
-          <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn prizes</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes go to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
-        </Link>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+          <Link href="/syndicates" style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--sky)", color: "#111", borderRadius: 18, padding: "12px 14px", border: "2px solid #111" }}>
+            <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Syndicates</b><div style={{ fontSize: 12, color: "#333" }}>Team up and climb the group leaderboard together.</div></div><span style={{ fontWeight: 800 }}>→</span>
+          </Link>
+          <Link href="/vault" style={{ display: "flex", alignItems: "center", gap: 12, background: "#111", color: "var(--paper)", borderRadius: 18, padding: "12px 14px" }}>
+            <Img n="seal" size={40} /><div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>Win contests to earn prizes</b><div style={{ fontSize: 12, color: "#c9d3de" }}>Points rank you. Contest prizes go to your Vault. Free to play, always.</div></div><span style={{ color: "var(--lime)", fontWeight: 800 }}>→</span>
+          </Link>
+        </div>
       </div>
       {tipTarget && <TipModal toUser={tipTarget.uid} toName={tipTarget.name} onClose={() => setTipTarget(null)} />}
       <div className="navwrap" style={{ background: "var(--paper)" }}><BottomNav active="/ranks" /></div>

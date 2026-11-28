@@ -1,10 +1,11 @@
-import { TopBar } from "@/components/ui";
+import { BottomNav, TopBar } from "@/components/ui";
 
 export default function Privacy() {
   return (
-    <main className="screen wide" style={{ padding: 20, maxWidth: 640 }}>
-      <TopBar eyebrow="Called It" title="Privacy" />
-      <article style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 14, lineHeight: 1.7 }}>
+    <main className="screen wide hub hub-pad">
+      <div className="hub-inner" style={{ paddingBottom: 24 }}>
+        <TopBar eyebrow="Called It" title="Privacy" keepBack />
+        <article style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 14, lineHeight: 1.7 }}>
         <p><b>Last updated:</b> November 2026.</p>
         <h2 style={{ fontSize: 18, margin: 0 }}>What we store</h2>
         <ul style={{ margin: 0, paddingLeft: 20 }}>
@@ -29,8 +30,10 @@ export default function Privacy() {
         <h2 style={{ fontSize: 18, margin: 0 }}>Cookies and tracking</h2>
         <p>Called It uses only functional cookies for sign-in. We do not use advertising or analytics trackers.</p>
         <h2 style={{ fontSize: 18, margin: 0 }}>Contact</h2>
-        <p>Questions about your data? Open an issue on the project's GitHub repository.</p>
+        <p>Questions about your data? Open an issue on the project&apos;s GitHub repository.</p>
       </article>
+      </div>
+      <BottomNav active="/how" />
     </main>
   );
 }

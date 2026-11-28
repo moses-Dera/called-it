@@ -71,16 +71,17 @@ export function ContestView({ id }: { id: string }) {
 
 
   return (
-    <main className="screen wide hub" style={{ padding: "18px 20px 0" }}>
+    <main className="screen wide hub hub-pad">
+      <Link href="/contests" style={{ fontSize: 13, fontWeight: 800, color: "var(--lime)", alignSelf: "flex-start" }}>← Contests</Link>
       {!c ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "40px 0" }}>
-          <h1 className="display" style={{ margin: 0, fontSize: 34 }}>Contest</h1>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "24px 0" }}>
+          <h1 className="display page-h1" style={{ margin: 0, fontSize: 34 }}>Contest</h1>
           <p style={{ color: "var(--muted)" }}>{contests.length ? "This contest was not found." : "Loading…"} <Link href="/contests" style={{ color: "var(--lime)", fontWeight: 800 }}>Browse contests</Link></p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start", paddingBottom: 24 }}>
-          <section style={{ background: accent, color: inkOn(c.sponsor_color) === "#111" || !c.sponsor_color ? "#111" : "var(--paper)", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", borderRadius: 26, padding: 20, display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden" }}>
-            {c.sponsor_logo && <img src={c.sponsor_logo} alt={c.sponsor || ""} style={{ position: "absolute", right: 16, top: 16, height: 32, opacity: 0.8 }} />}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 20, alignItems: "start", paddingBottom: 24 }}>
+          <section style={{ background: accent, color: inkOn(c.sponsor_color) === "#111" || !c.sponsor_color ? "#111" : "var(--paper)", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", borderRadius: 26, padding: 20, paddingRight: c.sponsor_logo ? 104 : 20, display: "flex", flexDirection: "column", gap: 10, position: "relative", overflow: "hidden" }}>
+            {c.sponsor_logo && <img src={c.sponsor_logo} alt={c.sponsor || ""} style={{ position: "absolute", right: 16, top: 16, height: 32, maxWidth: 80, objectFit: "contain", opacity: 0.85 }} />}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <span className="eyebrow">{c.status === "open" ? "Open contest" : "Finished"}</span>
               {c.sponsor && <span style={{ fontSize: 12, fontWeight: 700 }}>by {c.sponsor}</span>}
@@ -141,15 +142,17 @@ export function ContestView({ id }: { id: string }) {
             <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
             {list.map((f) => {
               const open = now !== null && Date.parse(f.kickoff) > now;
-              return (
-                <Link key={f.id} href={open ? `/seal?f=${f.id}` : "#"} aria-disabled={!open} style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--paper)", color: "#111", borderRadius: 16, padding: "10px 14px", opacity: open ? 1 : 0.75 }}>
-                  <div style={{ flex: 1 }}>
+              const inner = (
+                <>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Kickoff {f.when}</div>
                   </div>
-                  <span className="chip" style={{ background: f.homeGoals != null ? "var(--lime)" : open ? "var(--sky)" : "var(--amber)" }}>{f.homeGoals != null ? `FT ${f.homeGoals}–${f.awayGoals}` : open ? "SEAL" : "AWAITING RESULT"}</span>
-                </Link>
+                  <span className="chip" style={{ background: f.homeGoals != null ? "var(--lime)" : open ? "var(--sky)" : "var(--amber)", flexShrink: 0 }}>{f.homeGoals != null ? `FT ${f.homeGoals}–${f.awayGoals}` : open ? "SEAL" : "AWAITING RESULT"}</span>
+                </>
               );
+              const cardStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, background: "var(--paper)", color: "#111", borderRadius: 16, padding: "10px 14px", opacity: open ? 1 : 0.75 };
+              return open ? <Link key={f.id} href={`/seal?f=${f.id}`} style={cardStyle}>{inner}</Link> : <div key={f.id} style={cardStyle}>{inner}</div>;
             })}
             <button onClick={share} style={{ minHeight: 42, borderRadius: 14, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 14, marginTop: 4 }}>
               Share this contest

@@ -90,7 +90,7 @@ function HomeFixturesInner() {
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{inLeague.length} open</span>
       </div>
       {showAll && leagues.length > 1 && (
-        <div style={{ overflowX: "auto", margin: "0 -20px", padding: "0 20px 2px" }}>
+        <div className="chip-scroll">
           <div style={{ width: "max-content" }}><Chips label="League" value={shown} onChange={(v) => { setLeague(v); setShowAll(false); }} options={[["all", "All leagues"], ...leagues.map((l) => [l, l] as const)]} /></div>
         </div>
       )}
@@ -141,8 +141,8 @@ function HomeFeedInner() {
         {contests.slice(0, 2).map((c) => {
           const joined = myIds.includes(c.id);
           return (
-            <Link key={c.id} href={`/contest/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", position: "relative", overflow: "hidden" }}>
-              {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, opacity: 0.5 }} />}
+            <Link key={c.id} href={`/contest/${c.id}`} style={{ display: "flex", alignItems: "center", gap: 12, background: c.sponsor_color || "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "4px 4px 0 var(--text)", borderRadius: 16, padding: "14px 16px", paddingRight: c.sponsor_logo ? 88 : 16, position: "relative", overflow: "hidden" }}>
+              {c.sponsor_logo && <img src={c.sponsor_logo} alt="" style={{ position: "absolute", right: 10, top: 10, height: 20, maxWidth: 68, objectFit: "contain", opacity: 0.55 }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="display" style={{ fontSize: 19 }}>{c.title}</div>
                 <div style={{ fontSize: 12, fontWeight: 700 }}>

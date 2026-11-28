@@ -37,7 +37,7 @@ export default function TipPage() {
   return (
     <main className="screen">
       <TopBar eyebrow="Seal a tip" title={`${fx.home} vs ${fx.away}`} />
-      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+      <div style={{ padding: "4px 20px 0", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ background: closed ? "var(--pink)" : "var(--amber)", color: "#111", borderRadius: 14, padding: "10px 14px", fontSize: 13, fontWeight: 600 }}>
           {closed ? <><b>Sealing closed.</b> This match kicked off {fx.when}.</> : <><b>Kickoff {fx.when}.</b> Your tip stays hidden until after full time.</>}
         </div>
@@ -65,18 +65,18 @@ export default function TipPage() {
         ))}
         <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>
           {handle === undefined ? "" : handle
-            ? <>This tip goes on your public record <Link href={`/tipster/${handle}`}>@{handle}</Link>, and your followers are told you sealed one.</>
-            : <>Want a record people can check? <Link href="/profile">Make your tipster record public</Link> in Profile.</>}
+            ? <>This tip goes on your public record <Link href={`/tipster/${handle}`} style={{ color: "var(--lime)", textDecoration: "underline" }}>@{handle}</Link>, and your followers are told you sealed one.</>
+            : <>Want a record people can check? <Link href="/profile" style={{ color: "var(--lime)", textDecoration: "underline" }}>Make your tipster record public</Link> in Profile.</>}
         </div>
       </div>
-      <div style={{ padding: "14px 20px 30px" }}>
+      <div style={{ padding: "14px 20px 24px" }}>
         <button className="btn btn-primary" style={{ width: "100%", opacity: closed || !pick ? 0.5 : 1 }} disabled={closed || !pick || busy} onClick={doSeal}>
           <Lock />{closed ? "Kickoff passed" : busy ? "Sealing…" : pick ? `Seal: ${describePick(pick, fx.home, fx.away)}` : "Pick one tip"}
         </button>
       </div>
 
       {seal && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(11,15,20,.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 30, textAlign: "center" }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(11,15,20,.95)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24, textAlign: "center", overflowY: "auto" }}>
           <Img n="seal" size={180} alt="Wax seal" className="stamp" />
           <div className="display" style={{ fontSize: 40 }}>Sealed.</div>
           <div style={{ fontSize: 14, color: "#c9d3de", lineHeight: 1.5 }}>{seal.label}<br />Nobody can see or change it before full time.</div>

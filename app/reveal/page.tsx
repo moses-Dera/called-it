@@ -166,8 +166,7 @@ export default function Reveal() {
               ) : "These are practice points against a demo result."}
             </div>
           </div>
-          <div style={{ flex: 1, minHeight: 16 }} />
-          <div style={{ padding: "0 20px 28px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ padding: "14px 20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
             {open && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <button
@@ -209,8 +208,8 @@ export default function Reveal() {
               </div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <Link href="/vault" className="btn btn-quiet" style={{ width: 110 }}>Proof</Link>
-              <button className="btn btn-primary" style={{ flex: 1, minHeight: 52, fontSize: 16, boxShadow: "0 4px 0 var(--text)" }} onClick={share}>
+              <Link href="/vault" className="btn btn-quiet" style={{ width: 110, minHeight: 54 }}>Proof</Link>
+              <button className="btn btn-primary" style={{ flex: 1, minHeight: 54, fontSize: 16, boxShadow: "0 4px 0 var(--text)" }} onClick={share}>
                 Share Flex Card
               </button>
             </div>

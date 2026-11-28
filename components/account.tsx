@@ -23,7 +23,7 @@ export function useGuest() {
 export function SignInPill() {
   if (!useGuest()) return null;
   return (
-    <button onClick={signInWithGoogle} style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 12px", borderRadius: 999, border: "2px solid #111", background: "var(--paper)", color: "#111", fontSize: 13, fontWeight: 800, boxShadow: "3px 3px 0 var(--text)" }}>
+    <button onClick={signInWithGoogle} style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 12px", borderRadius: 999, border: "2px solid #111", background: "var(--paper)", color: "#111", fontSize: 13, fontWeight: 800, boxShadow: "3px 3px 0 var(--text)", whiteSpace: "nowrap", flexShrink: 0 }}>
       <G />Sign in
     </button>
   );

@@ -49,7 +49,7 @@ export function DialogHost() {
   return (
     <div onClick={() => close(false)} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <form role="dialog" aria-modal="true" aria-labelledby="dlg-title" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); close(true); }}
-        style={{ width: "min(440px, 100%)", background: "var(--paper)", color: "#111", border: "3px solid #111", borderRadius: 22, boxShadow: "6px 6px 0 var(--text)", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+        style={{ width: "min(440px, 100%)", maxHeight: "calc(100dvh - 32px)", overflowY: "auto", background: "var(--paper)", color: "#111", border: "3px solid #111", borderRadius: 22, boxShadow: "6px 6px 0 var(--text)", padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
         <h2 id="dlg-title" className="display" style={{ margin: 0, fontSize: 22 }}>{req.title}</h2>
         {req.body && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "#4a4436" }}>{req.body}</p>}
         {req.kind === "text" && (

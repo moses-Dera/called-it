@@ -81,7 +81,7 @@ export const Lock = ({ size = 22, color = "#111" }: { size?: number; color?: str
 );
 
 /** Header with back, title and the "?" how-to-play guide. The guide opens by itself on first visit (phones and tablets). */
-export function TopBar({ mode, eyebrow, title, accent = "var(--lime)", light = false }: { mode?: string; eyebrow: string; title: string; accent?: string; light?: boolean }) {
+export function TopBar({ mode, eyebrow, title, accent = "var(--lime)", light = false, keepBack = false }: { mode?: string; eyebrow: string; title: string; accent?: string; light?: boolean; keepBack?: boolean }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     // On wide screens the dashboard rail already shows the guide, so do not pop it up.
@@ -92,7 +92,7 @@ export function TopBar({ mode, eyebrow, title, accent = "var(--lime)", light = f
   const g = mode ? GUIDES[mode] : null;
   return (
     <>
-      <header className="topbar" style={{ padding: "16px 20px 8px", display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
+      <header className={`topbar${keepBack ? " keep-back" : ""}`} style={{ padding: "16px 20px 8px", display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
         <Link href="/" aria-label="Back to home" className="iconbtn" style={{ background: bg }}><Back color={fg} /></Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="eyebrow" style={{ color: light ? "#111" : accent }}>{eyebrow}</div>
