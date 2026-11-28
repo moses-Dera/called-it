@@ -60,7 +60,10 @@ export default function RoomPage() {
 
   const info = GAME_INFO[room.game];
   const plays = room.players.filter((p) => p.plays && p.state === "joined");
+  const joinedCount = room.players.filter((p) => p.state === "joined").length;
+  const maxPlayers = Math.min(room.options.max_players ?? info.max, info.max);
   const sealed = plays.filter((p) => p.sealed).length, revealed = plays.filter((p) => p.revealed).length;
+  const rpsRoundInMatch = (room.result?.history?.length ?? 0) + (room.status === "done" ? 0 : 1);
   const invite = typeof location !== "undefined" ? `${location.origin}/rooms?join=${room.code}` : "";
 
   return (
@@ -70,7 +73,7 @@ export default function RoomPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <Img n={info.img} size={56} style={{ borderRadius: 16, border: "2px solid #111" }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "werewolf" && room.status !== "lobby" && room.status !== "done" ? ` · ${room.result?.phase === "night" ? "night" : "day"} ${room.result?.day ?? 1}` : ""}{room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
+              <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "werewolf" && room.status !== "lobby" && room.status !== "done" ? ` · ${room.result?.phase === "night" ? "night" : "day"} ${room.result?.day ?? 1}` : ""}{room.game === "arcade" && room.status !== "lobby" ? ` · round ${Math.min(rpsRoundInMatch, room.options.rounds ?? 3)} of ${room.options.rounds ?? 3}` : room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
               <h1 className="display" style={{ margin: 0, fontSize: 26 }}>{room.title || info.name}</h1>
             </div>
             <button type="button" aria-label="Game rules" onClick={() => setRulesOpen(true)} className="iconbtn display" style={{ background: "var(--paper)", color: "#111", fontSize: 18 }}>?</button>
@@ -96,6 +99,7 @@ export default function RoomPage() {
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="chip" style={{ background: "var(--amber)" }}>{STEP[room.status].toUpperCase()}</span>
+            <span className="chip" style={{ background: "var(--panel)", color: "var(--text)", border: "1px solid var(--line)" }}>{joinedCount}/{maxPlayers} players</span>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>Host: {room.is_host ? "you" : room.host_name}</span>
             {room.reveal_by && ["sealing", "revealing", "report"].includes(room.status) && <Countdown until={room.reveal_by} />}
           </div>
@@ -131,6 +135,7 @@ export default function RoomPage() {
           ) : <><h2 className="display" style={{ margin: 0, fontSize: 24 }}>You’re in</h2><p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#4a4436" }}>Waiting for {room.host_name} to start.</p></>)}
 
           {room.game === "werewolf" && room.status !== "lobby" && <WolfStory room={room} />}
+          {room.game === "arcade" && (room.result?.history?.length ?? 0) > 0 && <ArcadeBoard room={room} />}
           {room.game === "bluff" && (room.result?.history?.length ?? 0) > 0 && <BluffBoard room={room} />}
           {room.game === "fog" && room.status !== "lobby" && <FogBoard room={room} />}
 
@@ -276,11 +281,11 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
     <>
       {room.game === "arcade" && (
         <>
-          <h2 className="display" style={{ margin: 0, fontSize: 30 }}>{!r.winner ? "Draw!" : r.winner === room.me ? "You win! +18" : `${r.winner_name} wins`}</h2>
+          <h2 className="display" style={{ margin: 0, fontSize: 30 }}>{!r.winner ? "Match drawn!" : r.winner === room.me ? "You win the match! +18" : `${r.winner_name} wins the match`}</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
             {room.players.filter((p) => p.plays).map((p) => (
               <div key={p.user_id} style={{ background: p.user_id === r.winner ? "var(--lime)" : "#fff", border: "3px solid #111", borderRadius: 18, padding: 14, textAlign: "center" }}>
-                <div className="display" style={{ fontSize: 24 }}>{p.move ?? "No reveal"}</div><b style={{ fontSize: 13 }}>{p.name}</b>
+                <div className="display" style={{ fontSize: 28 }}>{r.scores?.[p.user_id] ?? 0}</div><b style={{ fontSize: 13 }}>{p.name}</b>
               </div>
             ))}
           </div>
@@ -324,8 +329,31 @@ function Result({ room, busy, onNext }: { room: Room; busy: boolean; onNext: () 
         </>
       )}
       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#4a4436" }}>✓ Every move was sealed before the result — nobody could change their answer.</p>
-      {again && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} disabled={busy} onClick={onNext}>{room.game === "arcade" ? "Play another round" : "Vote again"}</button>}
+      {again && <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} disabled={busy} onClick={onNext}>{room.game === "arcade" ? "Play new match" : "Vote again"}</button>}
     </>
+  );
+}
+
+function ArcadeBoard({ room }: { room: Room }) {
+  const r = room.result ?? {};
+  const last = r.history?.at(-1);
+  return (
+    <div style={{ background: "#111", color: "var(--paper)", borderRadius: 18, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <span className="eyebrow" style={{ color: "var(--lime)" }}>Score ({r.history?.length ?? 0} of {room.options.rounds ?? 3} rounds)</span>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {room.players.filter((p) => p.plays).map((p) => (
+          <span key={p.user_id} className="chip" style={{ background: p.user_id === room.me ? "var(--lime)" : "var(--paper)" }}>
+            {p.name}: {r.scores?.[p.user_id] ?? 0}
+          </span>
+        ))}
+      </div>
+      {last && (
+        <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+          Round {last.round}: {last.cards.map((c) => `${c.name} ${c.move}`).join(" vs ") || "no moves"}.{" "}
+          <b style={{ color: "var(--lime)" }}>{last.winner_name ? `${last.winner_name} won` : "Draw"}.</b>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -339,7 +367,7 @@ function BluffBoard({ room }: { room: Room }) {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {room.players.filter((p) => p.plays).map((p) => <span key={p.user_id} className="chip" style={{ background: p.user_id === room.me ? "var(--lime)" : "var(--paper)" }}>{names[p.user_id]}: {r.scores?.[p.user_id] ?? 0}</span>)}
       </div>
-      {last && <div style={{ fontSize: 13, lineHeight: 1.5 }}>Round {last.round}: {last.cards.map((c) => `${c.name} ${c.move}`).join(" · ") || "no cards"}. <b style={{ color: "var(--lime)" }}>{last.winners.join(" & ") || "Nobody"} took it.</b></div>}
+      {last && <div style={{ fontSize: 13, lineHeight: 1.5 }}>Round {last.round}: {last.cards.map((c) => `${c.name} ${c.move}`).join(" · ") || "no cards"}. <b style={{ color: "var(--lime)" }}>{(last.winners ?? []).join(" & ") || "Nobody"} took it.</b></div>}
     </div>
   );
 }

@@ -20,11 +20,11 @@ export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string;
 export const ROOM_RULES: Record<Game, { steps: string[]; scoring: string }> = {
   arcade: {
     steps: [
-      "Exactly 2 players join (1 vs 1).",
-      "Both pick Rock, Paper, or Scissors. Your move is sealed until both lock in.",
-      "Moves open automatically. Rock beats Scissors, Scissors beats Paper, Paper beats Rock.",
+      "Exactly 2 players join (1 vs 1) for a 3, 5, 7, or 10-round match.",
+      "Each round auto-advances once both moves open — no extra clicking between rounds.",
+      "Rock beats Scissors, Scissors beats Paper, Paper beats Rock.",
     ],
-    scoring: "Win a round +18 ranked points (up to 100 pts/day from friend games). Anyone who fails to seal or reveal before the move timer forfeits.",
+    scoring: "Most round wins across the series takes the match (+18 ranked points, up to 100 pts/day). Ties split evenly with no winner.",
   },
   vote: {
     steps: [
@@ -79,11 +79,11 @@ export const BLUFF_CARDS = ["2", "4", "6", "8", "10", "Steal", "Shield"];
 
 export type Player = { user_id: string; name: string; avatar: number; state: "invited" | "joined"; plays: boolean; sealed: boolean; revealed: boolean; reported?: boolean; move: string | null };
 export type Room = {
-  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number; rounds?: number; turns?: number; timer?: number };
+  id: string; code: string; game: Game; title: string; options: { choices?: string[]; opens?: string; min?: number; max?: number; max_players?: number; rounds?: number; turns?: number; timer?: number };
   status: "lobby" | "sealing" | "revealing" | "report" | "answer" | "done"; round: number; answer: number | null; reveal_by: string | null; updated_at: string;
   result: { moves?: { user_id: string; name: string; move: string }[]; winner?: string | null; winner_name?: string | null; tally?: Record<string, number>; top?: string[]; votes?: number;
     guesses?: { user_id: string; name: string; move: string }[]; answer?: number; winners?: { user_id: string; name: string; move: string }[]; messages?: { user_id: string; name: string; move: string }[];
-    scores?: Record<string, number>; history?: { round: number; cards: { user_id: string; name: string; move: string }[]; winners: string[] }[]; champions?: string[]; final?: boolean;
+    scores?: Record<string, number>; history?: { round: number; cards: { user_id: string; name: string; move: string }[]; winners?: string[]; winner?: string | null; winner_name?: string | null }[]; champions?: string[]; final?: boolean;
     turns?: { round: number; targets: Record<string, number[]>; hits?: Record<string, number[]> }[]; hits?: Record<string, number>; placements?: Record<string, number[] | null>; liars?: string[];
     phase?: "night" | "day"; day?: number; alive?: string[]; log?: { day: number; phase: "night" | "day"; out: string | null; role: string | null; votes?: Record<string, number> }[];
     team?: "village" | "wolves"; roles?: { name: string; role: string }[]; deal?: string; salt?: string; deal_hash?: string } | null;

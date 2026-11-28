@@ -120,8 +120,16 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
   const [title, setTitle] = useState(""), [choices, setChoices] = useState(["", ""]), [opens, setOpens] = useState("");
   const [search, setSearch] = useState(""), [people, setPeople] = useState<{ id: string; name: string; avatar: number }[]>([]);
   const [pick, setPick] = useState<string[]>([]), [busy, setBusy] = useState(false);
-  const [timer, setTimer] = useState(10), [rounds, setRounds] = useState(5), [turns, setTurns] = useState(6);
-  const max = GAME_INFO[game].max - 1;
+  const [timer, setTimer] = useState(10), [rpsRounds, setRpsRounds] = useState(3), [rounds, setRounds] = useState(5), [turns, setTurns] = useState(6);
+  const hardMin = game === "closest" ? 3 : GAME_INFO[game].min;
+  const hardMax = GAME_INFO[game].max;
+  const [maxPlayers, setMaxPlayers] = useState<number>(GAME_INFO[game].max);
+  const effectiveMax = Math.min(Math.max(maxPlayers, hardMin), hardMax);
+  const max = effectiveMax - 1;
+
+  useEffect(() => {
+    setMaxPlayers(GAME_INFO[game].max);
+  }, [game]);
 
   useEffect(() => {
     const t = setTimeout(() => { listPlayers(search).then(setPeople).catch(() => setPeople([])); }, 250);
@@ -133,11 +141,23 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
     setBusy(true);
     try {
       const base = game === "vote" ? { choices: choices.map((c) => c.trim()).filter(Boolean) } : game === "capsule" ? { opens: opens ? new Date(opens).toISOString() : undefined } : {};
-      const options = { ...base, ...(game !== "capsule" ? { timer } : {}), ...(game === "bluff" ? { rounds } : {}), ...(game === "fog" ? { turns } : {}) };
+      const options = {
+        ...base,
+        max_players: effectiveMax,
+        ...(game !== "capsule" ? { timer } : {}),
+        ...(game === "arcade" ? { rounds: rpsRounds } : {}),
+        ...(game === "bluff" ? { rounds } : {}),
+        ...(game === "fog" ? { turns } : {}),
+      };
       const r = await createRoom(game, title, options, pick);
       onCreated(r.id);
     } catch (e) { onError(e instanceof Error ? e.message : "Could not create the game"); setBusy(false); }
   }
+
+  const sizeOptions: [number, string][] = Array.from({ length: hardMax - hardMin + 1 }, (_, i) => {
+    const n = hardMin + i;
+    return [n, game === "closest" ? `${n} (${n - 1} guessers)` : `${n}`];
+  });
 
   return (
     <section className="paper" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12, boxShadow: "6px 6px 0 var(--lime)" }}>
@@ -156,7 +176,8 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <span className="chip" style={{ background: "var(--amber)", color: "#111", border: "2px solid #111" }}>{GAME_INFO[game].capLabel}</span>
         <span style={{ fontSize: 13, fontWeight: 600, color: "#4a4436", flex: 1, minWidth: 180 }}>
-          {game === "bluff" ? `${rounds} rounds · same 7 cards each, one sealed per round.`
+          {game === "arcade" ? `1 vs 1 · ${rpsRounds} rounds, most wins takes the match.`
+            : game === "bluff" ? `${rounds} rounds · same 7 cards each, one sealed per round.`
             : game === "fog" ? `1 vs 1 · hide 5 units, then fire sealed shots for ${turns} turns.`
             : GAME_INFO[game].blurb}
         </span>
@@ -174,11 +195,20 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
       {game === "capsule" && <label style={{ fontSize: 12, fontWeight: 800 }}>Opens on<input type="datetime-local" value={opens} onChange={(e) => setOpens(e.target.value)} style={{ ...field, marginTop: 4 }} /></label>}
 
       {game !== "capsule" && (
-        <div style={{ display: "grid", gridTemplateColumns: game === "bluff" || game === "fog" ? "1fr 1fr" : "1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: game === "arcade" || game === "bluff" || game === "fog" ? "1fr 1fr" : "1fr", gap: 8 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Time per move<Chips label="Time per move" value={timer} onChange={setTimer} options={[[2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]} light /></div>
+          {game === "arcade" && <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Rounds<Chips label="Rounds" value={rpsRounds} onChange={setRpsRounds} options={[[3, "3 rounds"], [5, "5 rounds"], [7, "7 rounds"], [10, "10 rounds"]]} light /></div>}
           {game === "bluff" && <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Rounds<Chips label="Rounds" value={rounds} onChange={setRounds} options={[[3, "3 rounds"], [5, "5 rounds"], [7, "7 rounds"]]} light /></div>}
           {game === "fog" && <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>Turns<Chips label="Turns" value={turns} onChange={setTurns} options={[[4, "4 turns"], [6, "6 turns"], [8, "8 turns"]]} light /></div>}
         </div>
+      )}
+      {hardMax > hardMin ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 800 }}>
+          Room limit (max {hardMax} for {GAME_INFO[game].name})
+          <Chips label="Room size" value={effectiveMax} onChange={setMaxPlayers} options={sizeOptions} light />
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>{GAME_INFO[game].name} is locked at 2 players (1v1).</div>
       )}
       <span style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Whoever doesn’t act before the timer runs out loses that round, so a game never gets stuck. Wins with friends count up to 100 ranked points a day.</span>
 
