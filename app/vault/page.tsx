@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
@@ -31,7 +32,7 @@ export default function Vault() {
   const hasInApp = hasWallet(network);
   const ws = useWalletSync(network, hasInApp, true);
   const [showSetup, setShowSetup] = useState(false);
-  const [showSend, setShowSend] = useState(false);
+  const [showSend, setShowSend] = useState(false), [showReceive, setShowReceive] = useState(false), [qrUrl, setQrUrl] = useState("");
   const [sendTo, setSendTo] = useState(""), [sendAmt, setSendAmt] = useState(""), [sendMemo, setSendMemo] = useState("");
   const [sendStatus, setSendStatus] = useState(""), [sendTx, setSendTx] = useState(""), [sending, setSending] = useState(false);
   const [restoring, setRestoring] = useState(false), [restoreMsg, setRestoreMsg] = useState("");
@@ -154,6 +155,21 @@ export default function Vault() {
               <span className="display" style={{ fontSize: 42 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
               <b style={{ fontSize: 16 }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
             </div>
+            {!ws.missingAccount && ws.address && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <button type="button" className="btn" onClick={() => {
+                  const next = !showReceive;
+                  setShowReceive(next);
+                  setShowSend(false);
+                  if (next && ws.address && !qrUrl) QRCode.toDataURL(ws.address, { margin: 1, width: 200 }).then(setQrUrl).catch(() => {});
+                }} style={{ minHeight: 42, background: showReceive ? "#111" : "#fff", color: showReceive ? "var(--lime)" : "#111", border: "2px solid #111", fontSize: 13 }}>
+                  ↓ Deposit / Receive
+                </button>
+                <button type="button" className="btn" onClick={() => { setShowSend((v) => !v); setShowReceive(false); setSendStatus(""); }} style={{ minHeight: 42, background: showSend ? "#111" : "var(--lime)", color: showSend ? "var(--lime)" : "#111", border: "2px solid #111", fontSize: 13 }}>
+                  ↑ Send out
+                </button>
+              </div>
+            )}
             {ws.missingAccount ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>Wallet keys are missing from this browser&apos;s local storage. Restore from your encrypted backup or check again.</span>
@@ -164,11 +180,23 @@ export default function Vault() {
                 {restoreMsg && <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>{restoreMsg}</span>}
               </div>
             ) : ws.address ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 800 }}>RECEIVE ADDRESS</span>
-                <button type="button" onClick={() => { navigator.clipboard?.writeText(ws.address!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: "#fff", color: "#111", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
-                <span style={{ fontSize: 11, color: "#4a4436" }}>{copied ? "Copied to clipboard" : "Tap to copy"}</span>
-              </div>
+              showReceive ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#fff", border: "2px solid #111", borderRadius: 16, padding: 12 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800 }}>DEPOSIT SHIELDED {network === "testnet" ? "TAZ" : "ZEC"} FROM ANY WALLET</span>
+                  {qrUrl && <img src={qrUrl} alt="Receive address QR" width={160} height={160} style={{ alignSelf: "center", borderRadius: 10, border: "2px solid #111" }} />}
+                  <button type="button" onClick={() => { navigator.clipboard?.writeText(ws.address!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: "var(--paper)", color: "#111", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: "#4a4436" }}>{copied ? "Copied ✓" : "Send from Zashi, Zingo, or an exchange."}</span>
+                    <button type="button" onClick={() => { navigator.clipboard?.writeText(ws.address!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="btn" style={{ width: "auto", minHeight: 34, padding: "0 12px", background: "var(--lime)", color: "#111", border: "2px solid #111", fontSize: 12 }}>{copied ? "Copied" : "Copy address"}</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800 }}>RECEIVE ADDRESS</span>
+                  <button type="button" onClick={() => { navigator.clipboard?.writeText(ws.address!); setCopied(true); setTimeout(() => setCopied(false), 2000); }} style={{ background: "#fff", color: "#111", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+                  <span style={{ fontSize: 11, color: "#4a4436" }}>{copied ? "Copied to clipboard" : "Tap to copy · or tap Deposit / Receive for QR"}</span>
+                </div>
+              )
             ) : (
               <div style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>
                 {ws.status === "error" ? `Could not reach sync server (${ws.error || "offline"}).` : "Opening your local shielded wallet…"}
@@ -180,20 +208,14 @@ export default function Vault() {
                   : ws.status === "syncing" ? "Syncing latest blocks…"
                   : ws.height ? `Synced to block ${ws.height.toLocaleString()}` : "Ready"}
               </span>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                {!ws.missingAccount && ws.address && (
-                  <button type="button" onClick={() => { setShowSend((v) => !v); setSendStatus(""); }} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>
-                    {showSend ? "Hide Send" : "Send / Move to Zashi"}
-                  </button>
-                )}
-                {(ws.status === "error" || ws.status === "ready") && (
-                  <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
-                )}
-              </div>
+              {(ws.status === "error" || ws.status === "ready") && (
+                <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
+              )}
             </div>
             {showSend && !ws.missingAccount && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "2px dashed #c9bfa6", paddingTop: 10 }}>
-                <input value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder={network === "testnet" ? "Recipient utest1… address" : "Recipient Zashi u1… address"} autoComplete="off" spellCheck={false} className="mono" style={{ height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 12 }} />
+                <span style={{ fontSize: 12, fontWeight: 800 }}>SEND TO ANY EXTERNAL SHIELDED WALLET</span>
+                <input value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder={network === "testnet" ? "Recipient utest1… address" : "Recipient Zashi / Zingo u1… address"} autoComplete="off" spellCheck={false} className="mono" style={{ height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 12 }} />
                 <div style={{ display: "flex", gap: 8 }}>
                   <input value={sendAmt} onChange={(e) => setSendAmt(e.target.value)} placeholder={`Amount (${network === "testnet" ? "TAZ" : "ZEC"})`} inputMode="decimal" style={{ flex: 1, height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 14, fontWeight: 700, minWidth: 0 }} />
                   <input value={sendMemo} onChange={(e) => setSendMemo(e.target.value)} placeholder="Memo (optional)" maxLength={200} style={{ flex: 1.4, height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 13, minWidth: 0 }} />

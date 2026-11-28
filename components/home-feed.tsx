@@ -22,10 +22,17 @@ function Featured({ f, kind, sealed }: { f: Fixture; kind: "live" | "next" | "re
   const cta = kind === "next" ? ["Seal your prediction", "Seal →"] : kind === "live" ? ["Quick calls are open", "Enter →"] : ["See how it played out", "→"];
   return (
     <Link href={href} className="featured" style={{ display: "flex", flexDirection: "column", gap: 12, color: "#fff", borderRadius: 22, background: GREEN, border: "3px solid #111", boxShadow: "4px 4px 0 var(--lime)", padding: "16px 18px" }}>
-      <span className="chip" style={{ background: chipBg, color: "#111", border: 0, alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6 }}>
-        {kind === "live" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff", animation: "sealPulse 1s infinite" }} />}
-        {chip}
-      </span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span className="chip" style={{ background: chipBg, color: "#111", border: 0, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {kind === "live" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff", animation: "sealPulse 1s infinite" }} />}
+          {chip}
+        </span>
+        {f.league && (
+          <span className="chip" style={{ background: "rgba(0,0,0,0.35)", color: "#fff", border: "1px solid rgba(255,255,255,0.22)" }}>
+            {f.league}
+          </span>
+        )}
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
           <TeamBadge name={f.home} size={52} side="home" />
@@ -89,7 +96,7 @@ function HomeFixturesInner() {
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Next matches</h2>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>{inLeague.length} open</span>
       </div>
-      {showAll && leagues.length > 1 && (
+      {leagues.length > 1 && (
         <div className="chip-scroll">
           <div style={{ width: "max-content" }}><Chips label="League" value={shown} onChange={(v) => { setLeague(v); setShowAll(false); }} options={[["all", "All leagues"], ...leagues.map((l) => [l, l] as const)]} /></div>
         </div>
@@ -104,8 +111,10 @@ function HomeFixturesInner() {
           <div style={{ width: 78, background: "var(--lime)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 12, fontWeight: 800 }}><Img n="seal" size={30} />SEAL</div>
         </Link>
       ))}</div>
-      {!showAll && open.length > 4 && (
-        <button className="btn btn-quiet" onClick={() => setShowAll(true)} style={{ minHeight: 42 }}>See all {open.length} matches by league</button>
+      {inLeague.length > 4 && (
+        <button className="btn btn-quiet" onClick={() => setShowAll((v) => !v)} style={{ minHeight: 42 }}>
+          {showAll ? "Show fewer" : `See all ${inLeague.length} matches`}
+        </button>
       )}
     </section>
   );

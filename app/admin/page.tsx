@@ -199,8 +199,8 @@ function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | nul
         ))}
         {ov?.withdrawals.some((w) => w.status === "requested") && <button onClick={() => go("Payouts")} style={{ ...btn("#fff"), display: "flex", justifyContent: "space-between" }}><span>Payout requests waiting</span><span>→</span></button>}
         <div style={{ borderTop: "2px dashed #c9bfa6", paddingTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={btn("var(--lime)")} onClick={() => demoMatch(act)}>Demo match in 10 min</button>
-          <button style={btn("var(--paper)")} onClick={() => go("Contests")}>New contest</button>
+          <button style={btn("var(--lime)")} onClick={() => go("Fixtures")}>Import fixtures</button>
+          <button style={btn("var(--paper)")} onClick={() => go("Contests")}>Manage contests</button>
         </div>
       </section>
 
@@ -228,14 +228,17 @@ function FixturesTab({ act }: { act: Act }) {
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, [fixtures]);
   const [view, setView] = useState<"needs" | "upcoming" | "final">("needs");
+  const [leagueFilter, setLeagueFilter] = useState("all");
   const [q, setQ] = useState("");
   const groups = {
     needs: fixtures.filter((f) => f.homeGoals == null && now && Date.parse(f.kickoff) <= now).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)),
     upcoming: fixtures.filter((f) => f.homeGoals == null && (!now || Date.parse(f.kickoff) > now)).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)),
     final: fixtures.filter((f) => f.homeGoals != null).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)),
   };
+  const leaguesInView = [...new Set(groups[view].map((f) => f.league).filter(Boolean) as string[])].sort();
+  const activeLeague = leaguesInView.includes(leagueFilter) ? leagueFilter : "all";
   const needle = q.trim().toLowerCase();
-  const shown = groups[view].filter((f) => !needle || `${f.home} ${f.away}`.toLowerCase().includes(needle));
+  const shown = groups[view].filter((f) => (activeLeague === "all" || f.league === activeLeague) && (!needle || `${f.home} ${f.away} ${f.league ?? ""}`.toLowerCase().includes(needle)));
   const PAGE = 20;
   const [limit, setLimit] = useState(PAGE);
 
@@ -249,13 +252,20 @@ function FixturesTab({ act }: { act: Act }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 18, alignItems: "start" }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sealing closes at kickoff. Real results arrive automatically; enter a score by hand only for matches you added yourself.</p>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.5 }}>Sealing closes at kickoff. Real results arrive automatically; enter a score by hand only for custom matches.</p>
         <div role="tablist" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
           {([["needs", "Needs result"], ["upcoming", "Upcoming"], ["final", "Finished"]] as const).map(([k, t]) => (
-            <button key={k} role="tab" aria-selected={view === k} onClick={() => { setView(k); setLimit(PAGE); }} style={{ height: 40, borderRadius: 12, border: `2px solid ${view === k ? "#111" : "var(--line)"}`, background: view === k ? "var(--lime)" : "var(--panel)", color: view === k ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13 }}>{t} ({groups[k].length})</button>
+            <button key={k} role="tab" aria-selected={view === k} onClick={() => { setView(k); setLeagueFilter("all"); setLimit(PAGE); }} style={{ height: 40, borderRadius: 12, border: `2px solid ${view === k ? "#111" : "var(--line)"}`, background: view === k ? "var(--lime)" : "var(--panel)", color: view === k ? "#111" : "#c9d3de", fontWeight: 800, fontSize: 13 }}>{t} ({groups[k].length})</button>
           ))}
         </div>
-        <input aria-label="Search fixtures" placeholder="Search a team" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} style={{ height: 42, borderRadius: 12, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 14 }} />
+        <input aria-label="Search fixtures" placeholder="Search a team or league" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} style={{ height: 42, borderRadius: 12, border: "2px solid var(--line)", background: "var(--ink)", color: "var(--text)", padding: "0 12px", fontSize: 14 }} />
+        {leaguesInView.length > 0 && (
+          <div className="chip-scroll">
+            <div style={{ width: "max-content" }}>
+              <Chips label="League filter" value={activeLeague} onChange={(v) => { setLeagueFilter(v); setLimit(PAGE); }} options={[["all", "All leagues"], ...leaguesInView.map((l) => [l, l] as const)]} />
+            </div>
+          </div>
+        )}
         {shown.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>{view === "needs" ? "Nothing waiting for a result." : "No matches here."}</p>}
         {shown.slice(0, limit).map((f) => {
           const s = scores[f.id] ?? [f.homeGoals?.toString() ?? "", f.awayGoals?.toString() ?? ""];
@@ -263,7 +273,7 @@ function FixturesTab({ act }: { act: Act }) {
           return (
             <div key={f.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <div><div className="display" style={{ fontSize: 18 }}>{f.home} vs {f.away}</div><div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Kickoff {f.when}</div></div>
+                <div><div className="display" style={{ fontSize: 18 }}>{f.home} vs {f.away}</div><div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{f.league ? `${f.league} · ` : ""}Kickoff {f.when}</div></div>
                 <Chip text={state[0]} bg={state[1]} />
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -279,19 +289,21 @@ function FixturesTab({ act }: { act: Act }) {
         {shown.length > limit && <button className="btn btn-quiet" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, shown.length - limit)} more ({shown.length - limit} left)</button>}
       </section>
 
-      <section className="paper" style={{ ...card, boxShadow: "6px 6px 0 var(--lime)" }}>
-        <span className="eyebrow" style={{ color: "#5b6b12" }}>Add a fixture</span>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <input aria-label="Home team" placeholder="Home team" value={home} onChange={(e) => setHome(e.target.value)} style={field} />
-          <input aria-label="Away team" placeholder="Away team" value={away} onChange={(e) => setAway(e.target.value)} style={field} />
-        </div>
-        <label style={{ fontSize: 12, fontWeight: 800 }}>Kickoff (your local time)<input type="datetime-local" value={kick} onChange={(e) => setKick(e.target.value)} style={{ ...field, marginTop: 4 }} /></label>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn btn-primary" style={{ flex: 1, minHeight: 52, fontSize: 16, boxShadow: "0 5px 0 #111" }} onClick={add}>Add fixture</button>
-          <button style={{ ...btn("var(--amber)"), minHeight: 52 }} onClick={() => demoMatch(act)}>Demo match in 10 min</button>
-        </div>
-      </section>
-      <ImportCard />
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <ImportCard />
+        <section className="paper" style={{ ...card }}>
+          <span className="eyebrow" style={{ color: "#5b6b12" }}>Add a manual fixture</span>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <input aria-label="Home team" placeholder="Home team" value={home} onChange={(e) => setHome(e.target.value)} style={field} />
+            <input aria-label="Away team" placeholder="Away team" value={away} onChange={(e) => setAway(e.target.value)} style={field} />
+          </div>
+          <label style={{ fontSize: 12, fontWeight: 800 }}>Kickoff (your local time)<input type="datetime-local" value={kick} onChange={(e) => setKick(e.target.value)} style={{ ...field, marginTop: 4 }} /></label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button className="btn btn-primary" style={{ flex: 1, minHeight: 50, fontSize: 15, boxShadow: "0 5px 0 #111" }} onClick={add}>Add fixture</button>
+            <button type="button" onClick={() => demoMatch(act)} style={{ background: "none", border: 0, padding: "4px 6px", fontSize: 12, fontWeight: 700, color: "#4a4436", textDecoration: "underline", cursor: "pointer" }}>+ Add test match in 10m</button>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
