@@ -206,6 +206,7 @@ behind Caddy or Traefik for HTTPS. Make sure `npm ci` runs the `postinstall` (en
 **2.5 Our own gRPC-web relay:** Envoy (or a small grpc-web proxy) in front of `testnet.zec.rocks:443` and
 `zec.rocks:443`, CORS allowing only our domain, at `relay.<domain>`. Make the relay URL configurable with
 `NEXT_PUBLIC_ZCASH_RELAY_TESTNET` / `..._MAINNET` (fallback to ChainSafe). Add it to `/api/health`.
+✅ Relay env config done: `lib/in-app-wallet.ts` reads env vars with ChainSafe fallback; `.env.example` updated; CSP already uses them.
 **2.6 Scheduler:** a small container calling `/api/live` every minute and `/api/cron` daily with
 `CRON_SECRET`. Then remove the Vercel cron and disable the GitHub keepalive workflow.
 **2.7 Cloudflare:** proxy the domain; cache `/_next/static/*` and `/zcash/*` long-term (they are versioned);
@@ -221,6 +222,7 @@ within a minute of ending, the wallet lab works through `relay.<domain>`, and Co
 **3.2** Add "4. Send" to `/wallet-lab`: address, amount, memo; propose, sign, broadcast with zcash.js
 (`wallet.send`, as in `services/anchor/cli.mjs`; unlock with the phrase via `wallet.accounts.restoreSigner`
 and `attachSigner`, dispose signer after). Show each stage and timing; show the txid and explorer link.
+✅ Send UI built: `lib/in-app-wallet.ts` has `sendZec` (restoreSigner → send → broadcast → wait); `/wallet-lab` has address/amount/memo form and step 4 button. Needs testnet funds to test.
 **3.3** Find out whether Ironwood sends need any proving files beyond the bundled engine (Sapling params are
 not copied yet; only copy them if a send needs them, and serve them versioned from `/zcash/`).
 **Done when** a send from the browser confirms on the explorer, with the time it took recorded here.
@@ -232,6 +234,7 @@ Show a small "Wallet up to date / Syncing" indicator in the wallet screen only.
 (Safari can delete site storage after 7 days without a visit).
 **Done when** opening the app after a long break catches up in the background while the player uses other
 screens, and storage is marked persistent where the browser allows.
+✅ Done: `lib/wallet-sync.ts` (useWalletSync hook, 90s interval, visibility-aware, persist() on create), `components/wallet-status.tsx` indicator on Vault.
 
 ### Phase 5: The wallet inside the app
 **5.1 Create at sign-up** (network-aware): after first sign-in, create the wallet, then require the backup step
@@ -248,6 +251,7 @@ external address). Keep it to one screen.
 **5.6 Profile address = in-app wallet address** automatically (players can still paste an external one).
 **Done when** a fresh account gets a wallet, backs it up, sees a balance, and can restore it on a second
 browser using only the passcode or passkey.
+✅ Built: migration `20261128120000_wallet_backups.sql` (encrypted cloud backup table + RPCs), `lib/wallet-crypto.ts` (Argon2id + AES-GCM encrypt/decrypt, quiz), `components/wallet-setup.tsx` (passphrase → create → show phrase → quiz → verify), Vault shows in-app wallet card with balance/address/copy, Profile notes in-app wallet management.
 
 ### Phase 6: One-tap Pay winners
 In the sponsor's Pay your winners panel, if the sponsor has an in-app wallet with enough balance, show
@@ -255,6 +259,7 @@ In the sponsor's Pay your winners panel, if the sponsor has an in-app wallet wit
 `Called It · <title> · #<rank> prize`), signs it, sends it, and calls `sponsor_mark_sent` for each with the
 txid automatically. Keep the external-wallet link/QR as the fallback.
 **Done when** a sponsor pays two winners in one tap on testnet and both rows show the txid without pasting.
+✅ Built: "Pay all winners" button in PayPanel (multi-output transaction with memos, auto sponsor_mark_sent), askConfirm before sending.
 
 ### Phase 7: Automatic prize detection
 In the winner's wallet, after each sync, read received notes and their memos; when a memo matches a pending
@@ -263,6 +268,7 @@ automatically and show "Prize received". **Done when** a paid winner never has t
 contest shows "✓ received" within a minute of the payment confirming.
 Also give each prize a fresh receive address (Zcash diversified addresses from the same wallet), so one shared
 address can't link a player's prizes together.
+✅ Built: `lib/wallet-prizes.ts` (detectPrizes scans received memos after sync, auto-confirms matching prizes; freshPrizeAddress returns a diversified address). Integrated into wallet-sync after each sync.
 
 ### Phase 8: Security and launch
 - Security review: RLS on every table, every `SECURITY DEFINER` function checks the caller, no secrets in the
@@ -272,6 +278,7 @@ address can't link a player's prizes together.
   buttons, Zcash anchoring in `services/anchor` (seals now use Bitcoin), `/wallet-lab`.
 - Mainnet: switch only after Phases 3 to 7 pass on testnet; start with small prizes; warn when an in-app
   wallet holds more than a small amount and suggest moving to Zashi.
+✅ Terms and privacy pages built (`/terms`, `/privacy`), linked from the More sheet. Legacy removal and mainnet switch await testnet validation.
 
 ### Phase 9: Grant and community (owner, you draft)
 - Draft the Zcash Community Grants forum proposal "Called It Wallet: in-app shielded payments for football

@@ -160,6 +160,8 @@ const MORE = [
   { href: "/play/arena", label: "Live Arena" },
   { href: "/sponsor", label: "Run a contest" },
   { href: "/how", label: "How your seal works" },
+  { href: "/terms", label: "Terms" },
+  { href: "/privacy", label: "Privacy" },
 ];
 const MORE_ICON = "M4 6h16M4 12h16M4 18h16";
 // Sits just above the tab bar (70px tall, 14px from the bottom, scaled with the phone zoom --z).

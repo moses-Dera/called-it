@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cloudRpc, useCloud } from "@/lib/cloud";
 import type { WalletClient } from "@zcashlabs/zcash.js";
-import { addressOf, balanceOf, createAccount, newPhrase, openWallet, savedPhrase, syncWallet, zecOf } from "@/lib/in-app-wallet";
+import { addressOf, balanceOf, createAccount, newPhrase, openWallet, savedPhrase, sendZec, syncWallet, zatsOf, zecOf } from "@/lib/in-app-wallet";
 
 // On the live site only the admin can open this page; everyone else sees "Page not found".
 export default function WalletLab() {
@@ -25,6 +25,7 @@ function Lab() {
   const [log, setLog] = useState<string[]>([]);
   const [height, setHeight] = useState<number | null>(null), [secs, setSecs] = useState<number | null>(null);
   const [address, setAddress] = useState(""), [balance, setBalance] = useState(""), [phrase, setPhrase] = useState(""), [busy, setBusy] = useState(false);
+  const [sendTo, setSendTo] = useState(""), [sendAmt, setSendAmt] = useState(""), [sendMemo, setSendMemo] = useState(""), [txid, setTxid] = useState("");
   const w = useRef<WalletClient | null>(null);
   const say = (m: string) => setLog((l) => [...l, `${new Date().toLocaleTimeString()}  ${m}`]);
   const fail = (e: unknown) => { const x = e as { code?: string; stage?: string; message?: string }; say(`✗ ${x.code ?? ""} ${x.stage ? `(${x.stage}) ` : ""}${x.message ?? String(e)}`); const st = (e as Error)?.stack?.split("\n").slice(1, 8).map((l) => l.replace(/https?:\/\/[^/]+\/_next\/static\/chunks\//, "").trim()).join("\n   "); if (st) say(`   ${st}`); };
@@ -59,7 +60,21 @@ function Lab() {
     setBalance(b ? `${zecOf(b.total)} TAZ total · ${zecOf(b.spendable)} spendable` : "not available yet");
   });
 
+  const send = () => run("Send shielded ZEC", async () => {
+    if (!w.current) throw new Error("Open the wallet first.");
+    if (!phrase) throw new Error("No phrase available. Create account first.");
+    if (!sendTo.trim()) throw new Error("Enter a destination address.");
+    const amt = parseFloat(sendAmt);
+    if (!amt || amt <= 0) throw new Error("Enter a valid amount.");
+    const [acct] = await w.current.accounts.list();
+    if (!acct) throw new Error("No account yet.");
+    say(`Sending ${amt} TAZ to ${sendTo.slice(0, 20)}…`);
+    const id = await sendZec(w.current, acct.id, phrase, sendTo.trim(), zatsOf(amt), sendMemo.trim() || undefined, say);
+    if (id) { setTxid(id); say(`txid: ${id}`); } else say("Send completed (no txid returned)");
+  });
+
   const btn = { minHeight: 44, padding: "0 16px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800 } as const;
+  const inp = { minHeight: 40, padding: "6px 10px", borderRadius: 10, border: "2px solid #111", background: "#fff", color: "#111", fontSize: 13, width: "100%" } as const;
   return (
     <main className="screen wide" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12, maxWidth: 820 }}>
       <h1 className="display" style={{ margin: 0 }}>Wallet lab (testnet)</h1>
@@ -68,6 +83,7 @@ function Lab() {
         <button style={btn} disabled={busy} onClick={open}>1. Open</button>
         <button style={btn} disabled={busy} onClick={create}>2. Create account</button>
         <button style={btn} disabled={busy} onClick={sync}>3. Sync + balance</button>
+        <button style={btn} disabled={busy || !address} onClick={send}>4. Send</button>
       </div>
       {address && (
         <section style={{ background: "var(--paper)", color: "#111", border: "3px solid #111", boxShadow: "6px 6px 0 var(--lime)", borderRadius: 26, padding: 20, display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
@@ -86,6 +102,17 @@ function Lab() {
             <span>{height ? `✓ Synced to block ${height.toLocaleString()}` : "Not synced yet"}{secs != null ? ` in ${secs}s` : ""}</span>
             <span>🔒 Keys stay on this device</span>
           </div>
+        </section>
+      )}
+      {address && (
+        <section style={{ background: "var(--paper)", border: "2px solid #111", borderRadius: 16, padding: 16, display: "flex", flexDirection: "column", gap: 8, maxWidth: 560 }}>
+          <span className="eyebrow">Send shielded TAZ</span>
+          <input style={inp} placeholder="Destination address (u…)" value={sendTo} onChange={(e) => setSendTo(e.target.value)} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <input style={{ ...inp, maxWidth: 120 }} placeholder="Amount" type="number" step="0.0001" min="0" value={sendAmt} onChange={(e) => setSendAmt(e.target.value)} />
+            <input style={inp} placeholder="Memo (optional)" value={sendMemo} onChange={(e) => setSendMemo(e.target.value)} />
+          </div>
+          {txid && <div style={{ fontSize: 12, overflowWrap: "anywhere" }}><b>Last txid:</b> <span className="mono">{txid}</span></div>}
         </section>
       )}
       {phrase && <details><summary>Recovery phrase (testnet only)</summary><div className="mono" style={{ fontSize: 12 }}>{phrase}</div></details>}

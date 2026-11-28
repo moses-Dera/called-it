@@ -9,8 +9,8 @@ import type { WalletClient, WalletEndpointOptions } from "@zcashlabs/zcash.js";
 import type { Network } from "./zaddr";
 
 const RELAY: Record<Network, string> = {
-  testnet: "https://zcash-testnet.chainsafe.dev",
-  mainnet: "https://zcash-mainnet.chainsafe.dev",
+  testnet: process.env.NEXT_PUBLIC_ZCASH_RELAY_TESTNET || "https://zcash-testnet.chainsafe.dev",
+  mainnet: process.env.NEXT_PUBLIC_ZCASH_RELAY_MAINNET || "https://zcash-mainnet.chainsafe.dev",
 };
 
 async function params(network: Network) {
@@ -36,6 +36,7 @@ const IRONWOOD = { format: "unified", transparent: "omit", sapling: "omit", iron
 const ENGINE = "ea08c661";
 
 const PHRASE_KEY = (n: Network) => `calledit:wallet-phrase:${n}`;
+const WALLET_KEY = (n: Network) => `calledit:wallet:${n}`;
 
 export const newPhrase = () => generateMnemonic(wordlist, 256);
 export const isPhrase = (p: string) => validateMnemonic(p.trim().toLowerCase().replace(/\s+/g, " "), wordlist);
@@ -53,9 +54,12 @@ export async function openWallet(network: Network): Promise<WalletClient> {
 }
 
 export const savedPhrase = (network: Network) => { try { return localStorage.getItem(PHRASE_KEY(network)); } catch { return null; } };
+export const walletExists = (network: Network) => { try { return !!(localStorage.getItem(WALLET_KEY(network)) || localStorage.getItem(PHRASE_KEY(network))); } catch { return false; } };
+export const markWalletCreated = (network: Network) => { try { localStorage.setItem(WALLET_KEY(network), "1"); } catch {} };
 
-/** Create the wallet's account from a new or restored phrase. Syncs to the tip first, so a new wallet starts there. */
-export async function createAccount(wallet: WalletClient, network: Network, phrase: string) {
+/** Create the wallet's account from a new or restored phrase. Syncs to the tip first, so a new wallet starts there.
+ *  Set savePlain=false (production) to skip saving the phrase in localStorage. */
+export async function createAccount(wallet: WalletClient, network: Network, phrase: string, savePlain = true) {
   const clean = phrase.trim().toLowerCase().replace(/\s+/g, " ");
   if (!isPhrase(clean)) throw new Error("That recovery phrase isn't valid.");
   const [existing] = await wallet.accounts.list();
@@ -65,7 +69,7 @@ export async function createAccount(wallet: WalletClient, network: Network, phra
   try {
     const created = await wallet.accounts.create({ mnemonic, name: `called-it-${network}` });
     await created.signer.dispose();
-    try { localStorage.setItem(PHRASE_KEY(network), clean); } catch { /* the player keeps their own copy */ }
+    if (savePlain) { try { localStorage.setItem(PHRASE_KEY(network), clean); } catch {} }
     return created.account;
   } finally { mnemonic.fill(0); }
 }
@@ -98,3 +102,26 @@ export async function balanceOf(wallet: WalletClient, accountId: string) {
 }
 
 export const zecOf = (zats: bigint) => (Number(zats) / 1e8).toFixed(8).replace(/\.?0+$/, "") || "0";
+export const zatsOf = (zec: number) => BigInt(Math.round(zec * 1e8));
+
+/** Send shielded ZEC. Calls back with status updates. Returns the txid when mined (or broadcast id). */
+export async function sendZec(
+  wallet: WalletClient, accountId: string, phrase: string,
+  to: string, zatoshis: bigint, memo?: string, onStatus?: (s: string) => void,
+) {
+  const mnemonic = new TextEncoder().encode(phrase.trim().toLowerCase().replace(/\s+/g, " "));
+  try {
+    onStatus?.("Unlocking wallet…");
+    const signer = await wallet.accounts.restoreSigner({ accountId, mnemonic } as never);
+    try {
+      const payment = { to, amount: zatoshis, memo: memo ? { text: memo } : undefined };
+      onStatus?.("Building & signing transaction…");
+      const pending = await wallet.send({ accountId, signer, payments: [payment] } as never);
+      onStatus?.("Broadcasting…");
+      const state = await pending.broadcast();
+      onStatus?.("Waiting for confirmation…");
+      const confirmed = await pending.wait({ timeoutMs: 300_000 });
+      return String(confirmed.transactions[0].txid);
+    } finally { await signer.dispose(); }
+  } finally { mnemonic.fill(0); }
+}

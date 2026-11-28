@@ -783,3 +783,10 @@ export function startCloud() {
     timer = setTimeout(() => sync(), 1500);
   });
 }
+
+// --- Wallet backup RPCs ---
+export type WalletBackup = { network: string; ciphertext: string; iv: string; salt: string; kdf: string; backup_verified: boolean };
+export const saveWalletBackup = (network: string, ciphertext: string, iv: string, salt: string, kdf = "argon2id") =>
+  cloudRpc<boolean>("save_wallet_backup", { p_network: network, p_ciphertext: ciphertext, p_iv: iv, p_salt: salt, p_kdf: kdf });
+export const getWalletBackup = () => cloudRpc<WalletBackup | null>("get_wallet_backup");
+export const verifyWalletBackup = () => cloudRpc<boolean>("verify_wallet_backup");

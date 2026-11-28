@@ -5,7 +5,11 @@ import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
 import { SponsorPrizes } from "@/components/sponsor-prizes";
+import { WalletStatus } from "@/components/wallet-status";
+import { WalletSetup } from "@/components/wallet-setup";
 import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
+import { hasWallet } from "@/lib/wallet-sync";
+import { useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -21,6 +25,9 @@ export default function Vault() {
   const [checks, setChecks] = useState<Record<string, string>>({});
   const signedIn = !!useCloud().session;
   const tips = useTipHistory();
+  const hasInApp = hasWallet(network);
+  const ws = useWalletSync(network, hasInApp);
+  const [showSetup, setShowSetup] = useState(false);
 
   async function withdraw() {
     // Save the wallet first, so it is remembered even when there is nothing to withdraw yet.
@@ -45,7 +52,40 @@ export default function Vault() {
   }
   return (
     <main className="screen wide hub vault">
-      <div className="vault-title" style={{ padding: "18px 20px 12px", display: "flex", flexDirection: "column", gap: 12 }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1><BackupNudge what="winnings and proofs" /></div>
+      <div className="vault-title" style={{ padding: "18px 20px 12px", display: "flex", flexDirection: "column", gap: 12 }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h1 className="display" style={{ margin: 0, fontSize: 34 }}>Vault</h1><WalletStatus /></div><BackupNudge what="winnings and proofs" /></div>
+
+      {/* In-app wallet */}
+      {signedIn && !hasInApp && !showSetup && (
+        <section style={{ margin: "0 20px", padding: 18, borderRadius: 20, background: "var(--paper)", border: "2px solid #111", display: "flex", flexDirection: "column", gap: 10 }}>
+          <span className="eyebrow">Called It wallet</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Get a shielded wallet built into the app. Prizes arrive here automatically.</span>
+          <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowSetup(true)}>Set up wallet</button>
+        </section>
+      )}
+      {showSetup && !hasInApp && (
+        <section style={{ margin: "0 20px", padding: 18, borderRadius: 20, background: "var(--paper)", border: "2px solid #111" }}>
+          <WalletSetup network={network} onDone={(a) => { setShowSetup(false); if (a && !saved) saveProfile({ address: a }); }} />
+        </section>
+      )}
+      {hasInApp && ws.address && (
+        <section style={{ margin: "0 20px", padding: 18, borderRadius: 22, background: "var(--paper)", border: "3px solid #111", boxShadow: "5px 5px 0 var(--lime)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet · shielded</span>
+            {network === "testnet" && <span className="chip" style={{ background: "var(--amber)", color: "#111", border: 0 }}>TESTNET</span>}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span className="display" style={{ fontSize: 42 }}>{ws.balance ? zecOf(ws.balance.spendable) : "…"}</span>
+            <b style={{ fontSize: 16 }}>{network === "testnet" ? "TAZ" : "ZEC"}</b>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 800 }}>RECEIVE ADDRESS</span>
+            <button onClick={() => navigator.clipboard.writeText(ws.address!)} style={{ background: "#fff", border: "2px solid #111", borderRadius: 12, padding: "8px 10px", fontSize: 12, textAlign: "left", overflowWrap: "anywhere", cursor: "pointer" }} className="mono">{ws.address}</button>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>Tap to copy</span>
+          </div>
+          {ws.height && <span style={{ fontSize: 12, fontWeight: 700 }}>Synced to block {ws.height.toLocaleString()}</span>}
+        </section>
+      )}
+
       {t.available <= 0 ? (
       <section className="vault-bal" style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="eyebrow">Your wallet</span>

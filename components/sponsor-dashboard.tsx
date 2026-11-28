@@ -3,7 +3,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { cloudRpc, refreshContests, sponsorMarkSent, sponsorPayees, useFixtures, useNetwork, type ContestGame, type Payee, type SponsorContest, type SponsorDashboard } from "@/lib/cloud";
-import { askText } from "./dialog";
+import { askConfirm, askText, showNotice } from "./dialog";
 import { explorerTx } from "@/lib/explorer";
 import { walletAdvice } from "@/lib/wallets";
 import { CONTEST_GAMES, contestGame, phaseOf } from "@/lib/data";
@@ -11,6 +11,8 @@ import { OTHER_LEAGUE } from "@/lib/leagues";
 import { Chips } from "./chips";
 import { Img } from "./ui";
 import { zip321 } from "@/lib/zip321";
+import { hasWallet, getWallet } from "@/lib/wallet-sync";
+import { savedPhrase, zatsOf, openWallet } from "@/lib/in-app-wallet";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 52);
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -87,14 +89,55 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
   const network = useNetwork();
   const [payees, setPayees] = useState<Payee[] | null>(null), [err, setErr] = useState("");
   const [n, setN] = useState(0);
+  const [paying, setPaying] = useState(false);
   useEffect(() => {
     let live = true;
     sponsorPayees(c.id).then((r) => live && setPayees(r)).catch((e) => live && setErr(e instanceof Error ? e.message : "Could not load the winners."));
     return () => { live = false; };
   }, [c.id, n, c.winners]);
   if (!c.winners?.some((w) => w.zec > 0)) return null;
+  const due = payees?.filter((p) => p.zec > 0 && (p.status === "pending" || p.status === "disputed") && p.address) ?? [];
   const open = payees?.filter((p) => p.zec > 0 && p.status !== "paid" && p.status !== "unclaimed").length ?? 0;
   const late = c.pay_by && Date.parse(c.pay_by) < now;
+  const canPayAll = hasWallet(network) && due.length > 0;
+
+  async function payAll() {
+    if (!canPayAll) return;
+    const phrase = savedPhrase(network);
+    if (!phrase) { showNotice({ title: "No wallet phrase found on this device. Set up your wallet first." }); return; }
+    const total = due.reduce((s, p) => s + p.zec, 0);
+    const ok = await askConfirm({ title: `Pay ${due.length} winner${due.length > 1 ? "s" : ""}?`, body: `Total: ${total} ${network === "testnet" ? "TAZ" : "ZEC"} from your Called It wallet.`, confirmLabel: "Pay now" });
+    if (!ok) return;
+    setPaying(true); setErr("");
+    try {
+      let wallet = getWallet();
+      if (!wallet) wallet = await openWallet(network);
+      const [acct] = await wallet.accounts.list();
+      if (!acct) throw new Error("No wallet account found.");
+      const mnemonic = new TextEncoder().encode(phrase.trim().toLowerCase().replace(/\s+/g, " "));
+      let signer;
+      try {
+        signer = await wallet.accounts.restoreSigner({ accountId: acct.id, mnemonic } as never);
+      } finally { mnemonic.fill(0); }
+      try {
+        const payments = due.map((p) => ({
+          to: p.address!, amount: zatsOf(p.zec),
+          memo: { text: `Called It · ${c.title} · #${p.rank} prize` },
+        }));
+        const pending = await wallet.send({ accountId: acct.id, signer, payments } as never);
+        await pending.broadcast();
+        const confirmed = await pending.wait({ timeoutMs: 300_000 });
+        const txid = String(confirmed.transactions[0].txid);
+        for (const p of due) {
+          try { await sponsorMarkSent(c.id, p.rank, txid); } catch {}
+        }
+        setN((x) => x + 1); onChange();
+        showNotice({ title: `Paid ${due.length} winner${due.length > 1 ? "s" : ""}`, body: `Transaction: ${txid.slice(0, 16)}…` });
+      } finally { await signer.dispose(); }
+    } catch (e) { setErr((e as Error).message ?? "Payment failed."); }
+    setPaying(false);
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span className="eyebrow" style={{ color: open ? "var(--amber)" : "var(--lime)" }}>{open ? "Pay your winners" : "All winners paid"}</span>
@@ -104,7 +147,12 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
             : <>Pay within <span className="mono">{left(Date.parse(c.pay_by) - now)}</span>. Each payment opens your wallet with the address, amount and memo filled in{network === "testnet" ? " (testnet coins)" : ""}.</>}
         </span>
       )}
-      {open > 0 && <HowToPay network={network} />}
+      {canPayAll && (
+        <button className="btn" disabled={paying} style={{ background: "var(--lime)", color: "#111", border: "2px solid #111", fontWeight: 800 }} onClick={payAll}>
+          {paying ? "Sending…" : `Pay all ${due.length} winner${due.length > 1 ? "s" : ""} (${due.reduce((s, p) => s + p.zec, 0)} ${network === "testnet" ? "TAZ" : "ZEC"})`}
+        </button>
+      )}
+      {open > 0 && !canPayAll && <HowToPay network={network} />}
       {err && <span role="alert" style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{err}</span>}
       {payees?.filter((p) => p.zec > 0).map((p) => <PayeeRow key={p.rank} c={c} p={p} onSent={() => { setN((x) => x + 1); onChange(); }} />)}
     </div>
