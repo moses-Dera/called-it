@@ -8,7 +8,7 @@ type TxOutput = { value: bigint | null; memo: Memo; receivingAccountIds: readonl
 type WalletTx = { txid: { toString(): string }; outputs: readonly TxOutput[] };
 type HistoryEntry = { txid: { toString(): string }; balanceDelta: bigint; totalReceived: bigint };
 
-const MEMO_RE = /Called It · (.+?) · #(\d+) prize/;
+const MEMO_RE = /Called It · (.+?) · #(\d+) prize(?: \[([a-z0-9-]+)\])?/;
 
 /** After a sync, check received transactions for prize memos and auto-confirm. */
 export async function detectPrizes(wallet: WalletClient, accountId: string, myPrizes: SponsorPrize[]) {
@@ -17,6 +17,7 @@ export async function detectPrizes(wallet: WalletClient, accountId: string, myPr
 
   const history = await wallet.getHistory({ accountId } as never) as unknown as { items: readonly HistoryEntry[] };
   const confirmed: { contestId: string; rank: number; txid: string }[] = [];
+  const matched = new Set<string>();
 
   for (const entry of history.items) {
     if (entry.totalReceived <= BigInt(0)) continue;
@@ -27,13 +28,20 @@ export async function detectPrizes(wallet: WalletClient, accountId: string, myPr
       if (out.memo.kind !== "text") continue;
       const m = MEMO_RE.exec(out.memo.text);
       if (!m) continue;
+      const memoTitle = m[1].trim();
       const rank = parseInt(m[2], 10);
-      const prize = pending.find((p) => p.rank === rank && out.memo.kind === "text" && out.memo.text.includes(p.title));
+      const cid = m[3] ?? null;
+      const prize = pending.find((p) =>
+        !matched.has(`${p.contest_id}:${p.rank}`)
+        && p.rank === rank
+        && (cid ? p.contest_id === cid : p.title.trim() === memoTitle),
+      );
       if (!prize) continue;
       if (out.value === null || out.value < zatsOf(prize.zec)) continue;
       const txid = String(tx.txid);
       try {
         await confirmPrize(prize.contest_id, rank, true);
+        matched.add(`${prize.contest_id}:${prize.rank}`);
         confirmed.push({ contestId: prize.contest_id, rank, txid });
       } catch {}
     }

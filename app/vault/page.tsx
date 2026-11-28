@@ -23,7 +23,7 @@ export default function Vault() {
   const network = useNetwork();
   const t = totals(s);
   const [addr, setAddr] = useState(""), [msg, setMsg] = useState(""), [copied, setCopied] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [inspect, setInspect] = useState<Seal | null>(null), [showAllRewards, setShowAllRewards] = useState(false);
   const saved = s.profile.address;
   const [checks, setChecks] = useState<Record<string, string>>({});
   const signedIn = !!useCloud().session;
@@ -245,7 +245,14 @@ export default function Vault() {
         <SponsorPrizes />
 
         <section className="vault-rewards" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Rewards</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Rewards</h2>
+            {s.ledger.length > 5 && (
+              <button type="button" onClick={() => setShowAllRewards(true)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, color: "var(--lime)", textDecoration: "underline", cursor: "pointer" }}>
+                See all ({s.ledger.length})
+              </button>
+            )}
+          </div>
           {s.ledger.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>Win a game and your reward lands here.</div>}
           {s.ledger.slice(0, 5).map((r) => (
             <div key={r.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, borderBottom: "1px solid var(--line)", paddingBottom: 6 }}>
@@ -268,25 +275,65 @@ export default function Vault() {
       </div>
 
       <section className="vault-proofs">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2 className="display" style={{ margin: 0, fontSize: 22 }}>My proofs</h2><span style={{ fontSize: 12, color: "var(--muted)" }}>Tap to inspect</span></div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexShrink: 0 }}>
+          <h2 className="display" style={{ margin: 0, fontSize: 22 }}>My proofs ({s.seals.length})</h2>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>Tap to inspect</span>
+        </div>
         {s.seals.length === 0 && <div style={{ fontSize: 13, color: "var(--muted)" }}>Every seal you make shows up here with its proof.</div>}
-        {s.seals.slice(0, 12).map((x) => (
-          <div key={x.id} className="paper" style={{ borderWidth: 2, borderRadius: 18, padding: "10px 12px" }}>
-            <button onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "transparent", border: 0, padding: 0, textAlign: "left", color: "#111", minHeight: 44 }}>
-              <Img n={cover(x.game)} size={36} style={{ borderRadius: 10, border: "2px solid #111" }} />
-              <b style={{ flex: 1, fontSize: 14 }}>{x.label}</b><SealStatus seal={x} />
+        <div className="vault-proofs-list">
+          {s.seals.map((x) => (
+            <button key={x.id} type="button" onClick={() => setInspect(x)} className="paper" style={{ borderWidth: 2, borderRadius: 18, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", color: "#111", minHeight: 58, cursor: "pointer", flexShrink: 0 }}>
+              <Img n={cover(x.game)} size={36} style={{ borderRadius: 10, border: "2px solid #111", flexShrink: 0 }} />
+              <b style={{ flex: 1, fontSize: 14, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.label}</b>
+              <SealStatus seal={x} />
             </button>
-            {open === x.id && (
-              <div className="mono" style={{ fontSize: 11, color: "#4a4436", lineHeight: 1.7, marginTop: 8, overflowWrap: "anywhere" }}>
-                sealed {new Date(x.sealedAt).toISOString().slice(0, 19).replace("T", " ")} UTC<br />fingerprint {short(x.commitment)}
-                {x.root && <><br />batch {short(x.root)} · {x.proof?.length ?? 0} proof steps<br />Bitcoin block {x.height?.toLocaleString() ?? "pending"}{x.txid ? <> · tx {short(x.txid)}</> : null}</>}
-                <br /><button onClick={() => verify(x)} style={{ marginTop: 6, minHeight: 36, padding: "0 12px", borderRadius: 10, border: "2px solid #111", background: "var(--lime)", fontWeight: 800, fontSize: 12 }}>Verify now</button>
-                {checks[x.id] && <div style={{ marginTop: 6, fontWeight: 700 }}>{checks[x.id]}</div>}
-              </div>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
+
+      {inspect && (
+        <div role="dialog" aria-modal="true" aria-label="Proof details" onClick={() => setInspect(null)} className="guide" style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(5,7,10,.72)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div className="sheet paper" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, borderRadius: "28px 28px 0 0", padding: "22px 20px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Img n={cover(inspect.game)} size={40} style={{ borderRadius: 12, border: "2px solid #111" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span className="eyebrow" style={{ color: "#6b6455" }}>Sealed proof</span>
+                <div className="display" style={{ fontSize: 20 }}>{inspect.label}</div>
+              </div>
+              <SealStatus seal={inspect} />
+            </div>
+            <div className="mono" style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.75, background: "#fff", border: "2px solid #111", borderRadius: 14, padding: 12, overflowWrap: "anywhere" }}>
+              Sealed: {new Date(inspect.sealedAt).toISOString().slice(0, 19).replace("T", " ")} UTC<br />
+              Fingerprint: {inspect.commitment}
+              {inspect.root && <><br />Batch root: {inspect.root} · {inspect.proof?.length ?? 0} steps<br />Bitcoin block: {inspect.height?.toLocaleString() ?? "pending"}{inspect.txid ? <> · tx {short(inspect.txid)}</> : null}</>}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => verify(inspect)} className="btn" style={{ flex: 1, background: "var(--lime)", color: "#111", border: "2px solid #111" }}>Verify now</button>
+              <button type="button" onClick={() => setInspect(null)} className="btn" style={{ background: "#111", color: "var(--paper)", border: 0, width: "auto", padding: "0 18px" }}>Close</button>
+            </div>
+            {checks[inspect.id] && <div style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>{checks[inspect.id]}</div>}
+          </div>
+        </div>
+      )}
+
+      {showAllRewards && (
+        <div role="dialog" aria-modal="true" aria-label="All rewards" onClick={() => setShowAllRewards(false)} className="guide" style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(5,7,10,.72)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+          <div className="sheet paper" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, maxHeight: "80dvh", borderRadius: "28px 28px 0 0", padding: "22px 20px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="display" style={{ fontSize: 24 }}>All rewards ({s.ledger.length})</span>
+              <button type="button" onClick={() => setShowAllRewards(false)} className="btn" style={{ width: "auto", minHeight: 36, padding: "0 14px", background: "#111", color: "var(--paper)", border: 0 }}>Close</button>
+            </div>
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 4 }}>
+              {s.ledger.map((r) => (
+                <div key={r.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, borderBottom: "1px dashed #c9bfa6", paddingBottom: 6 }}>
+                  <span style={{ fontWeight: 600 }}>{r.label}</span>
+                  <b style={{ color: "#3d6b00", whiteSpace: "nowrap" }}>+{r.points} pts · {r.zec.toFixed(4)}</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <BottomNav active="/vault" />
     </main>
   );

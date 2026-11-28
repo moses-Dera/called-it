@@ -40,7 +40,7 @@ function state(c: SponsorContest, now: number) {
 function PayeeRow({ c, p, onSent }: { c: SponsorContest; p: Payee; onSent: () => void }) {
   const network = useNetwork();
   const [qr, setQr] = useState(""), [err, setErr] = useState("");
-  const link = p.address ? zip321(p.address, p.zec, `Called It · ${c.title} · #${p.rank} prize`) : "";
+  const link = p.address ? zip321(p.address, p.zec, `Called It · ${c.title} · #${p.rank} prize [${c.id}]`) : "";
   async function sent() {
     const tx = await askText({ title: `Sent ${p.zec} ZEC to ${p.name}?`, body: "Paste the transaction ID from your wallet (in the payment's details). With it, the prize counts as received after 7 days even if the winner forgets to confirm, and anyone can look the payment up on a block explorer.", placeholder: "Transaction ID (optional)", confirmLabel: "Mark as sent" });
     if (tx === null) return;
@@ -128,7 +128,7 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
       try {
         const payments = due.map((p) => ({
           to: p.address!, amount: zatsOf(p.zec),
-          memo: { text: `Called It · ${c.title} · #${p.rank} prize` },
+          memo: { text: `Called It · ${c.title} · #${p.rank} prize [${c.id}]` },
         }));
         const pending = await wallet.send({ accountId: acct.id, signer, payments } as never);
         await pending.broadcast();

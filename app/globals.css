@@ -72,6 +72,7 @@ button { font-family: inherit; cursor: pointer; }
 .chip-scroll { overflow-x: auto; margin: 0 -18px; padding: 0 18px 2px; }
 .profile-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 1; min-width: 0; }
 .profile-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vault-proofs-list { display: flex; flex-direction: column; gap: 8px; max-height: 440px; overflow-y: auto; padding-right: 2px; }
 
 .tabbar { position: fixed; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 20; transition: transform 260ms cubic-bezier(.3,1.2,.4,1); box-shadow: 0 10px 30px rgba(0,0,0,.45); }
 .tabbar.hide { transform: translateY(150%); }
@@ -157,11 +158,12 @@ button { font-family: inherit; cursor: pointer; }
   .ranks-pod { grid-area: pod; }
   .ranks-list { grid-area: list; }
 
-  /* Vault: left stack + right proofs column, both aligned cleanly at top */
-  .vault { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); grid-template-areas: "title title" "left proofs"; align-items: start; }
+  /* Vault: left stack + right proofs column, matched in height so proofs scroll cleanly inside */
+  .vault { grid-template-columns: minmax(0, 440px) minmax(0, 1fr); grid-template-areas: "title title" "left proofs"; align-items: stretch; }
   .vault-title { grid-area: title; }
   .vault-left { grid-area: left; }
-  .vault-proofs { grid-area: proofs; }
+  .vault-proofs { grid-area: proofs; height: 0; min-height: 100%; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+  .vault-proofs-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
 
   /* Profile: two explicit balanced columns */
   .profile-body { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px 26px !important; align-items: start; }

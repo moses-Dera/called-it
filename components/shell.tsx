@@ -11,7 +11,8 @@ import { SidebarAccount } from "./account";
 // --z: smoothly shrink narrow phones below 390px without magnifying wider viewports past 1x.
 const FIT = `(function(){function f(){var w=document.documentElement.clientWidth||innerWidth,s=document.documentElement.style;s.setProperty('--w',w+'px');s.setProperty('--z',Math.min(1,Math.max(0.82,w/390)).toFixed(4));}f();addEventListener('resize',f);})();`;
 
-const NAV = [["/", "Home"], ["/contests", "Contests"], ["/rooms", "Play with friends"], ["/vault", "My prizes and proofs"], ["/ranks", "Ranks"], ["/play/arena", "Live Arena"], ["/profile", "Profile and wallet"]];
+const PLAY_NAV = [["/", "Home"], ["/contests", "Contests"], ["/rooms", "Play with friends"], ["/play/arena", "Live Arena"]];
+const YOU_NAV = [["/vault", "My prizes and proofs"], ["/ranks", "Ranks"], ["/profile", "Profile and wallet"]];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,7 +30,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <Link href="/seal" className="cta">Seal a call</Link>
         </div>
         <nav className="sidebar-nav">
-          {NAV.map(([href, label]) => <SideLink key={href} href={href}>{label}</SideLink>)}
+          <span className="eyebrow" style={{ color: "var(--muted)", padding: "4px 10px 2px", fontSize: 10 }}>Play</span>
+          {PLAY_NAV.map(([href, label]) => <SideLink key={href} href={href}>{label}</SideLink>)}
+          <span className="eyebrow" style={{ color: "var(--muted)", padding: "10px 10px 2px", marginTop: 6, borderTop: "1px solid #1a2330", fontSize: 10 }}>You</span>
+          {YOU_NAV.map(([href, label]) => <SideLink key={href} href={href}>{label}</SideLink>)}
           <div className="sidebar-foot">
             <SidebarAccount />
             <SideLink href="/how">How your seal works</SideLink>
