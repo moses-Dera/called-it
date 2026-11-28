@@ -5,6 +5,8 @@ import { Img, TopBar } from "@/components/ui";
 import { cloudReady, myTipsterProfile, saveTipsterProfile, setUsername, signInWithGoogle, signOut, useCloud, useMyHandle, usePlayerStats, useNetwork, myPrivacy, setPrivacy, type Privacy } from "@/lib/cloud";
 import { isShielded, saveProfile, short, totals, useStore } from "@/lib/store";
 import { hasWallet } from "@/lib/wallet-sync";
+import { WalletSetup } from "@/components/wallet-setup";
+import { WalletStatus } from "@/components/wallet-status";
 
 export default function Profile() {
   const s = useStore();
@@ -15,6 +17,8 @@ export default function Profile() {
   const stats = usePlayerStats();
   const streak = stats?.streak ?? 0;
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
+  const [showWalletSetup, setShowWalletSetup] = useState(false);
+  const hasInApp = hasWallet(network);
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
   const myHandle = useMyHandle();
   const [handle, setHandle] = useState<string | null>(null);
@@ -80,6 +84,28 @@ export default function Profile() {
           <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
         </section>
+
+        {user && !hasInApp && !showWalletSetup && (
+          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Get a shielded wallet built into the app. Contest prizes arrive here automatically.</span>
+            <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowWalletSetup(true)}>Set up wallet</button>
+          </section>
+        )}
+        {showWalletSetup && !hasInApp && (
+          <section className="paper" style={{ padding: 16 }}>
+            <WalletSetup network={network} onDone={(a) => { setShowWalletSetup(false); if (a && !s.profile.address) { saveProfile({ address: a }); setAddr(a); } }} />
+          </section>
+        )}
+        {hasInApp && (
+          <section className="paper" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
+              <WalletStatus />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Your shielded wallet is active. Manage it in <Link href="/vault" style={{ textDecoration: "underline", fontWeight: 800 }}>My prizes and proofs</Link>.</span>
+          </section>
+        )}
 
         {user && <PrivacySettings />}
 
