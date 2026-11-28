@@ -46,7 +46,7 @@ function Lab() {
     w.current ??= await openWallet("testnet");
     const p = savedPhrase("testnet") ?? newPhrase();
     setPhrase(p);
-    const acct = await createAccount(w.current, "testnet", p);
+    const acct = await createAccount(w.current, "testnet", p, true); // admin dev page: save plain for inspection
     setAddress(await addressOf(w.current, acct.id));
   });
   const sync = () => run("Sync and read balance", async () => {

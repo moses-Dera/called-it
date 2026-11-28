@@ -59,7 +59,7 @@ export const markWalletCreated = (network: Network) => { try { localStorage.setI
 
 /** Create the wallet's account from a new or restored phrase. Syncs to the tip first, so a new wallet starts there.
  *  Set savePlain=false (production) to skip saving the phrase in localStorage. */
-export async function createAccount(wallet: WalletClient, network: Network, phrase: string, savePlain = true) {
+export async function createAccount(wallet: WalletClient, network: Network, phrase: string, savePlain = false) {
   const clean = phrase.trim().toLowerCase().replace(/\s+/g, " ");
   if (!isPhrase(clean)) throw new Error("That recovery phrase isn't valid.");
   const [existing] = await wallet.accounts.list();
