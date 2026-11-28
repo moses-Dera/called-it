@@ -6,7 +6,7 @@ import { zip321 } from "@/lib/zip321";
 import { askConfirm, askText } from "@/components/dialog";
 import { LEAGUES, leagueName } from "@/lib/leagues";
 import { Chips } from "@/components/chips";
-import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useNetwork, type Contest } from "@/lib/cloud";
+import { accessToken, cloudReady, cloudRpc, refreshContests, refreshFixtures, refreshFundAddress, signInWithGoogle, useCloud, useAllContests, useFixtures, useNetwork, usePointSettings, type Contest } from "@/lib/cloud";
 import { short } from "@/lib/store";
 
 type Overview = { players: number; seals: number; ranked_points: number; requested_zec: number; withdrawals: { id: string; address: string; amount: number; status: string; txid: string | null; created_at: string; name: string }[] };
@@ -86,7 +86,7 @@ export default function Admin() {
           </div>
           {msg && <div role="status" style={{ padding: "4px 0 8px", fontSize: 13, fontWeight: 800, color: msg.bad ? "var(--pink)" : "var(--lime)" }}>{msg.text}</div>}
           <div style={{ padding: "8px 0 28px" }}>
-            {tab === "Overview" && <OverviewTab ov={ov} txs={txs} act={act} go={setTab} />}
+            {tab === "Overview" && <OverviewTab ov={ov} txs={txs} go={setTab} />}
             {tab === "Fixtures" && <FixturesTab act={act} />}
             {tab === "Contests" && <ContestsTab act={act} onReload={load} />}
             {tab === "Payouts" && <PayoutsTab ov={ov} act={act} onReload={load} />}
@@ -127,13 +127,27 @@ type Conn = { name: string; purpose: string; url: string; ok: boolean; ms: numbe
 /** Each outside service, what it's for, and whether it answers right now. */
 function Connections() {
   const [rows, setRows] = useState<Conn[] | null>(null), [n, setN] = useState(0);
+  const [pushMsg, setPushMsg] = useState("");
   useEffect(() => { setRows(null); fetch("/api/health").then((r) => r.json()).then(setRows).catch(() => setRows([])); }, [n]);
+  async function testPush() {
+    setPushMsg("Sending test push…");
+    try {
+      const r = await fetch("/api/admin/test-push", { method: "POST", headers: { authorization: `Bearer ${await accessToken()}` } });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Failed");
+      setPushMsg(`Sent test push to ${j.sent} device(s).`);
+    } catch (e) { setPushMsg(e instanceof Error ? e.message : "Push failed"); }
+  }
   return (
     <section style={{ borderRadius: 26, background: "#111", color: "var(--paper)", border: "3px solid var(--line)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span className="eyebrow" style={{ color: "var(--lime)" }}>Connections</span>
-        <button onClick={() => setN((x) => x + 1)} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--muted)" }}>Check again</button>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <button type="button" onClick={testPush} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--amber)", textDecoration: "underline", cursor: "pointer" }}>Test push</button>
+          <button type="button" onClick={() => setN((x) => x + 1)} style={{ background: "none", border: 0, fontWeight: 800, fontSize: 12, color: "var(--muted)", cursor: "pointer" }}>Check again</button>
+        </div>
       </div>
+      {pushMsg && <div style={{ fontSize: 12, fontWeight: 700, color: pushMsg.startsWith("Sent") ? "var(--lime)" : "var(--pink)" }}>{pushMsg}</div>}
       {rows === null && <div style={{ fontSize: 13, color: "var(--muted)" }}>Checking…</div>}
       {rows?.map((c) => (
         <div key={c.name} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13 }}>
@@ -149,7 +163,7 @@ function Connections() {
   );
 }
 
-function OverviewTab({ ov, txs, act, go }: { ov: Overview | null; txs: Txs | null; act: Act; go: (t: Tab) => void }) {
+function OverviewTab({ ov, txs, go }: { ov: Overview | null; txs: Txs | null; go: (t: Tab) => void }) {
   const fixtures = useFixtures();
   const wallet = useWalletHealth();
   const [now, setNow] = useState(0);
@@ -230,6 +244,7 @@ function FixturesTab({ act }: { act: Act }) {
   const [view, setView] = useState<"needs" | "upcoming" | "final">("needs");
   const [leagueFilter, setLeagueFilter] = useState("all");
   const [q, setQ] = useState("");
+  const [openManual, setOpenManual] = useState<Record<string, boolean>>({});
   const groups = {
     needs: fixtures.filter((f) => f.homeGoals == null && now && Date.parse(f.kickoff) <= now).sort((a, b) => Date.parse(b.kickoff) - Date.parse(a.kickoff)),
     upcoming: fixtures.filter((f) => f.homeGoals == null && (!now || Date.parse(f.kickoff) > now)).sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff)),
@@ -270,19 +285,32 @@ function FixturesTab({ act }: { act: Act }) {
         {shown.slice(0, limit).map((f) => {
           const s = scores[f.id] ?? [f.homeGoals?.toString() ?? "", f.awayGoals?.toString() ?? ""];
           const state = f.homeGoals != null ? ["FINAL", "var(--lime)"] : now && Date.parse(f.kickoff) <= now ? ["NEEDS RESULT", "var(--amber)"] : ["OPEN FOR SEALS", "var(--sky)"];
+          const isOpen = view === "upcoming" && !openManual[f.id];
+          const isCustom = !f.id.startsWith("fd-");
           return (
             <div key={f.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <div><div className="display" style={{ fontSize: 18 }}>{f.home} vs {f.away}</div><div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{f.league ? `${f.league} · ` : ""}Kickoff {f.when}</div></div>
                 <Chip text={state[0]} bg={state[1]} />
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <input aria-label={`${f.home} goals`} inputMode="numeric" value={s[0]} onChange={(e) => setScores({ ...scores, [f.id]: [e.target.value.replace(/\D/g, ""), s[1]] })} className="display" style={{ ...field, width: 64, textAlign: "center", fontSize: 22 }} />
-                <span className="display" style={{ fontSize: 22 }}>:</span>
-                <input aria-label={`${f.away} goals`} inputMode="numeric" value={s[1]} onChange={(e) => setScores({ ...scores, [f.id]: [s[0], e.target.value.replace(/\D/g, "")] })} className="display" style={{ ...field, width: 64, textAlign: "center", fontSize: 22 }} />
-                <button style={btn("#111", "var(--lime)")} disabled={s[0] === "" || s[1] === ""} onClick={() => act("admin_set_result", { p_id: f.id, p_home: Number(s[0]), p_away: Number(s[1]) }, `Result saved: ${f.home} ${s[0]}–${s[1]} ${f.away}.`)}>Save result</button>
-                {f.homeGoals != null && <button style={btn("transparent")} onClick={async () => { if (await askConfirm({ title: `Clear the result of ${f.home} vs ${f.away}?`, body: "Players' calls on this match go back to waiting for a result. Only do this to correct a wrong score.", confirmLabel: "Clear result", danger: true })) act("admin_set_result", { p_id: f.id, p_home: null, p_away: null }, "Result cleared."); }}>Clear</button>}
-              </div>
+              {isOpen ? (
+                <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{isCustom ? "Custom match" : "Score arrives automatically after full time"}</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button type="button" onClick={() => setOpenManual({ ...openManual, [f.id]: true })} style={{ ...btn("#fff"), minHeight: 34, padding: "0 10px", fontSize: 12 }}>Enter score</button>
+                    {isCustom && <button type="button" onClick={async () => { if (await askConfirm({ title: `Delete ${f.home} vs ${f.away}?`, body: "Removes this custom fixture permanently.", confirmLabel: "Delete", danger: true })) act("admin_delete_fixture", { p_id: f.id }, "Fixture removed."); }} style={{ ...btn("#ffefef", "#9a2d1d"), minHeight: 34, padding: "0 10px", fontSize: 12 }}>Delete</button>}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <input aria-label={`${f.home} goals`} inputMode="numeric" value={s[0]} onChange={(e) => setScores({ ...scores, [f.id]: [e.target.value.replace(/\D/g, ""), s[1]] })} className="display" style={{ ...field, width: 64, textAlign: "center", fontSize: 22 }} />
+                  <span className="display" style={{ fontSize: 22 }}>:</span>
+                  <input aria-label={`${f.away} goals`} inputMode="numeric" value={s[1]} onChange={(e) => setScores({ ...scores, [f.id]: [s[0], e.target.value.replace(/\D/g, "")] })} className="display" style={{ ...field, width: 64, textAlign: "center", fontSize: 22 }} />
+                  <button style={btn("#111", "var(--lime)")} disabled={s[0] === "" || s[1] === ""} onClick={() => act("admin_set_result", { p_id: f.id, p_home: Number(s[0]), p_away: Number(s[1]) }, `Result saved: ${f.home} ${s[0]}–${s[1]} ${f.away}.`)}>Save result</button>
+                  {f.homeGoals != null && <button style={btn("transparent")} onClick={async () => { if (await askConfirm({ title: `Clear the result of ${f.home} vs ${f.away}?`, body: "Players' calls on this match go back to waiting for a result. Only do this to correct a wrong score.", confirmLabel: "Clear result", danger: true })) act("admin_set_result", { p_id: f.id, p_home: null, p_away: null }, "Result cleared."); }}>Clear</button>}
+                  {isCustom && <button type="button" onClick={async () => { if (await askConfirm({ title: `Delete ${f.home} vs ${f.away}?`, body: "Removes this custom/demo fixture.", confirmLabel: "Delete", danger: true })) act("admin_delete_fixture", { p_id: f.id }, "Fixture removed."); }} style={{ ...btn("#ffefef", "#9a2d1d"), marginLeft: "auto" }}>Delete</button>}
+                </div>
+              )}
             </div>
           );
         })}
@@ -649,6 +677,8 @@ function PayoutsTab({ ov, act, onReload }: { ov: Overview | null; act: Act; onRe
         </div>
       )}
 
+      <PointSettingsCard act={act} />
+
       {ov && ov.withdrawals.length === 0 && <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>No requests yet.</p>}
       {ov?.withdrawals.map((w) => (
         <div key={w.id} className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -884,6 +914,37 @@ function TransactionsTab({ txs }: { txs: Txs | null }) {
         {txs && txs.payouts.length === 0 && <p style={{ margin: 0, fontSize: 14, color: "#4a4436" }}>No payouts sent yet.</p>}
       </section>
     </div>
+  );
+}
+
+function PointSettingsCard({ act }: { act: Act }) {
+  const network = useNetwork();
+  const unit = network === "mainnet" ? "ZEC" : "TAZ";
+  const { pointZec, generalGameZec } = usePointSettings();
+  const [val, setVal] = useState(String(pointZec));
+  useEffect(() => { setVal(String(pointZec)); }, [pointZec]);
+  const num = Number(val);
+  return (
+    <section className="paper" style={{ ...card, borderRadius: 20, borderWidth: 2 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <span className="eyebrow" style={{ color: "#5b6b12" }}>Point rewards &amp; general games</span>
+          <div style={{ fontSize: 13, color: "#4a4436", fontWeight: 600 }}>Set what 1 ranked point is worth in {unit}, and whether general games (RPS, Bluff, Fog, Werewolf, Closest) earn {unit}.</div>
+        </div>
+        <button type="button" onClick={async () => { if (await act("admin_set_setting", { p_key: "general_game_zec", p_value: generalGameZec ? "false" : "true" }, `General game ZEC rewards turned ${generalGameZec ? "OFF" : "ON"}.`)) refreshFundAddress(); }}
+          style={{ ...btn(generalGameZec ? "var(--lime)" : "#fff"), minHeight: 38, fontSize: 12 }}>
+          General games in {unit}: {generalGameZec ? "ON" : "OFF"}
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <label style={{ fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>{unit} per point</span>
+          <input value={val} onChange={(e) => setVal(e.target.value)} placeholder="0.00001" className="mono" style={{ ...field, width: 140, height: 38 }} />
+        </label>
+        <button type="button" onClick={async () => { if (await act("admin_set_setting", { p_key: "point_zec", p_value: val }, `Updated: 1 point = ${val} ${unit}.`)) refreshFundAddress(); }} style={{ ...btn("#111", "var(--lime)"), minHeight: 38, fontSize: 13 }}>Save rate</button>
+        <span style={{ fontSize: 12, color: "#4a4436", fontWeight: 700 }}>{Number.isFinite(num) && num >= 0 ? `50 pts = ${(50 * num).toFixed(5)} ${unit}` : "Enter a valid number (0 to 0.01)"}</span>
+      </div>
+    </section>
   );
 }
 

@@ -622,19 +622,30 @@ export const useContests = () => contestStore.use().filter((c) => isListed(c));
 export const useAllContests = () => contestStore.use();
 
 // ---------- App settings ----------
-type Settings = { fund_address: string | null; network: Network };
+type Settings = { fund_address: string | null; network: Network; point_zec: number; general_game_zec: boolean };
 const settingsStore = shared<Settings>(async () => {
   const c = sb();
-  if (!c) return { fund_address: null, network: "mainnet" };
+  if (!c) return { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false };
   const { data, error } = await c.from("app_settings").select("key, value");
   if (error) throw error;
   const get = (k: string) => (data ?? []).find((r) => r.key === k)?.value as string | undefined;
-  return { fund_address: get("fund_address") ?? null, network: get("network") === "testnet" ? "testnet" : "mainnet" };
-}, { fund_address: null, network: "mainnet" });
+  const pv = Number(get("point_zec"));
+  return {
+    fund_address: get("fund_address") ?? null,
+    network: get("network") === "testnet" ? "testnet" : "mainnet",
+    point_zec: Number.isFinite(pv) ? pv : 0.00001,
+    general_game_zec: get("general_game_zec") === "true",
+  };
+}, { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false });
 /** The operator's prize-fund wallet for Boost the Pot and sponsor funding; null when none is set. */
 export const useFundAddress = () => settingsStore.use().fund_address;
 /** Which Zcash network prizes are paid on: mainnet for real ZEC, testnet for a practice run. */
 export const useNetwork = () => settingsStore.use().network;
+/** Admin-configured ZEC conversion rate per ranked point, and whether general games also earn ZEC. */
+export const usePointSettings = () => {
+  const s = settingsStore.use();
+  return { pointZec: s.point_zec, generalGameZec: s.general_game_zec };
+};
 export const refreshFundAddress = () => settingsStore.refresh();
 export const refreshContests = () => contestStore.refresh();
 
@@ -871,5 +882,5 @@ export function startCloud() {
 export type WalletBackup = { network: string; ciphertext: string; iv: string; salt: string; kdf: string; backup_verified: boolean };
 export const saveWalletBackup = (network: string, ciphertext: string, iv: string, salt: string, kdf = "argon2id") =>
   cloudRpc<boolean>("save_wallet_backup", { p_network: network, p_ciphertext: ciphertext, p_iv: iv, p_salt: salt, p_kdf: kdf });
-export const getWalletBackup = () => cloudRpc<WalletBackup | null>("get_wallet_backup");
-export const verifyWalletBackup = () => cloudRpc<boolean>("verify_wallet_backup");
+export const getWalletBackup = (network?: string) => cloudRpc<WalletBackup | null>("get_wallet_backup", { p_network: network ?? null });
+export const verifyWalletBackup = (network?: string) => cloudRpc<boolean>("verify_wallet_backup", { p_network: network ?? null });

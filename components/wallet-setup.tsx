@@ -52,7 +52,7 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
     }
     setError("");
     markWalletCreated(network);
-    try { await verifyWalletBackup(); } catch {}
+    try { await verifyWalletBackup(network); } catch {}
     setStep("done");
     const addr = (window as { __walletAddr?: string }).__walletAddr ?? "";
     delete (window as { __walletAddr?: string }).__walletAddr;

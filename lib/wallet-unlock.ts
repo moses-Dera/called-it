@@ -13,8 +13,8 @@ export async function unlockWalletPhrase(network: Network, actionLabel: string):
   const plain = savedPhrase(network);
   if (plain) return plain;
 
-  const backup = await getWalletBackup();
-  if (!backup) throw new Error("No wallet backup found on your account. Set up your wallet in Vault first.");
+  const backup = await getWalletBackup(network);
+  if (!backup) throw new Error(`No ${network} wallet backup found on your account. Set up your wallet in Vault first.`);
   if (backup.network && backup.network !== network) {
     throw new Error(`Your saved wallet is on ${backup.network}, while the app is on ${network}.`);
   }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { leagueName } from "@/lib/leagues";
 
 // Proxies football-data.org for the admin page so the API key (FOOTBALL_DATA_KEY) never reaches a browser.
 // Only the Called It admin may call it: the request carries the admin's Supabase session token, and the
@@ -35,6 +36,7 @@ export async function GET(req: Request) {
     matches: (body.matches ?? []).map((m) => ({
       id: `fd-${m.id}`, home: m.homeTeam.shortName || m.homeTeam.name, away: m.awayTeam.shortName || m.awayTeam.name,
       kickoff: m.utcDate, homeGoals: m.score.fullTime.home, awayGoals: m.score.fullTime.away, status: m.status,
+      league: leagueName(competition),
     })),
   });
 }

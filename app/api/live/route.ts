@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { settleTips } from "@/lib/tipsters";
 import { LEAGUES, leagueName } from "@/lib/leagues";
 import { settleContests } from "@/lib/settle";
+import { sendKickoffReminders } from "@/lib/push";
 
 const COMPETITIONS = Object.keys(LEAGUES).join(",");
 const LIVE = new Set(["IN_PLAY", "PAUSED", "EXTRA_TIME", "PENALTY_SHOOTOUT", "LIVE"]);
@@ -79,7 +80,8 @@ async function run(): Promise<{ body: Record<string, unknown>; status: number }>
 
   const tips = await settleTips(sb);
   const settled = await settleContests(sb);
-  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, tipsSettled: tips.settled, contests: settled, at: new Date().toISOString() }, status: 200 };
+  const notified = await sendKickoffReminders(sb).catch(() => ({ sent: 0 }));
+  return { body: { ok: true, live: rows.filter((r) => LIVE.has(r.status)).length, updated: changed.length, tipsSettled: tips.settled, contests: settled, notified: notified.sent, at: new Date().toISOString() }, status: 200 };
 }
 
 export async function GET() {
