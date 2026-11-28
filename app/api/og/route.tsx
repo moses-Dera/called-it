@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
   const prize = clamp(searchParams.get("prize"), "", 10);
   const game = clamp(searchParams.get("game"), "", 30);
   const sponsor = clamp(searchParams.get("sponsor"), "", 40);
+  const lead = clamp(searchParams.get("lead"), "", 32);
+  const banker = searchParams.get("banker") === "1";
+  const block = clamp(searchParams.get("block"), "", 14);
 
   if (type === "reveal") {
     const isExact = result === "exact";
@@ -90,18 +93,25 @@ export async function GET(req: NextRequest) {
                   {`${scoreH} : ${scoreA}`}
                 </div>
               )}
-              <div style={{ background: "#111", color: "#fff", padding: "6px 20px", borderRadius: 16, fontSize: 22, fontWeight: 800, marginTop: 10 }}>
-                {pill}
+              <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 10 }}>
+                <div style={{ background: "#111", color: "#fff", padding: "6px 20px", borderRadius: 16, fontSize: 22, fontWeight: 800 }}>
+                  {pill}
+                </div>
+                {banker && (
+                  <div style={{ background: "#FFB547", color: "#111", border: "3px solid #111", padding: "6px 18px", borderRadius: 16, fontSize: 22, fontWeight: 900 }}>
+                    ⚡ 2X BANKER
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Footer row */}
             <div style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", borderTop: "3px dashed rgba(17,17,17,0.3)", paddingTop: 20 }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: "#111" }}>
-                🔒 Locked before kickoff · Zero chance of foul play
+                🔒 Locked {lead || "before kickoff"} · Zero chance of foul play
               </div>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#111", opacity: 0.75 }}>
-                Timestamped on Bitcoin
+                Timestamped on Bitcoin{block ? ` · Block #${block}` : ""}
               </div>
             </div>
           </div>

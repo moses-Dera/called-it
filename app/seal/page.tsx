@@ -3,7 +3,7 @@ import Link from "next/link";
 import { openShare } from "@/components/share-sheet";
 import { useEffect, useState } from "react";
 import { fixtureOf, phaseOf } from "@/lib/data";
-import { announceTip, useCloud, useFixtures } from "@/lib/cloud";
+import { announceTip, bankerSealInWeek, useCloud, useFixtures } from "@/lib/cloud";
 import { Img, Lock, SealStatus, TeamBadge, TopBar } from "@/components/ui";
 import { BackupNudge } from "@/components/account";
 import { createSeal, short, useStore, type Seal } from "@/lib/store";
@@ -45,7 +45,7 @@ function Wheel({ v, set, name }: { v: number; set: (n: number) => void; name: st
 }
 
 export default function SealPage() {
-  const [home, setHome] = useState(2), [away, setAway] = useState(1), [side, setSide] = useState(-1);
+  const [home, setHome] = useState(2), [away, setAway] = useState(1), [side, setSide] = useState(-1), [banker, setBanker] = useState(false);
   const [sealId, setSealId] = useState<string | null>(null), [busy, setBusy] = useState(false);
   const fixtures = useFixtures();
   const [fid, setFid] = useState<string | null>(null), [now, setNow] = useState<number | null>(null);
@@ -59,13 +59,17 @@ export default function SealPage() {
   const closed = now !== null && Date.parse(fx.kickoff) <= now; // sealing ends at kickoff
   // Which fixture: /seal?f=<fixture id>. Read on the client so the page stays static.
   useEffect(() => { setFid(new URLSearchParams(location.search).get("f")); setNow(Date.now()); }, []);
-  const seal: Seal | undefined = useStore().seals.find((s) => s.id === sealId);
+  const seals = useStore().seals;
+  const seal: Seal | undefined = seals.find((s) => s.id === sealId);
+  const usedBanker = bankerSealInWeek(seals, fixtures, fx.kickoff);
 
   async function doSeal() {
     if (closed) return;
     if (busy) return;
     setBusy(true);
-    const s = await createSeal("classic", fx.id, `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}`, `${fx.home} ${home} – ${away} ${fx.away}`);
+    const use2x = banker && !usedBanker;
+    const moveStr = `${home}-${away}${side >= 0 ? "|" + SIDES[side] : ""}${use2x ? "|2X" : ""}`;
+    const s = await createSeal("classic", fx.id, moveStr, `${fx.home} ${home} – ${away} ${fx.away}${use2x ? " ⚡ 2x" : ""}`);
     setSealId(s.id); setBusy(false);
     announceTip(s.id);
     haptic("success");
@@ -89,6 +93,19 @@ export default function SealPage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
             <Wheel v={home} set={setHome} name={fx.home} /><span className="display" style={{ fontSize: 50 }}>:</span><Wheel v={away} set={setAway} name={fx.away} />
           </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <b style={{ fontSize: 13 }}>Weekly boost (1 per week)</b>
+          {usedBanker ? (
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, padding: "10px 12px" }}>
+              ⚡ 2x Banker already used this week on {usedBanker.label}
+            </div>
+          ) : (
+            <button type="button" onClick={() => setBanker((b) => !b)} aria-pressed={banker} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 46, padding: "0 14px", borderRadius: 14, border: `2px solid ${banker ? "#111" : "var(--line)"}`, background: banker ? "var(--amber)" : "var(--panel)", color: banker ? "#111" : "var(--text)", fontWeight: 800, fontSize: 13 }}>
+              <span>⚡ Activate 2x Banker on this match</span>
+              <span>{banker ? "ACTIVE · x2" : "OFF"}</span>
+            </button>
+          )}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <b style={{ fontSize: 13 }}>Side call (optional)</b>

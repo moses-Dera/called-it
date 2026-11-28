@@ -4,10 +4,10 @@ import { openShare } from "./share-sheet";
 import { useEffect, useState } from "react";
 import { BottomNav, Img } from "@/components/ui";
 import { SignInPill } from "@/components/account";
-import { contestGame, inkOn } from "@/lib/data";
+import { contestGame, inkOn, phaseOf } from "@/lib/data";
 import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
-import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useMyContestIds, useNetwork, useSponsorRecords, refreshContests } from "@/lib/cloud";
+import { autoRevealAtKickoff, joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useLiveContestBoard, useLiveFixtureCalls, useMyContestIds, useNetwork, useSponsorRecords, refreshContests } from "@/lib/cloud";
 import { isShielded, useStore } from "@/lib/store";
 import { hasWallet } from "@/lib/wallet-sync";
 import { explorerTx } from "@/lib/explorer";
@@ -38,6 +38,13 @@ export function ContestView({ id }: { id: string }) {
   const joined = c ? myIds.includes(c.id) : false;
   const list = c ? fixtures.filter((f) => c.fixture_ids.includes(f.id)) : [];
   const [joining, setJoining] = useState(false);
+  const [openCallsFid, setOpenCallsFid] = useState<string | null>(null);
+  const hasKickedOff = !!c && c.game === "football" && now !== null && list.some((f) => Date.parse(f.kickoff) <= now);
+  const liveBoard = useLiveContestBoard(c ? c.id : null, !!c && c.status === "open" && hasKickedOff);
+
+  useEffect(() => {
+    if (hasKickedOff && signedIn) autoRevealAtKickoff();
+  }, [hasKickedOff, signedIn]);
 
   async function handleJoin() {
     if (!c || joining) return;
@@ -139,20 +146,39 @@ export function ContestView({ id }: { id: string }) {
           </section>
           ) : (
           <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Fixtures</h2>
+              {hasKickedOff && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Calls unlock at kickoff</span>}
+            </div>
             {list.map((f) => {
               const open = now !== null && Date.parse(f.kickoff) > now;
+              const isLive = now !== null && phaseOf(f, now) === "live";
+              const callsOpen = openCallsFid === f.id;
+              const chipText = f.homeGoals != null ? `FT ${f.homeGoals}–${f.awayGoals}` : isLive ? `LIVE ${f.liveHome ?? 0}–${f.liveAway ?? 0}` : open ? "SEAL" : "AWAITING RESULT";
+              const chipBg = f.homeGoals != null ? "var(--lime)" : isLive ? "var(--red)" : open ? "var(--sky)" : "var(--amber)";
               const inner = (
                 <>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="display" style={{ fontSize: 17 }}>{f.home} vs {f.away}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>Kickoff {f.when}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#4a4436" }}>{f.league ? `${f.league} · ` : ""}Kickoff {f.when}</div>
                   </div>
-                  <span className="chip" style={{ background: f.homeGoals != null ? "var(--lime)" : open ? "var(--sky)" : "var(--amber)", flexShrink: 0 }}>{f.homeGoals != null ? `FT ${f.homeGoals}–${f.awayGoals}` : open ? "SEAL" : "AWAITING RESULT"}</span>
+                  <span className="chip" style={{ background: chipBg, flexShrink: 0 }}>{chipText}</span>
                 </>
               );
-              const cardStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, background: "var(--paper)", color: "#111", borderRadius: 16, padding: "10px 14px", opacity: open ? 1 : 0.75 };
-              return open ? <Link key={f.id} href={`/seal?f=${f.id}`} style={cardStyle}>{inner}</Link> : <div key={f.id} style={cardStyle}>{inner}</div>;
+              const cardStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12, background: "var(--paper)", color: "#111", borderRadius: 16, padding: "10px 14px", opacity: open || isLive || f.homeGoals != null ? 1 : 0.85 };
+              return open ? (
+                <Link key={f.id} href={`/seal?f=${f.id}`} style={cardStyle}>{inner}</Link>
+              ) : (
+                <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={cardStyle}>
+                    {inner}
+                    <button type="button" onClick={() => setOpenCallsFid(callsOpen ? null : f.id)} style={{ minHeight: 34, padding: "0 10px", borderRadius: 10, border: "2px solid #111", background: callsOpen ? "#111" : "#fff", color: callsOpen ? "var(--lime)" : "#111", fontWeight: 800, fontSize: 12, flexShrink: 0 }}>
+                      {callsOpen ? "Hide" : "Calls"}
+                    </button>
+                  </div>
+                  {callsOpen && <FixtureCallsPanel fixtureId={f.id} contestId={c.id} />}
+                </div>
+              );
             })}
             <button onClick={share} style={{ minHeight: 42, borderRadius: 14, border: "2px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontWeight: 800, fontSize: 14, marginTop: 4 }}>
               Share this contest
@@ -161,17 +187,30 @@ export function ContestView({ id }: { id: string }) {
           )}
 
           <section style={{ background: "var(--paper)", color: "#111", border: "3px solid #111", borderRadius: 26, padding: "14px 20px", display: "flex", flexDirection: "column", gridColumn: "1 / -1" }}>
-            <h2 className="display" style={{ margin: "4px 0 6px", fontSize: 22 }}>Contest leaderboard</h2>
-            {board === null && <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436" }}>Loading…</div>}
-            {board?.length === 0 && <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436", lineHeight: 1.5 }}>{c.game && c.game !== "football" ? "No wins yet. Start a game above." : <>No ranked points yet. They arrive as each fixture&apos;s result is entered.</>}</div>}
-            {board?.map((r) => (
-              <div key={r.rank + r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.me ? "rgba(198,244,50,.35)" : "transparent" }}>
-                <span className="display" style={{ width: 26, fontSize: 20 }}>{r.rank}</span>
-                <img src={art(`avatar_${r.avatar}`)} alt="" width={36} height={36} style={{ borderRadius: 12, border: "2px solid #111" }} />
-                <b style={{ flex: 1, fontSize: 14 }}>{r.name}{r.me ? " (you)" : ""}</b>
-                <span className="display" style={{ fontSize: 20 }}>{r.points}</span>
-              </div>
-            ))}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", margin: "4px 0 6px" }}>
+              <h2 className="display" style={{ margin: 0, fontSize: 22 }}>Contest leaderboard</h2>
+              {liveBoard && liveBoard.some((r) => r.live_points > 0) && (
+                <span className="chip" style={{ background: "var(--red)", color: "#111", border: "2px solid #111" }}>LIVE STANDINGS</span>
+              )}
+            </div>
+            {(() => {
+              const showLive = !!liveBoard && liveBoard.length > 0 && c.status === "open";
+              const shownRows = showLive ? liveBoard : board;
+              if (shownRows === null) return <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436" }}>Loading…</div>;
+              if (shownRows.length === 0) return <div style={{ padding: "10px 0", fontSize: 14, color: "#4a4436", lineHeight: 1.5 }}>{c.game && c.game !== "football" ? "No wins yet. Start a game above." : <>No points yet. Predictions unlock at kickoff and update live as goals arrive.</>}</div>;
+              return shownRows.map((r) => {
+                const livePts = "live_points" in r ? r.live_points : 0;
+                return (
+                  <div key={r.rank + r.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "2px dashed #d8cfb8", background: r.me ? "rgba(198,244,50,.35)" : "transparent" }}>
+                    <span className="display" style={{ width: 26, fontSize: 20 }}>{r.rank}</span>
+                    <img src={art(`avatar_${r.avatar}`)} alt="" width={36} height={36} style={{ borderRadius: 12, border: "2px solid #111" }} />
+                    <b style={{ flex: 1, fontSize: 14 }}>{r.name}{r.me ? " (you)" : ""}</b>
+                    {livePts > 0 && <span className="chip" style={{ background: "var(--amber)", border: "1.5px solid #111", fontSize: 11 }}>+{livePts} live</span>}
+                    <span className="display" style={{ fontSize: 20 }}>{r.points}</span>
+                  </div>
+                );
+              });
+            })()}
             {boardHasMore && (
               <button onClick={boardMore} disabled={boardLoading} style={{ margin: "8px 0", padding: "8px", borderRadius: 12, border: "2px solid #111", background: "var(--lime)", color: "#111", fontWeight: 800, fontSize: 13 }}>
                 {boardLoading ? "Loading…" : "Load more"}
@@ -184,5 +223,25 @@ export function ContestView({ id }: { id: string }) {
       )}
       <BottomNav active="/contests" />
     </main>
+  );
+}
+
+function FixtureCallsPanel({ fixtureId, contestId }: { fixtureId: string; contestId: string }) {
+  const calls = useLiveFixtureCalls(fixtureId, contestId);
+  return (
+    <div style={{ background: "var(--panel)", border: "2px solid var(--line)", borderRadius: 14, padding: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+      {calls === null && <span style={{ fontSize: 12, color: "var(--muted)" }}>Loading locked calls…</span>}
+      {calls?.length === 0 && <span style={{ fontSize: 12, color: "var(--muted)" }}>Players&apos; locked predictions appear here once their devices sync after kickoff.</span>}
+      {calls?.map((x, i) => (
+        <div key={x.name + i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text)" }}>
+          <img src={art(`avatar_${x.avatar}`)} alt="" width={24} height={24} style={{ borderRadius: 7, border: "1.5px solid #111" }} />
+          <span style={{ flex: 1, fontWeight: 700 }}>{x.name}{x.me ? " (you)" : ""}</span>
+          {x.banker && <span className="chip" style={{ background: "var(--amber)", color: "#111", border: 0, fontSize: 10 }}>⚡ 2X</span>}
+          {x.early && <span className="chip" style={{ background: "var(--sky)", color: "#111", border: 0, fontSize: 10 }}>EARLY</span>}
+          <b className="display" style={{ fontSize: 16 }}>{x.home_goals}–{x.away_goals}</b>
+          <span style={{ fontSize: 12, fontWeight: 800, color: x.live_points > 0 ? "var(--lime)" : "var(--muted)", minWidth: 44, textAlign: "right" }}>+{x.live_points}</span>
+        </div>
+      ))}
+    </div>
   );
 }

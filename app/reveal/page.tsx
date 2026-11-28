@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { CardBack, Flip, Img, TopBar } from "@/components/ui";
 import { fixtureOf } from "@/lib/data";
 import { addReward, markRevealed, useStore, verifySeal, type Seal } from "@/lib/store";
-import { claimClassic, cloudReady, signInWithGoogle, useCloud, useFixtureRevealStats, type Claim } from "@/lib/cloud";
+import { claimClassic, cloudReady, signInWithGoogle, useCloud, useFixtures, useFixtureRevealStats, type Claim } from "@/lib/cloud";
 import { useTelegram } from "@/lib/telegram";
 
 const FINAL = { home: 2, away: 1 };
@@ -48,6 +48,7 @@ function playRevealSound(win: boolean) {
 
 export default function Reveal() {
   const seals = useStore().seals;
+  const fixtures = useFixtures();
   const [shown, setShown] = useState<Seal | null>(null);
   const [check, setCheck] = useState<{ hashOk: boolean; anchored: boolean } | null>(null);
   const [claim, setClaim] = useState<Claim | { status: "error"; message: string } | null>(null);
@@ -76,14 +77,22 @@ export default function Reveal() {
 
   function getSharePayload() {
     if (!seal || !sc) return { text: "", url: "" };
-    const f = fixtureOf(seal.round);
+    const f = fixtureOf(seal.round, fixtures);
     const resultType = sc.exact ? "exact" : sc.result ? "correct" : "wrong";
-    const ogUrl = `${location.origin}/share?home=${encodeURIComponent(f.home)}&away=${encodeURIComponent(f.away)}&h=${sc.h}&a=${sc.a}&result=${resultType}`;
+    const hrs = Math.max(1, Math.round((Date.parse(f.kickoff) - seal.sealedAt) / 3_600_000));
+    const lead = Number.isFinite(hrs) && hrs > 0 ? `${hrs}h before kickoff` : "before kickoff";
+    const is2x = seal.move.split("|").includes("2X");
+    const qs = new URLSearchParams({
+      home: f.home, away: f.away, h: String(sc.h), a: String(sc.a), result: resultType, lead,
+      ...(is2x ? { banker: "1" } : {}),
+      ...(seal.height ? { block: String(seal.height) } : {}),
+    });
+    const ogUrl = `${location.origin}/share?${qs}`;
     const text = sc.exact
-      ? `I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY on Called It! 🎯 Sealed before kickoff and timestamped on Bitcoin. Can you beat my calls?`
+      ? `Told you so! I called ${f.home} ${sc.h}–${sc.a} ${f.away} EXACTLY (${lead}) on Called It 🎯 Timestamped on Bitcoin. Can you beat me?`
       : sc.result
-      ? `I called the right result for ${f.home} vs ${f.away} on Called It! ⚡ Sealed before kickoff.`
-      : `I sealed my call for ${f.home} vs ${f.away} on Called It before kickoff. Fair play guaranteed.`;
+      ? `I called the right result for ${f.home} vs ${f.away} (${lead}) on Called It ⚡`
+      : `I sealed my call for ${f.home} vs ${f.away} ${lead} on Called It. Fair play guaranteed.`;
     return { text, url: ogUrl };
   }
 

@@ -176,7 +176,7 @@ export async function syncNow() {
   await sync();
 }
 
-export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; final?: string; id?: string; message?: string; streak?: number; streak_mult?: number };
+export type Claim = { status: "scored" | "pending" | "late"; points?: number; exact?: boolean; result?: boolean; banker?: boolean; final?: string; id?: string; message?: string; streak?: number; streak_mult?: number };
 /** Reveal a Classic Call to the server, which re-hashes it and scores it against the official result. */
 export async function claimClassic(seal: Seal): Promise<Claim> {
   const c = sb();
@@ -185,8 +185,58 @@ export async function claimClassic(seal: Seal): Promise<Claim> {
   const { data, error } = await c.rpc("claim_classic", { p_seal_id: seal.id, p_player: seal.player ?? getState().player, p_move: seal.move, p_salt: seal.salt });
   if (error) throw new Error(error.message);
   const r = data as Claim;
-  if (r.status === "scored" && r.points && r.id) addReward(`${seal.label} · Classic Call (verified)`, r.points, { id: r.id, verified: true });
+  if (r.status === "scored" && r.points && r.id) addReward(`${seal.label} · Classic Call (verified)${r.banker ? " ⚡ 2x" : ""}`, r.points, { id: r.id, verified: true });
   return r;
+}
+
+/** UTC ISO week Monday timestamp string matching Postgres date_trunc('week', kickoff at time zone 'UTC'). */
+export function isoWeekStartMs(iso: string): number {
+  const d = new Date(iso);
+  const day = (d.getUTCDay() + 6) % 7;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day);
+}
+
+/** Find an existing local Classic Call seal in the same UTC week that already carries the 2x Banker boost. */
+export function bankerSealInWeek(seals: Seal[], fixtures: Fixture[], kickoffIso: string): Seal | null {
+  const wk = isoWeekStartMs(kickoffIso);
+  for (const s of seals) {
+    if (s.game !== "classic" || !s.move || !s.move.split("|").includes("2X")) continue;
+    const fx = fixtures.find((f) => f.id === s.round);
+    const k = fx?.kickoff;
+    if (k && isoWeekStartMs(k) === wk) return s;
+  }
+  return null;
+}
+
+export type LiveFixtureCall = { name: string; avatar: number; home_goals: number; away_goals: number; banker: boolean; early: boolean; live_points: number; me: boolean };
+export type LiveRank = { rank: number; name: string; avatar: number; points: number; live_points: number; me: boolean };
+
+export function useLiveFixtureCalls(fixtureId: string | null, contestId?: string | null) {
+  const [calls, setCalls] = useState<LiveFixtureCall[] | null>(null);
+  const tick = useVisibleTick(20_000);
+  useEffect(() => {
+    if (!fixtureId || !sb()) return;
+    let live = true;
+    cloudRpc<LiveFixtureCall[]>("live_fixture_calls", { p_fixture_id: fixtureId, p_contest_id: contestId ?? null })
+      .then((r) => live && setCalls(r.map((x) => ({ ...x, home_goals: Number(x.home_goals), away_goals: Number(x.away_goals), live_points: Number(x.live_points) }))))
+      .catch(() => live && setCalls([]));
+    return () => { live = false; };
+  }, [fixtureId, contestId, tick]);
+  return calls;
+}
+
+export function useLiveContestBoard(id: string | null, active: boolean) {
+  const [rows, setRows] = useState<LiveRank[] | null>(null);
+  const tick = useVisibleTick(20_000);
+  useEffect(() => {
+    if (!id || !active || !sb()) { setRows(null); return; }
+    let live = true;
+    cloudRpc<LiveRank[]>("contest_live_leaderboard", { p_id: id, p_limit: LB_PAGE, p_offset: 0 })
+      .then((r) => live && setRows(r.map((x) => ({ ...x, rank: Number(x.rank), points: Number(x.points), live_points: Number(x.live_points) }))))
+      .catch(() => {});
+    return () => { live = false; };
+  }, [id, active, tick]);
+  return rows;
 }
 
 export async function requestWithdrawal(address: string): Promise<{ status: "requested" | "too_small"; amount?: number; available?: number }> {
@@ -715,11 +765,45 @@ export function useContestBoard(id: string | null): { rows: Rank[] | null; loadM
   return { rows: curId === id ? rows : null, loadMore, hasMore, loading };
 }
 
+const KICKOFF_DONE_KEY = "calledit:kickoff-revealed";
+function getKickedOff(): Set<string> {
+  try { return new Set(JSON.parse(localStorage.getItem(KICKOFF_DONE_KEY) || "[]")); } catch { return new Set(); }
+}
+function markKickedOff(id: string) {
+  try { const s = getKickedOff(); s.add(id); localStorage.setItem(KICKOFF_DONE_KEY, JSON.stringify([...s].slice(-200))); } catch {}
+}
+
+/** Reveal local sealed calls for matches whose kickoff has arrived, unlocking live matchday standings. */
+let revealingKickoff = false;
+export async function autoRevealAtKickoff() {
+  const c = sb();
+  if (revealingKickoff || !cloud.session || !c) return;
+  revealingKickoff = true;
+  try {
+    await fixtureStore.refresh();
+    const now = Date.now();
+    const kicked = new Map(fixtureStore.get().filter((f) => Date.parse(f.kickoff) <= now).map((f) => [f.id, f]));
+    const done = getKickedOff();
+    const due = getState().seals.filter((x) => x.game === "classic" && !x.revealed && x.move && kicked.has(x.round) && !done.has(x.id));
+    if (!due.length) return;
+    await syncNow();
+    for (const seal of due) {
+      const fx = kicked.get(seal.round)!;
+      if (seal.sealedAt >= Date.parse(fx.kickoff)) { markKickedOff(seal.id); continue; }
+      try {
+        await c.rpc("reveal_at_kickoff", { p_seal_id: seal.id, p_player: seal.player ?? getState().player, p_move: seal.move, p_salt: seal.salt });
+        markKickedOff(seal.id);
+      } catch { /* retry next pass */ }
+    }
+  } finally { revealingKickoff = false; }
+}
+
 // ---------- Automatic claiming ----------
 /** Once a fixture has its official result, claim ranked points for this device's sealed calls on it,
  * so players don't have to go back to Reveal. Only seals made on this device hold the move and salt. */
 let claiming = false;
 export async function autoClaim() {
+  await autoRevealAtKickoff();
   if (claiming || !cloud.session || !sb()) return;
   claiming = true;
   try {

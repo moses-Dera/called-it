@@ -6,15 +6,17 @@ import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
 import { askConfirm } from "@/components/dialog";
+import { openShare } from "@/components/share-sheet";
 import { SponsorPrizes } from "@/components/sponsor-prizes";
 import { WalletStatus } from "@/components/wallet-status";
 import { WalletSetup } from "@/components/wallet-setup";
 import { explorerTx } from "@/lib/explorer";
 import { addressOf, createAccount, markWalletCreated, openWallet, sendZec, zatsOf } from "@/lib/in-app-wallet";
 import { unlockWalletPhrase } from "@/lib/wallet-unlock";
-import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
+import { requestWithdrawal, useCloud, useFixtures, useTipHistory, useNetwork } from "@/lib/cloud";
 import { getWallet, hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
+import { fixtureOf, settlePick } from "@/lib/data";
 
 const MIN = 0.001;
 const cover = (g: string) => MODES.find((m) => m.key === g)?.img ?? "cover_arena";
@@ -22,6 +24,7 @@ const cover = (g: string) => MODES.find((m) => m.key === g)?.img ?? "cover_arena
 export default function Vault() {
   const s = useStore();
   const network = useNetwork();
+  const fixtures = useFixtures();
   const t = totals(s);
   const [addr, setAddr] = useState(""), [msg, setMsg] = useState(""), [copied, setCopied] = useState(false);
   const [inspect, setInspect] = useState<Seal | null>(null), [showAllRewards, setShowAllRewards] = useState(false);
@@ -329,8 +332,34 @@ export default function Vault() {
               Fingerprint: {inspect.commitment}
               {inspect.root && <><br />Batch root: {inspect.root} · {inspect.proof?.length ?? 0} steps<br />Bitcoin block: {inspect.height?.toLocaleString() ?? "pending"}{inspect.txid ? <> · tx {short(inspect.txid)}</> : null}</>}
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={() => verify(inspect)} className="btn" style={{ flex: 1, background: "var(--lime)", color: "#111", border: "2px solid #111" }}>Verify now</button>
+              {inspect.game === "classic" && inspect.move && (
+                <button type="button" onClick={() => {
+                  const fx = fixtureOf(inspect.round, fixtures);
+                  const [hStr, aStr] = inspect.move.split("|")[0].split("-");
+                  const settled = fx.homeGoals != null && fx.awayGoals != null ? settlePick(inspect.move.split("|")[0], fx.homeGoals, fx.awayGoals) : null;
+                  const resultType = settled?.exact ? "exact" : settled?.won ? "correct" : settled ? "wrong" : "";
+                  const hrs = Math.max(1, Math.round((Date.parse(fx.kickoff) - inspect.sealedAt) / 3_600_000));
+                  const lead = Number.isFinite(hrs) && hrs > 0 ? `${hrs}h before kickoff` : "before kickoff";
+                  const is2x = inspect.move.split("|").includes("2X");
+                  const qs = new URLSearchParams({
+                    home: fx.home, away: fx.away, h: hStr || "", a: aStr || "", lead,
+                    ...(resultType ? { result: resultType } : {}),
+                    ...(is2x ? { banker: "1" } : {}),
+                    ...(inspect.height ? { block: String(inspect.height) } : {}),
+                  });
+                  openShare({
+                    title: "Share \"Told You So\" proof card",
+                    text: resultType === "exact"
+                      ? `Told you so! I called ${fx.home} ${hStr}–${aStr} ${fx.away} EXACTLY (${lead}) on Called It 🎯 Timestamped on Bitcoin.`
+                      : `My sealed prediction for ${fx.home} vs ${fx.away} (${hStr}–${aStr}, locked ${lead}) on Called It.`,
+                    url: `${location.origin}/share?${qs}`,
+                  });
+                }} className="btn" style={{ flex: 1, background: "var(--amber)", color: "#111", border: "2px solid #111" }}>
+                  🔥 Share proof
+                </button>
+              )}
               <button type="button" onClick={() => setInspect(null)} className="btn" style={{ background: "#111", color: "var(--paper)", border: 0, width: "auto", padding: "0 18px" }}>Close</button>
             </div>
             {checks[inspect.id] && <div style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>{checks[inspect.id]}</div>}

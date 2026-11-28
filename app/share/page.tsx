@@ -11,8 +11,12 @@ async function cardUrl(searchParams: SP) {
   const q = await searchParams;
   const p = new URLSearchParams({ type: "reveal", home: one(q.home, 40) || "Home", away: one(q.away, 40) || "Away" });
   const h = one(q.h, 2), a = one(q.a, 2), result = one(q.result, 10);
+  const lead = one(q.lead, 32), banker = one(q.banker, 1), block = one(q.block, 14);
   if (/^\d{1,2}$/.test(h) && /^\d{1,2}$/.test(a)) { p.set("h", h); p.set("a", a); }
   if (["exact", "correct", "wrong"].includes(result)) p.set("result", result);
+  if (lead) p.set("lead", lead);
+  if (banker === "1") p.set("banker", "1");
+  if (/^[0-9,]+$/.test(block)) p.set("block", block);
   return { url: `/api/og?${p}`, title: `${p.get("home")} vs ${p.get("away")}`, result };
 }
 
