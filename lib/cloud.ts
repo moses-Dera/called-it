@@ -158,11 +158,10 @@ async function sync(first = false) {
   } catch (e) {
     if (isNetworkError(e)) {
       set({ status: "offline", error: undefined });
-      scheduleSyncRetry();
     } else {
-      retryAttempt = 0;
       set({ status: "error", error: e instanceof Error ? e.message : "Sync failed" });
     }
+    scheduleSyncRetry();
   }
   busy = false;
   if (again) { again = false; sync(); }
