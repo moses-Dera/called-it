@@ -622,29 +622,31 @@ export const useContests = () => contestStore.use().filter((c) => isListed(c));
 export const useAllContests = () => contestStore.use();
 
 // ---------- App settings ----------
-type Settings = { fund_address: string | null; network: Network; point_zec: number; general_game_zec: boolean };
+type Settings = { fund_address: string | null; network: Network; point_zec: number; general_game_zec: boolean; platform_fee_bps: number };
 const settingsStore = shared<Settings>(async () => {
   const c = sb();
-  if (!c) return { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false };
+  if (!c) return { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false, platform_fee_bps: 0 };
   const { data, error } = await c.from("app_settings").select("key, value");
   if (error) throw error;
   const get = (k: string) => (data ?? []).find((r) => r.key === k)?.value as string | undefined;
   const pv = Number(get("point_zec"));
+  const bps = Number(get("platform_fee_bps"));
   return {
     fund_address: get("fund_address") ?? null,
     network: get("network") === "testnet" ? "testnet" : "mainnet",
     point_zec: Number.isFinite(pv) ? pv : 0.00001,
     general_game_zec: get("general_game_zec") === "true",
+    platform_fee_bps: Number.isFinite(bps) && bps >= 0 ? Math.round(bps) : 0,
   };
-}, { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false });
+}, { fund_address: null, network: "mainnet", point_zec: 0.00001, general_game_zec: false, platform_fee_bps: 0 });
 /** The operator's prize-fund wallet for Boost the Pot and sponsor funding; null when none is set. */
 export const useFundAddress = () => settingsStore.use().fund_address;
 /** Which Zcash network prizes are paid on: mainnet for real ZEC, testnet for a practice run. */
 export const useNetwork = () => settingsStore.use().network;
-/** Admin-configured ZEC conversion rate per ranked point, and whether general games also earn ZEC. */
+/** Admin-configured ZEC conversion rate per ranked point, whether general games earn ZEC, and platform fee in bps. */
 export const usePointSettings = () => {
   const s = settingsStore.use();
-  return { pointZec: s.point_zec, generalGameZec: s.general_game_zec };
+  return { pointZec: s.point_zec, generalGameZec: s.general_game_zec, platformFeeBps: s.platform_fee_bps };
 };
 export const refreshFundAddress = () => settingsStore.refresh();
 export const refreshContests = () => contestStore.refresh();
