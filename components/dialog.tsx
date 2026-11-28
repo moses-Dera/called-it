@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 type Req =
   | { kind: "confirm"; title: string; body?: string; confirmLabel: string; danger?: boolean; resolve: (v: boolean) => void }
-  | { kind: "text"; title: string; body?: string; placeholder?: string; confirmLabel: string; resolve: (v: string | null) => void }
+  | { kind: "text"; title: string; body?: string; placeholder?: string; confirmLabel: string; type?: "text" | "password"; resolve: (v: string | null) => void }
   | { kind: "notice"; title: string; body?: string; resolve: () => void };
 
 let current: Req | null = null;
@@ -16,7 +16,7 @@ const set = (r: Req | null) => { current = r; subs.forEach((s) => s()); };
 export function askConfirm(o: { title: string; body?: string; confirmLabel?: string; danger?: boolean }): Promise<boolean> {
   return new Promise((resolve) => set({ kind: "confirm", confirmLabel: "Confirm", ...o, resolve }));
 }
-export function askText(o: { title: string; body?: string; placeholder?: string; confirmLabel?: string }): Promise<string | null> {
+export function askText(o: { title: string; body?: string; placeholder?: string; confirmLabel?: string; type?: "text" | "password" }): Promise<string | null> {
   return new Promise((resolve) => set({ kind: "text", confirmLabel: "Save", ...o, resolve }));
 }
 export function showNotice(o: { title: string; body?: string }): Promise<void> {
@@ -53,7 +53,7 @@ export function DialogHost() {
         <h2 id="dlg-title" className="display" style={{ margin: 0, fontSize: 22 }}>{req.title}</h2>
         {req.body && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: "#4a4436" }}>{req.body}</p>}
         {req.kind === "text" && (
-          <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder={req.placeholder} aria-label={req.title}
+          <input ref={inputRef} type={req.type ?? "text"} autoComplete={req.type === "password" ? "current-password" : "off"} value={text} onChange={(e) => setText(e.target.value)} placeholder={req.placeholder} aria-label={req.title}
             style={{ height: 46, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 15 }} />
         )}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>

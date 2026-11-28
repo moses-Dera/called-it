@@ -1,6 +1,7 @@
 "use client";
 import type { WalletClient } from "@zcashlabs/zcash.js";
 import { confirmPrize, type SponsorPrize } from "./cloud";
+import { zatsOf } from "./in-app-wallet";
 
 type Memo = { kind: "text"; text: string } | { kind: "empty" | "unknown" } | { kind: "binary"; bytes: Uint8Array };
 type TxOutput = { value: bigint | null; memo: Memo; receivingAccountIds: readonly string[] };
@@ -29,6 +30,7 @@ export async function detectPrizes(wallet: WalletClient, accountId: string, myPr
       const rank = parseInt(m[2], 10);
       const prize = pending.find((p) => p.rank === rank && out.memo.kind === "text" && out.memo.text.includes(p.title));
       if (!prize) continue;
+      if (out.value === null || out.value < zatsOf(prize.zec)) continue;
       const txid = String(tx.txid);
       try {
         await confirmPrize(prize.contest_id, rank, true);

@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { BottomNav, Img, SealStatus } from "@/components/ui";
 import { MODES } from "@/lib/data";
 import { BackupNudge } from "@/components/account";
+import { askConfirm } from "@/components/dialog";
 import { SponsorPrizes } from "@/components/sponsor-prizes";
 import { WalletStatus } from "@/components/wallet-status";
 import { WalletSetup } from "@/components/wallet-setup";
+import { explorerTx } from "@/lib/explorer";
+import { addressOf, createAccount, markWalletCreated, openWallet, sendZec, zatsOf } from "@/lib/in-app-wallet";
+import { unlockWalletPhrase } from "@/lib/wallet-unlock";
 import { requestWithdrawal, useCloud, useTipHistory, useNetwork } from "@/lib/cloud";
-import { hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
+import { getWallet, hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 
 const MIN = 0.001;
@@ -25,8 +29,64 @@ export default function Vault() {
   const signedIn = !!useCloud().session;
   const tips = useTipHistory();
   const hasInApp = hasWallet(network);
-  const ws = useWalletSync(network, hasInApp);
+  const ws = useWalletSync(network, hasInApp, true);
   const [showSetup, setShowSetup] = useState(false);
+  const [showSend, setShowSend] = useState(false);
+  const [sendTo, setSendTo] = useState(""), [sendAmt, setSendAmt] = useState(""), [sendMemo, setSendMemo] = useState("");
+  const [sendStatus, setSendStatus] = useState(""), [sendTx, setSendTx] = useState(""), [sending, setSending] = useState(false);
+  const [restoring, setRestoring] = useState(false), [restoreMsg, setRestoreMsg] = useState("");
+
+  async function restoreWallet() {
+    setRestoreMsg("");
+    try {
+      const phrase = await unlockWalletPhrase(network, "restore your wallet on this device");
+      if (!phrase) return;
+      setRestoring(true);
+      setRestoreMsg("Restoring your keys and syncing…");
+      const w = await openWallet(network);
+      const acct = await createAccount(w, network, phrase, false);
+      const a = await addressOf(w, acct.id);
+      markWalletCreated(network);
+      if (a && !saved) saveProfile({ address: a });
+      await triggerSync(network);
+      setRestoreMsg("Wallet restored.");
+    } catch (e) {
+      setRestoreMsg((e as Error).message ?? "Could not restore wallet.");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function sendFromWallet() {
+    const to = sendTo.trim();
+    const amt = Number(sendAmt);
+    const unit = network === "testnet" ? "TAZ" : "ZEC";
+    if (!isShielded(to, network)) {
+      return setSendStatus(network === "testnet" ? "Enter a valid testnet shielded address (utest1… or ztestsapling1…)." : "Enter a valid shielded Zcash address (u1… or zs1…).");
+    }
+    if (!Number.isFinite(amt) || amt <= 0) return setSendStatus("Enter an amount greater than 0.");
+    const spendable = ws.balance?.spendable ?? BigInt(0);
+    if (zatsOf(amt) >= spendable) return setSendStatus(`Not enough spendable ${unit} (remember a small network fee applies).`);
+    const ok = await askConfirm({ title: `Send ${amt} ${unit}?`, body: `To ${short(to)} from your Called It wallet.`, confirmLabel: "Continue" });
+    if (!ok) return;
+    setSending(true); setSendTx(""); setSendStatus("Waiting for passphrase…");
+    try {
+      const phrase = await unlockWalletPhrase(network, `send ${amt} ${unit}`);
+      if (!phrase) { setSendStatus(""); setSending(false); return; }
+      const w = getWallet() ?? await openWallet(network);
+      const [acct] = await w.accounts.list();
+      if (!acct) throw new Error("No wallet account found on this device.");
+      const txid = await sendZec(w, acct.id, phrase, to, zatsOf(amt), sendMemo.trim() || undefined, setSendStatus);
+      setSendTx(txid);
+      setSendStatus("Sent.");
+      setSendAmt(""); setSendMemo("");
+      triggerSync(network);
+    } catch (e) {
+      setSendStatus((e as Error).message ?? "Send failed.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   // Auto-save wallet address to profile when in-app wallet is ready but no address saved
   useEffect(() => {
@@ -73,6 +133,10 @@ export default function Vault() {
             <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
             <span style={{ fontSize: 13, fontWeight: 600 }}>Get a shielded wallet built into the app. Prizes arrive here automatically.</span>
             <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowSetup(true)}>Set up wallet</button>
+            <button type="button" disabled={restoring} onClick={restoreWallet} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, color: "#4a4436", textDecoration: "underline", cursor: "pointer", alignSelf: "flex-start" }}>
+              {restoring ? "Restoring…" : "Already backed up? Restore on this device"}
+            </button>
+            {restoreMsg && <span style={{ fontSize: 12, fontWeight: 700, color: "#9a2d1d" }}>{restoreMsg}</span>}
           </section>
         )}
         {showSetup && !hasInApp && (
@@ -92,8 +156,12 @@ export default function Vault() {
             </div>
             {ws.missingAccount ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>Wallet keys are missing from this browser&apos;s local storage. Open Called It in the browser profile where you created it, or check again.</span>
-                <button type="button" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={() => triggerSync(network)}>Check again</button>
+                <span style={{ fontSize: 13, color: "#4a4436", lineHeight: 1.45 }}>Wallet keys are missing from this browser&apos;s local storage. Restore from your encrypted backup or check again.</span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" disabled={restoring} className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111", flex: 1 }} onClick={restoreWallet}>{restoring ? "Restoring…" : "Restore wallet"}</button>
+                  <button type="button" className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={() => triggerSync(network)}>Check again</button>
+                </div>
+                {restoreMsg && <span style={{ fontSize: 12, fontWeight: 700, color: "#4a4436" }}>{restoreMsg}</span>}
               </div>
             ) : ws.address ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -112,10 +180,31 @@ export default function Vault() {
                   : ws.status === "syncing" ? "Syncing latest blocks…"
                   : ws.height ? `Synced to block ${ws.height.toLocaleString()}` : "Ready"}
               </span>
-              {(ws.status === "error" || ws.status === "ready") && (
-                <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
-              )}
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                {!ws.missingAccount && ws.address && (
+                  <button type="button" onClick={() => { setShowSend((v) => !v); setSendStatus(""); }} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>
+                    {showSend ? "Hide Send" : "Send / Move to Zashi"}
+                  </button>
+                )}
+                {(ws.status === "error" || ws.status === "ready") && (
+                  <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
+                )}
+              </div>
             </div>
+            {showSend && !ws.missingAccount && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "2px dashed #c9bfa6", paddingTop: 10 }}>
+                <input value={sendTo} onChange={(e) => setSendTo(e.target.value)} placeholder={network === "testnet" ? "Recipient utest1… address" : "Recipient Zashi u1… address"} autoComplete="off" spellCheck={false} className="mono" style={{ height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 12 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={sendAmt} onChange={(e) => setSendAmt(e.target.value)} placeholder={`Amount (${network === "testnet" ? "TAZ" : "ZEC"})`} inputMode="decimal" style={{ flex: 1, height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 14, fontWeight: 700, minWidth: 0 }} />
+                  <input value={sendMemo} onChange={(e) => setSendMemo(e.target.value)} placeholder="Memo (optional)" maxLength={200} style={{ flex: 1.4, height: 42, borderRadius: 12, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 10px", fontSize: 13, minWidth: 0 }} />
+                </div>
+                <button type="button" disabled={sending} onClick={sendFromWallet} className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, minHeight: 42 }}>
+                  {sending ? "Sending…" : "Send shielded ZEC"}
+                </button>
+                {sendStatus && <span style={{ fontSize: 12, fontWeight: 700, color: sendTx ? "#3d6b00" : "#4a4436" }}>{sendStatus}</span>}
+                {sendTx && <a href={explorerTx(sendTx, network)} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: 11, color: "#111", textDecoration: "underline", overflowWrap: "anywhere" }}>View transaction {sendTx.slice(0, 18)}… ↗</a>}
+              </div>
+            )}
           </section>
         )}
 

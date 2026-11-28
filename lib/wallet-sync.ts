@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { WalletClient } from "@zcashlabs/zcash.js";
 import { addressOf, balanceOf, openWallet, walletExists, syncWallet, zecOf } from "./in-app-wallet";
 import { detectPrizes } from "./wallet-prizes";
@@ -17,7 +17,9 @@ type WalletState = {
   missingAccount: boolean;
 };
 
-const SYNC_INTERVAL = 90_000;
+// Sync at most every 5 minutes in the background on Vault; WASM catch-up is single-threaded and CPU-heavy.
+const SYNC_INTERVAL = 300_000;
+const MOUNT_DELAY_MS = 1_200;
 const RETRY_DELAYS = [15_000, 30_000, 60_000];
 const initial: WalletState = { status: "idle", address: null, balance: null, accountId: null, height: null, error: null, lastSync: null, missingAccount: false };
 
@@ -25,9 +27,11 @@ let state: WalletState = initial;
 let wallet: WalletClient | null = null;
 let walletNet: Network | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
+let startTimer: ReturnType<typeof setTimeout> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let failCount = 0;
 let syncing = false;
+let autoSyncHolders = 0;
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<WalletState>) {
@@ -44,37 +48,55 @@ async function requestPersistence() {
   } catch {}
 }
 
+async function ensureLocal(network: Network) {
+  if (wallet && walletNet !== network) {
+    wallet = null;
+    walletNet = null;
+    set({ address: null, balance: null, accountId: null, height: null, error: null, lastSync: null, missingAccount: false });
+  }
+  if (!wallet) {
+    set({ status: state.address ? state.status : "opening", error: null, missingAccount: false });
+    wallet = await openWallet(network);
+    walletNet = network;
+  }
+  const [acct] = await wallet.accounts.list();
+  if (!acct) {
+    set({ status: "ready", accountId: null, address: null, balance: null, height: null, error: null, missingAccount: true });
+    return null;
+  }
+  const addr = state.address ?? await addressOf(wallet, acct.id);
+  const bal = await balanceOf(wallet, acct.id);
+  set({
+    status: state.status === "opening" || state.status === "idle" ? "ready" : state.status,
+    accountId: acct.id,
+    address: addr,
+    balance: bal,
+    missingAccount: false,
+  });
+  return acct;
+}
+
+/** Read address & balance from local OPFS storage with zero network/WASM block scanning. */
+async function loadCached(network: Network) {
+  if (syncing) return;
+  try { await ensureLocal(network); }
+  catch (e) { set({ status: "error", error: (e as Error).message ?? String(e) }); }
+}
+
 async function doSync(network: Network) {
   if (syncing) return;
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   syncing = true;
   try {
-    if (wallet && walletNet !== network) {
-      wallet = null;
-      walletNet = null;
-      set({ address: null, balance: null, accountId: null, height: null, error: null, missingAccount: false });
-    }
-    if (!wallet) {
-      set({ status: "opening", error: null, missingAccount: false });
-      wallet = await openWallet(network);
-      walletNet = network;
-    }
-    const [acct] = await wallet.accounts.list();
-    if (!acct) {
-      set({ status: "ready", accountId: null, address: null, balance: null, height: null, error: null, missingAccount: true });
-      return;
-    }
-
-    // Read cached OPFS address & balance immediately so the UI renders even before the relay answers.
-    const addr = state.address ?? await addressOf(wallet, acct.id);
-    const bal = await balanceOf(wallet, acct.id);
-    set({ status: "syncing", accountId: acct.id, address: addr, balance: bal, error: null, missingAccount: false });
+    const acct = await ensureLocal(network);
+    if (!acct || !wallet) return;
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       set({ status: "error", error: "Offline" });
       return;
     }
 
+    set({ status: "syncing", error: null });
     const s = await syncWallet(wallet, undefined, 2) as { scan?: { fullyScannedHeight?: number } };
     const h = s?.scan?.fullyScannedHeight ?? null;
     const freshAddr = await addressOf(wallet, acct.id);
@@ -98,8 +120,15 @@ async function doSync(network: Network) {
 }
 
 function startBackground(network: Network) {
-  if (timer) return;
-  doSync(network);
+  autoSyncHolders += 1;
+  if (timer || startTimer) return;
+  const fresh = !!state.lastSync && Date.now() - state.lastSync < SYNC_INTERVAL;
+  if (fresh) {
+    loadCached(network);
+  } else {
+    loadCached(network);
+    startTimer = setTimeout(() => { startTimer = null; doSync(network); }, MOUNT_DELAY_MS);
+  }
   timer = setInterval(() => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
     doSync(network);
@@ -107,6 +136,9 @@ function startBackground(network: Network) {
 }
 
 function stopBackground() {
+  autoSyncHolders = Math.max(0, autoSyncHolders - 1);
+  if (autoSyncHolders > 0) return;
+  if (startTimer) { clearTimeout(startTimer); startTimer = null; }
   if (timer) { clearInterval(timer); timer = null; }
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
 }
@@ -116,13 +148,18 @@ export function hasWallet(network: Network) { return walletExists(network); }
 
 export function getWallet() { return wallet; }
 
-export function useWalletSync(network: Network, enabled = true) {
+/** Subscribe to wallet state. Pass autoSync=false on non-wallet screens so WASM sync only runs on Vault or on demand. */
+export function useWalletSync(network: Network, enabled = true, autoSync = true) {
   useEffect(() => {
     if (!enabled || !hasWallet(network)) return;
+    if (!autoSync) {
+      loadCached(network);
+      return;
+    }
     requestPersistence();
     startBackground(network);
     const onVis = () => {
-      if (document.visibilityState === "visible" && state.lastSync && Date.now() - state.lastSync > SYNC_INTERVAL) doSync(network);
+      if (document.visibilityState === "visible" && (!state.lastSync || Date.now() - state.lastSync > SYNC_INTERVAL)) doSync(network);
     };
     const onOnline = () => { failCount = 0; doSync(network); };
     document.addEventListener("visibilitychange", onVis);
@@ -132,7 +169,7 @@ export function useWalletSync(network: Network, enabled = true) {
       window.removeEventListener("online", onOnline);
       stopBackground();
     };
-  }, [network, enabled]);
+  }, [network, enabled, autoSync]);
 
   return useSyncExternalStore(
     (l) => { listeners.add(l); return () => listeners.delete(l); },
@@ -141,6 +178,10 @@ export function useWalletSync(network: Network, enabled = true) {
   );
 }
 
-export function triggerSync(network: Network) { failCount = 0; doSync(network); }
+export function triggerSync(network: Network) {
+  if (startTimer) { clearTimeout(startTimer); startTimer = null; }
+  failCount = 0;
+  return doSync(network);
+}
 
 export { zecOf };

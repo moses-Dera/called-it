@@ -153,7 +153,14 @@ function NewRoom({ game, setGame, onError, onCreated }: { game: Game; setGame: (
           </button>
         ))}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "#4a4436" }}>{GAME_INFO[game].blurb}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span className="chip" style={{ background: "var(--amber)", color: "#111", border: "2px solid #111" }}>{GAME_INFO[game].capLabel}</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "#4a4436", flex: 1, minWidth: 180 }}>
+          {game === "bluff" ? `${rounds} rounds · same 7 cards each, one sealed per round.`
+            : game === "fog" ? `1 vs 1 · hide 5 units, then fire sealed shots for ${turns} turns.`
+            : GAME_INFO[game].blurb}
+        </span>
+      </div>
 
       {(game === "vote" || game === "closest") && <input aria-label="Question" placeholder={game === "vote" ? "Who gets married first?" : "Minute of the first goal?"} value={title} onChange={(e) => setTitle(e.target.value)} style={field} />}
       {game === "capsule" && <input aria-label="Capsule name" placeholder="Class of 2026 reunion" value={title} onChange={(e) => setTitle(e.target.value)} style={field} />}

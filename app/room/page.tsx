@@ -6,7 +6,7 @@ import { SignInPill } from "@/components/account";
 import { art } from "@/lib/data";
 import { useCloud } from "@/lib/cloud";
 import { sha256Hex } from "@/lib/merkle";
-import { BLUFF_CARDS, GAME_INFO, forceSettle, hasLocalSeal, myPlacement, myRole, nextRound, reportHits, revealMine, sealMove, setAnswer, startRoom, useRoom, type MyRole, type Room } from "@/lib/rooms";
+import { BLUFF_CARDS, GAME_INFO, ROOM_RULES, forceSettle, hasLocalSeal, myPlacement, myRole, nextRound, reportHits, revealMine, sealMove, setAnswer, startRoom, useRoom, type MyRole, type Room } from "@/lib/rooms";
 
 const STEP: Record<Room["status"], string> = { lobby: "Waiting to start", sealing: "Seal your move", revealing: "Opening the seals", report: "Counting hits", answer: "Waiting for the answer", done: "Result" };
 const fmt = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -16,7 +16,7 @@ export default function RoomPage() {
   useEffect(() => { setId(new URLSearchParams(location.search).get("id")); }, []);
   const signedIn = !!useCloud().session;
   const { room, error, reload } = useRoom(id);
-  const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(""), [busy, setBusy] = useState(false), [rulesOpen, setRulesOpen] = useState(false);
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true); setMsg("");
@@ -73,7 +73,27 @@ export default function RoomPage() {
               <span className="eyebrow" style={{ color: "var(--lime)" }}>{info.name}{room.game === "werewolf" && room.status !== "lobby" && room.status !== "done" ? ` · ${room.result?.phase === "night" ? "night" : "day"} ${room.result?.day ?? 1}` : ""}{room.game === "bluff" ? ` · round ${room.round} of ${room.options.rounds ?? 5}` : room.game === "fog" ? (room.round > 0 && room.status !== "done" ? ` · turn ${room.round} of ${room.options.turns ?? 6}` : "") : room.round > 1 ? ` · round ${room.round}` : ""}</span>
               <h1 className="display" style={{ margin: 0, fontSize: 26 }}>{room.title || info.name}</h1>
             </div>
+            <button type="button" aria-label="Game rules" onClick={() => setRulesOpen(true)} className="iconbtn display" style={{ background: "var(--paper)", color: "#111", fontSize: 18 }}>?</button>
           </div>
+          {rulesOpen && (
+            <div role="dialog" aria-modal="true" aria-label={`${info.name} rules`} onClick={() => setRulesOpen(false)} className="guide" style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(5,7,10,.7)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              <div className="sheet paper" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, borderRadius: "28px 28px 0 0", padding: "22px 20px 28px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span className="eyebrow" style={{ color: "#6b6455" }}>Game rules</span>
+                  <span className="chip" style={{ background: "var(--amber)" }}>{info.capLabel}</span>
+                </div>
+                <div className="display" style={{ fontSize: 28 }}>{info.name}</div>
+                {ROOM_RULES[room.game].steps.map((s, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span className="display" style={{ width: 28, height: 28, borderRadius: 9, background: "#111", color: "var(--lime)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.4, paddingTop: 3 }}>{s}</span>
+                  </div>
+                ))}
+                <div style={{ borderTop: "2px dashed #c9bfa6", paddingTop: 10, fontSize: 13, lineHeight: 1.5 }}><b>Scoring &amp; forfeits:</b> {ROOM_RULES[room.game].scoring}</div>
+                <button type="button" className="btn btn-primary" style={{ boxShadow: "0 6px 0 #111" }} onClick={() => setRulesOpen(false)}>Got it</button>
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="chip" style={{ background: "var(--amber)" }}>{STEP[room.status].toUpperCase()}</span>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>Host: {room.is_host ? "you" : room.host_name}</span>

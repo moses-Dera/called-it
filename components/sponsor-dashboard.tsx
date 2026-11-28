@@ -11,8 +11,9 @@ import { OTHER_LEAGUE } from "@/lib/leagues";
 import { Chips } from "./chips";
 import { Img } from "./ui";
 import { zip321 } from "@/lib/zip321";
-import { hasWallet, getWallet } from "@/lib/wallet-sync";
-import { savedPhrase, zatsOf, openWallet } from "@/lib/in-app-wallet";
+import { hasWallet, getWallet, triggerSync } from "@/lib/wallet-sync";
+import { balanceOf, zatsOf, zecOf, openWallet } from "@/lib/in-app-wallet";
+import { unlockWalletPhrase } from "@/lib/wallet-unlock";
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 52);
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -103,17 +104,22 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
 
   async function payAll() {
     if (!canPayAll) return;
-    const phrase = savedPhrase(network);
-    if (!phrase) { showNotice({ title: "No wallet phrase found on this device. Set up your wallet first." }); return; }
     const total = due.reduce((s, p) => s + p.zec, 0);
-    const ok = await askConfirm({ title: `Pay ${due.length} winner${due.length > 1 ? "s" : ""}?`, body: `Total: ${total} ${network === "testnet" ? "TAZ" : "ZEC"} from your Called It wallet.`, confirmLabel: "Pay now" });
+    const unit = network === "testnet" ? "TAZ" : "ZEC";
+    const ok = await askConfirm({ title: `Pay ${due.length} winner${due.length > 1 ? "s" : ""}?`, body: `Total: ${total} ${unit} from your Called It wallet.`, confirmLabel: "Continue" });
     if (!ok) return;
     setPaying(true); setErr("");
     try {
+      const phrase = await unlockWalletPhrase(network, `pay ${due.length} winner${due.length > 1 ? "s" : ""} (${total} ${unit})`);
+      if (!phrase) { setPaying(false); return; }
       let wallet = getWallet();
       if (!wallet) wallet = await openWallet(network);
       const [acct] = await wallet.accounts.list();
-      if (!acct) throw new Error("No wallet account found.");
+      if (!acct) throw new Error("No wallet account found on this device. Restore your wallet in Vault first.");
+      const bal = await balanceOf(wallet, acct.id);
+      if (bal && bal.spendable <= zatsOf(total)) {
+        throw new Error(`Not enough spendable balance (have ${zecOf(bal.spendable)} ${unit}, need ${total} ${unit} plus fee).`);
+      }
       const mnemonic = new TextEncoder().encode(phrase.trim().toLowerCase().replace(/\s+/g, " "));
       let signer;
       try {
@@ -131,6 +137,7 @@ function PayPanel({ c, now, onChange }: { c: SponsorContest; now: number; onChan
         for (const p of due) {
           try { await sponsorMarkSent(c.id, p.rank, txid); } catch {}
         }
+        triggerSync(network);
         setN((x) => x + 1); onChange();
         showNotice({ title: `Paid ${due.length} winner${due.length > 1 ? "s" : ""}`, body: `Transaction: ${txid.slice(0, 16)}…` });
       } finally { await signer.dispose(); }

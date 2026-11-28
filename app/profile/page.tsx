@@ -19,7 +19,7 @@ export default function Profile() {
   const [name, setName] = useState<string | null>(null), [addr, setAddr] = useState<string | null>(null), [msg, setMsg] = useState("");
   const [showWalletSetup, setShowWalletSetup] = useState(false);
   const hasInApp = hasWallet(network);
-  const ws = useWalletSync(network, hasInApp);
+  const ws = useWalletSync(network, hasInApp, false);
   const nameV = name ?? s.profile.name, addrV = addr ?? s.profile.address;
 
   // Auto-save wallet address when in-app wallet is ready but no profile address set

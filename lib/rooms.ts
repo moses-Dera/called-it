@@ -7,14 +7,73 @@ import { cloudRpc, sb, useCloud } from "./cloud";
 import { createSeal, getState, markRevealed } from "./store";
 
 export type Game = "arcade" | "vote" | "closest" | "capsule" | "bluff" | "fog" | "werewolf";
-export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string; min: number; max: number }> = {
-  arcade: { name: "Rock Paper Scissors", img: "cover_arcade", blurb: "1 vs 1. Both moves sealed, then opened together.", min: 2, max: 2 },
-  vote: { name: "Secret Vote", img: "cover_vote", blurb: "Ask the group. Every vote sealed until all are in.", min: 2, max: 8 },
-  closest: { name: "Closest Wins", img: "cover_closest", blurb: "Everyone guesses a number. You referee and enter the answer.", min: 2, max: 8 },
-  capsule: { name: "Time Capsule", img: "cover_capsule", blurb: "Seal messages together. They open on a date you pick.", min: 1, max: 8 },
-  bluff: { name: "Bluff Vault", img: "cover_bluff", blurb: "2 to 6 players, 5 rounds. Same seven cards each, one sealed per round.", min: 2, max: 6 },
-  fog: { name: "Fog of War", img: "cover_fog", blurb: "1 vs 1. Hide five units, then fire sealed shots for six turns.", min: 2, max: 2 },
-  werewolf: { name: "Werewolf", img: "cover_werewolf", blurb: "5 to 8 players. Secret roles from a sealed deal; nights and day votes.", min: 5, max: 8 },
+export const GAME_INFO: Record<Game, { name: string; img: string; blurb: string; min: number; max: number; capLabel: string }> = {
+  arcade: { name: "Rock Paper Scissors", img: "cover_arcade", blurb: "1 vs 1. Both moves sealed, then opened together.", min: 2, max: 2, capLabel: "2 players (1v1)" },
+  vote: { name: "Secret Vote", img: "cover_vote", blurb: "Ask the group. Every vote sealed until all are in.", min: 2, max: 8, capLabel: "2 to 8 players" },
+  closest: { name: "Closest Wins", img: "cover_closest", blurb: "Players guess a number; host referees and enters the real answer.", min: 2, max: 8, capLabel: "Host + 2 to 7 players" },
+  capsule: { name: "Time Capsule", img: "cover_capsule", blurb: "Seal messages together. They open on a date you pick.", min: 1, max: 8, capLabel: "1 to 8 players" },
+  bluff: { name: "Bluff Vault", img: "cover_bluff", blurb: "2 to 6 players. Same seven cards each, one sealed per round.", min: 2, max: 6, capLabel: "2 to 6 players" },
+  fog: { name: "Fog of War", img: "cover_fog", blurb: "1 vs 1. Hide five units on a 6x6 grid, then fire sealed shots.", min: 2, max: 2, capLabel: "2 players (1v1)" },
+  werewolf: { name: "Werewolf", img: "cover_werewolf", blurb: "5 to 8 players. Secret roles from a sealed deal; nights and day votes.", min: 5, max: 8, capLabel: "5 to 8 players" },
+};
+
+export const ROOM_RULES: Record<Game, { steps: string[]; scoring: string }> = {
+  arcade: {
+    steps: [
+      "Exactly 2 players join (1 vs 1).",
+      "Both pick Rock, Paper, or Scissors. Your move is sealed until both lock in.",
+      "Moves open automatically. Rock beats Scissors, Scissors beats Paper, Paper beats Rock.",
+    ],
+    scoring: "Win a round +18 ranked points (up to 100 pts/day from friend games). Anyone who fails to seal or reveal before the move timer forfeits.",
+  },
+  vote: {
+    steps: [
+      "2 to 8 players join and the host sets the question and choices.",
+      "Everyone seals a vote privately before anyone can see the crowd.",
+      "Once everyone locks in (or the timer ends), all votes reveal together.",
+    ],
+    scoring: "Just for fun — no points awarded. Most votes wins (ties show multiple winners).",
+  },
+  closest: {
+    steps: [
+      "Host acts as referee (doesn't guess) + 2 to 7 players guess a number.",
+      "All guesses stay sealed until every player locks in.",
+      "Once guesses open, the host enters the real answer to settle the round.",
+    ],
+    scoring: "Closest absolute guess wins +40 ranked points (ties share the win). Guesses from players who miss the timer forfeit.",
+  },
+  capsule: {
+    steps: [
+      "1 to 8 players write and seal a private message (up to 600 chars).",
+      "Text stays on your device until the chosen opening date & time; only the seal hash goes to the server.",
+      "On opening day, devices reveal their messages together.",
+    ],
+    scoring: "Memories only — no ranked points. Keep the device/browser you sealed on until opening day.",
+  },
+  bluff: {
+    steps: [
+      "2 to 6 players each get the same 7 cards: 2, 4, 6, 8, 10, Steal, and Shield (each card works once).",
+      "Play 3, 5, or 7 rounds (set by host). Seal one card per round.",
+      "Shield beats Steal; Steal beats any number card; otherwise the highest number takes the 10-chip pot (ties split).",
+    ],
+    scoring: "Most chips after the final round wins +30 ranked points (up to 100 pts/day). Miss the timer and you sit out that round.",
+  },
+  fog: {
+    steps: [
+      "Exactly 2 players (1 vs 1) on 6x6 grids.",
+      "First hide 5 units secretly, then alternate turns firing 1 to 3 sealed shots (4, 6, or 8 turns total).",
+      "After each volley, devices automatically report hits; final placements verify every report.",
+    ],
+    scoring: "Most hits wins +40 ranked points. Misreporting hits or missing the placement/report timer forfeits the match.",
+  },
+  werewolf: {
+    steps: [
+      "5 to 8 players: 5–6 players get 1 Werewolf + 1 Seer + Villagers; 7–8 players get 2 Werewolves + 1 Seer + Villagers.",
+      "Night: Wolves pick a victim, Seer inspects someone, Villagers tap Sleep (everyone seals so nobody spots who is acting).",
+      "Day: Everyone discusses and votes out one suspect (a tie or all skips means nobody leaves).",
+    ],
+    scoring: "Village wins (+35 pts) when all wolves are out. Wolves win (+35 pts) when they equal or outnumber the rest. Role deal hash is verifiable at the end.",
+  },
 };
 export const BLUFF_CARDS = ["2", "4", "6", "8", "10", "Steal", "Shield"];
 

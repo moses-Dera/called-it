@@ -6,7 +6,8 @@ import { zecOf } from "@/lib/in-app-wallet";
 export function WalletStatus() {
   const network = useNetwork();
   const has = hasWallet(network);
-  const ws = useWalletSync(network, has);
+  // Read wallet state passively here; Vault owns background syncing.
+  const ws = useWalletSync(network, has, false);
   if (!has) return null;
   const unit = network === "testnet" ? "TAZ" : "ZEC";
   const bal = ws.balance ? `${zecOf(ws.balance.spendable)} ${unit}` : null;
