@@ -41,7 +41,7 @@ export function SidebarAccount() {
       <AdminLink uid={user.id} />
       <Link href="/profile" style={{ flexDirection: "column", alignItems: "flex-start", gap: 2, background: "var(--panel)", border: "2px solid var(--line)" }}>
         <span style={{ fontSize: 13, color: "var(--text)" }}>{name || user.user_metadata?.full_name || "Signed in"}</span>
-        <span style={{ fontSize: 11, color: c.status === "error" ? "var(--red)" : c.status === "offline" ? "var(--amber)" : "var(--lime)", fontWeight: 700 }}>{c.status === "error" ? "Sync problem" : c.status === "offline" ? "Offline, retrying…" : c.status === "syncing" ? "Syncing…" : "✓ Progress backed up"}</span>
+        <span style={{ fontSize: 11, color: c.status === "error" || c.status === "offline" ? "var(--amber)" : c.status === "syncing" ? "var(--amber)" : "var(--lime)", fontWeight: 700 }}>{c.status === "error" || c.status === "offline" ? "Syncing…" : c.status === "syncing" ? "Syncing…" : "Backed up"}</span>
       </Link>
       </>
     );

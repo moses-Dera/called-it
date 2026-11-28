@@ -139,7 +139,7 @@ export default function Profile() {
           {user ? (
             <>
               <div style={{ fontSize: 13, color: "#c9d3de", lineHeight: 1.5 }}>Signed in as <b style={{ color: "var(--text)" }}>{user.email}</b>. Your profile, points and seal proofs are backed up, and your sealed moves follow you to any device where you sign in. Other players can never see them before the reveal.</div>
-              <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" ? "var(--red)" : cloud.status === "offline" ? "var(--amber)" : "var(--lime)" }}>{cloud.status === "error" ? "Sync problem: " + cloud.error : cloud.status === "offline" ? "Offline, retrying…" : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
+              <div role="status" style={{ fontSize: 12, fontWeight: 700, color: cloud.status === "error" || cloud.status === "offline" || cloud.status === "syncing" ? "var(--amber)" : "var(--lime)" }}>{cloud.status === "error" || cloud.status === "offline" ? "Syncing…" : cloud.status === "syncing" ? "Syncing…" : "Backed up"}</div>
               <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
             </>
           ) : (
