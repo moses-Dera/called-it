@@ -10,7 +10,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const h = clean((await params).handle);
   const title = `@${h} on Called It`;
   const description = `@${h}'s football calls, contest wins and ZEC prizes on Called It. Every call sealed before kickoff.`;
-  return { title, description, alternates: { canonical: `/@${h}` }, openGraph: { title, description, url: `/@${h}` } };
+  return {
+    title,
+    description,
+    alternates: { canonical: `/@${h}` },
+    openGraph: { title, description, url: `/@${h}`, images: [{ url: "/api/og", width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, description, images: ["/api/og"] },
+  };
 }
 
 async function View({ params }: Props) {

@@ -17,9 +17,8 @@ type Match = { id: number; utcDate: string; status: string; homeTeam: { name: st
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const token = new URL(req.url).searchParams.get("token");
-  const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
-  const isVercelCron = req.headers.get("user-agent") === "vercel-cron/1.0";
-  if (!isVercelCron && (!secret || (token !== secret && authHeader !== secret)))
+  const authHeader = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!secret || (token !== secret && authHeader !== secret))
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const fdKey = process.env.FOOTBALL_DATA_KEY;

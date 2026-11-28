@@ -11,9 +11,10 @@ import { SponsorPrizes } from "@/components/sponsor-prizes";
 import { WalletStatus } from "@/components/wallet-status";
 import { WalletSetup } from "@/components/wallet-setup";
 import { explorerTx } from "@/lib/explorer";
-import { addressOf, createAccount, markWalletCreated, openWallet, sendZec, zatsOf } from "@/lib/in-app-wallet";
+import { addressOf, createAccount, isPhrase, markWalletCreated, openWallet, sendZec, zatsOf } from "@/lib/in-app-wallet";
+import { encryptPhrase } from "@/lib/wallet-crypto";
 import { unlockWalletPhrase } from "@/lib/wallet-unlock";
-import { requestWithdrawal, useCloud, useFixtures, useTipHistory, useNetwork } from "@/lib/cloud";
+import { requestWithdrawal, saveWalletBackup, useCloud, useFixtures, useTipHistory, useNetwork, verifyWalletBackup } from "@/lib/cloud";
 import { getWallet, hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 import { fixtureOf, settlePick } from "@/lib/data";
@@ -39,6 +40,49 @@ export default function Vault() {
   const [sendTo, setSendTo] = useState(""), [sendAmt, setSendAmt] = useState(""), [sendMemo, setSendMemo] = useState("");
   const [sendStatus, setSendStatus] = useState(""), [sendTx, setSendTx] = useState(""), [sending, setSending] = useState(false);
   const [restoring, setRestoring] = useState(false), [restoreMsg, setRestoreMsg] = useState("");
+  const [showSeedRestore, setShowSeedRestore] = useState(false);
+  const [seedInput, setSeedInput] = useState(""), [seedPass, setSeedPass] = useState(""), [seedPass2, setSeedPass2] = useState("");
+  const [recoveryWords, setRecoveryWords] = useState<string[] | null>(null);
+  const [recoveryMsg, setRecoveryMsg] = useState("");
+
+  async function restoreFromWords() {
+    const clean = seedInput.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!isPhrase(clean)) return setRestoreMsg("Those 24 recovery words aren't valid.");
+    if (seedPass.length < 8) return setRestoreMsg("Choose a passphrase of at least 8 characters.");
+    if (seedPass !== seedPass2) return setRestoreMsg("Passphrases don't match.");
+    setRestoring(true);
+    setRestoreMsg("Restoring wallet from your 24 words…");
+    try {
+      const w = await openWallet(network);
+      const acct = await createAccount(w, network, clean, false);
+      const a = await addressOf(w, acct.id);
+      if (signedIn) {
+        const enc = await encryptPhrase(clean, seedPass);
+        await saveWalletBackup(network, enc.ciphertext, enc.iv, enc.salt, enc.kdf);
+        await verifyWalletBackup(network);
+      }
+      markWalletCreated(network);
+      if (a && !saved) saveProfile({ address: a });
+      setSeedInput(""); setSeedPass(""); setSeedPass2(""); setShowSeedRestore(false);
+      await triggerSync(network);
+      setRestoreMsg("Wallet restored from your 24 words.");
+    } catch (e) {
+      setRestoreMsg((e as Error).message ?? "Could not restore wallet from phrase.");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  async function revealRecoveryWords() {
+    setRecoveryMsg("");
+    try {
+      const phrase = await unlockWalletPhrase(network, "view your 24 recovery words");
+      if (!phrase) return;
+      setRecoveryWords(phrase.trim().split(/\s+/));
+    } catch (e) {
+      setRecoveryMsg((e as Error).message ?? "Could not unlock recovery words.");
+    }
+  }
 
   async function restoreWallet() {
     setRestoreMsg("");
@@ -137,9 +181,25 @@ export default function Vault() {
             <span className="eyebrow" style={{ color: "#5b6b12" }}>Called It wallet</span>
             <span style={{ fontSize: 13, fontWeight: 600 }}>Get a shielded wallet built into the app. Prizes arrive here automatically.</span>
             <button className="btn" style={{ background: "var(--lime)", color: "#111", border: "2px solid #111" }} onClick={() => setShowSetup(true)}>Set up wallet</button>
-            <button type="button" disabled={restoring} onClick={restoreWallet} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, color: "#4a4436", textDecoration: "underline", cursor: "pointer", alignSelf: "flex-start" }}>
-              {restoring ? "Restoring…" : "Already backed up? Restore on this device"}
-            </button>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <button type="button" disabled={restoring} onClick={restoreWallet} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, color: "#4a4436", textDecoration: "underline", cursor: "pointer" }}>
+                {restoring ? "Restoring…" : "Restore from cloud backup"}
+              </button>
+              <button type="button" disabled={restoring} onClick={() => { setShowSeedRestore((v) => !v); setRestoreMsg(""); }} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, color: "#4a4436", textDecoration: "underline", cursor: "pointer" }}>
+                Restore using 24 words
+              </button>
+            </div>
+            {showSeedRestore && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#fff", border: "2px solid #111", borderRadius: 14, padding: 12 }}>
+                <span style={{ fontSize: 12, fontWeight: 800 }}>RESTORE FROM 24 RECOVERY WORDS</span>
+                <textarea rows={3} value={seedInput} onChange={(e) => setSeedInput(e.target.value)} placeholder="Enter your 24 words separated by spaces…" autoComplete="off" spellCheck={false} className="mono" style={{ borderRadius: 10, border: "2px solid #111", padding: 8, fontSize: 12, width: "100%", color: "#111", background: "var(--paper)" }} />
+                <input type="password" value={seedPass} onChange={(e) => setSeedPass(e.target.value)} placeholder="New passphrase (8+ characters)" autoComplete="new-password" style={{ height: 40, borderRadius: 10, border: "2px solid #111", padding: "0 10px", fontSize: 13, color: "#111", background: "#fff" }} />
+                <input type="password" value={seedPass2} onChange={(e) => setSeedPass2(e.target.value)} placeholder="Confirm passphrase" autoComplete="new-password" style={{ height: 40, borderRadius: 10, border: "2px solid #111", padding: "0 10px", fontSize: 13, color: "#111", background: "#fff" }} />
+                <button type="button" disabled={restoring} onClick={restoreFromWords} className="btn" style={{ background: "#111", color: "var(--lime)", border: 0, minHeight: 40 }}>
+                  {restoring ? "Restoring…" : "Import 24 words"}
+                </button>
+              </div>
+            )}
             {restoreMsg && <span style={{ fontSize: 12, fontWeight: 700, color: "#9a2d1d" }}>{restoreMsg}</span>}
           </section>
         )}
@@ -211,10 +271,18 @@ export default function Vault() {
                   : ws.status === "syncing" ? "Syncing latest blocks…"
                   : ws.height ? `Synced to block ${ws.height.toLocaleString()}` : "Ready"}
               </span>
-              {(ws.status === "error" || ws.status === "ready") && (
-                <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                {!ws.missingAccount && (
+                  <button type="button" onClick={revealRecoveryWords} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#4a4436", cursor: "pointer" }}>
+                    View 24 recovery words
+                  </button>
+                )}
+                {(ws.status === "error" || ws.status === "ready") && (
+                  <button type="button" onClick={() => triggerSync(network)} style={{ background: "none", border: 0, padding: 0, fontSize: 12, fontWeight: 800, textDecoration: "underline", color: "#111", cursor: "pointer" }}>Sync now</button>
+                )}
+              </div>
             </div>
+            {recoveryMsg && <span style={{ fontSize: 12, fontWeight: 700, color: "#9a2d1d" }}>{recoveryMsg}</span>}
             {showSend && !ws.missingAccount && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "2px dashed #c9bfa6", paddingTop: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 800 }}>SEND TO ANY EXTERNAL SHIELDED WALLET</span>
@@ -382,6 +450,29 @@ export default function Vault() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+      {recoveryWords && (
+        <div role="dialog" aria-modal="true" aria-label="24 recovery words" onClick={() => setRecoveryWords(null)} className="guide" style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(5,7,10,.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div className="sheet paper" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460, borderRadius: 26, padding: "22px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <span className="display" style={{ fontSize: 22 }}>24 recovery words</span>
+              <span className="chip" style={{ background: network === "testnet" ? "var(--amber)" : "var(--lime)", color: "#111", border: "2px solid #111" }}>{network.toUpperCase()}</span>
+            </div>
+            <div style={{ background: "rgba(154,45,29,.1)", border: "2px solid #9a2d1d", borderRadius: 12, padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#9a2d1d", lineHeight: 1.45 }}>
+              Anyone with these 24 words controls your funds. Never screenshot, share, or paste them into another site. Write them on paper.
+            </div>
+            <div style={{ background: "#fff", border: "2px solid #111", borderRadius: 14, padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px 10px" }}>
+              {recoveryWords.map((w, i) => (
+                <span key={i} className="mono" style={{ fontSize: 12, fontWeight: 700, color: "#111" }}>
+                  <b style={{ color: "#6b6455", fontWeight: 600 }}>{i + 1}.</b> {w}
+                </span>
+              ))}
+            </div>
+            <button type="button" onClick={() => setRecoveryWords(null)} className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }}>
+              Hide recovery words
+            </button>
           </div>
         </div>
       )}

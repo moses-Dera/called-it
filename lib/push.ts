@@ -35,26 +35,40 @@ export async function sendKickoffReminders(sb: SupabaseClient) {
   const expired: string[] = [];
 
   for (const fixture of fixtures) {
+    // Claim the fixture atomically before fanning out pushes so concurrent /api/live calls never double-notify.
+    const { data: claimed } = await sb
+      .from("fixtures")
+      .update({ notified_at: new Date().toISOString() })
+      .eq("id", fixture.id)
+      .is("notified_at", null)
+      .select("id")
+      .maybeSingle();
+    if (!claimed) continue;
+
     const payload = JSON.stringify({
       title: `${fixture.home} vs ${fixture.away}`,
       body: "Starts in ~1 hour — seal your call now!",
       tag: `kickoff-${fixture.id}`,
       url: `/seal?f=${fixture.id}`,
     });
-    for (const sub of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: sub.keys as { p256dh: string; auth: string } },
-          payload,
-          { TTL: 3600 },
-        );
-        sent++;
-      } catch (err: unknown) {
-        const status = (err as { statusCode?: number }).statusCode;
-        if (status === 410 || status === 404) expired.push(sub.endpoint);
-      }
+    for (let i = 0; i < subs.length; i += 40) {
+      const batch = subs.slice(i, i + 40);
+      await Promise.allSettled(
+        batch.map(async (sub) => {
+          try {
+            await webpush.sendNotification(
+              { endpoint: sub.endpoint, keys: sub.keys as { p256dh: string; auth: string } },
+              payload,
+              { TTL: 3600 },
+            );
+            sent++;
+          } catch (err: unknown) {
+            const status = (err as { statusCode?: number }).statusCode;
+            if (status === 410 || status === 404) expired.push(sub.endpoint);
+          }
+        }),
+      );
     }
-    await sb.from("fixtures").update({ notified_at: new Date().toISOString() }).eq("id", fixture.id);
   }
 
   if (expired.length) await sb.from("push_subscriptions").delete().in("endpoint", expired);

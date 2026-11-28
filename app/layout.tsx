@@ -7,13 +7,24 @@ import { Shell } from "@/components/shell";
 const display = Bricolage_Grotesque({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-display", display: "swap" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
+const appUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://called-it-kappa.vercel.app");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: { default: "Called It", template: "%s — Called It" },
   description: "Seal your call now. Prove it later. Nobody can cheat.",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "Called It", statusBarStyle: "black-translucent" },
-  openGraph: { type: "website", siteName: "Called It", title: "Called It", description: "Seal your call before kickoff. Prove it after. Nobody can cheat." },
-  twitter: { card: "summary_large_image" },
+  openGraph: {
+    type: "website",
+    siteName: "Called It",
+    title: "Called It",
+    description: "Seal your call before kickoff. Prove it after. Nobody can cheat.",
+    images: [{ url: "/api/og", width: 1200, height: 630, alt: "Called It — Seal your call before kickoff" }],
+  },
+  twitter: { card: "summary_large_image", images: ["/api/og"] },
   other: { google: "notranslate" },
 };
 export const viewport: Viewport = { themeColor: "#0B0F14", width: "device-width", initialScale: 1, viewportFit: "cover" };

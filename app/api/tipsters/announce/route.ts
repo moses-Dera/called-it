@@ -30,13 +30,13 @@ export async function POST(req: Request) {
   if (!fixture || Date.parse(seal.received_at) >= Date.parse(fixture.kickoff)) return NextResponse.json({ sent: 0, reason: "after kickoff" });
   if (first?.id !== seal.id) return NextResponse.json({ sent: 0, reason: "only the first tip on a match counts" });
 
-  // Claim the announcement first, so a retry never notifies twice.
-  const { error: dup } = await sb.from("tip_announcements").insert({ user_id: uid, fixture_id: fixture.id, seal_id: seal.id });
-  if (dup) return NextResponse.json({ sent: 0, reason: "already announced" });
-
   if (!vapidPublic || !vapidPrivate) return NextResponse.json({ sent: 0, reason: "push not configured" });
   const { data: followers } = await sb.from("follows").select("follower").eq("tipster", uid);
   if (!followers?.length) return NextResponse.json({ sent: 0 });
+
+  // Claim the announcement only when push is configured and followers exist, so a retry never notifies twice.
+  const { error: dup } = await sb.from("tip_announcements").insert({ user_id: uid, fixture_id: fixture.id, seal_id: seal.id });
+  if (dup) return NextResponse.json({ sent: 0, reason: "already announced" });
   const { data: subs } = await sb.from("push_subscriptions").select("endpoint, keys").in("user_id", followers.map((f) => f.follower));
 
   webpush.setVapidDetails("mailto:notifications@calledit.app", vapidPublic, vapidPrivate);
