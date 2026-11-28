@@ -14,7 +14,7 @@ import { explorerTx } from "@/lib/explorer";
 import { addressOf, createAccount, isPhrase, markWalletCreated, openWallet, sendZec, zatsOf } from "@/lib/in-app-wallet";
 import { encryptPhrase } from "@/lib/wallet-crypto";
 import { unlockWalletPhrase } from "@/lib/wallet-unlock";
-import { requestWithdrawal, saveWalletBackup, useCloud, useFixtures, useTipHistory, useNetwork, verifyWalletBackup } from "@/lib/cloud";
+import { getWalletBackup, requestWithdrawal, saveWalletBackup, useCloud, useFixtures, useTipHistory, useNetwork, verifyWalletBackup } from "@/lib/cloud";
 import { getWallet, hasWallet, triggerSync, useWalletSync, zecOf } from "@/lib/wallet-sync";
 import { isShielded, saveProfile, short, totals, useStore, verifySeal, withdrawAll, type Seal } from "@/lib/store";
 import { fixtureOf, settlePick } from "@/lib/data";
@@ -50,6 +50,18 @@ export default function Vault() {
     if (!isPhrase(clean)) return setRestoreMsg("Those 24 recovery words aren't valid.");
     if (seedPass.length < 8) return setRestoreMsg("Choose a passphrase of at least 8 characters.");
     if (seedPass !== seedPass2) return setRestoreMsg("Passphrases don't match.");
+    if (signedIn) {
+      const existing = await getWalletBackup(network).catch(() => null);
+      if (existing) {
+        const ok = await askConfirm({
+          title: "Replace existing cloud backup?",
+          body: `You already have a backed-up ${network} wallet on this account. Save your old 24 words first — replacing it means the old wallet cannot be restored from your account.`,
+          confirmLabel: "Replace backup",
+          danger: true,
+        });
+        if (!ok) return;
+      }
+    }
     setRestoring(true);
     setRestoreMsg("Restoring wallet from your 24 words…");
     try {

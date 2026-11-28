@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { newPhrase, openWallet, createAccount, addressOf, markWalletCreated } from "@/lib/in-app-wallet";
 import { encryptPhrase, quizIndices } from "@/lib/wallet-crypto";
-import { saveWalletBackup, verifyWalletBackup } from "@/lib/cloud";
+import { getWalletBackup, saveWalletBackup, verifyWalletBackup } from "@/lib/cloud";
+import { askConfirm } from "@/components/dialog";
 import type { Network } from "@/lib/zaddr";
 
 type Step = "passphrase" | "creating" | "show-phrase" | "quiz" | "done";
@@ -18,6 +19,16 @@ export function WalletSetup({ network, onDone }: { network: Network; onDone: (ad
   async function create() {
     if (pass.length < 8) return setError("At least 8 characters.");
     if (pass !== pass2) return setError("Passphrases don't match.");
+    const existing = await getWalletBackup(network).catch(() => null);
+    if (existing) {
+      const ok = await askConfirm({
+        title: "Replace existing wallet backup?",
+        body: `You already have a backed-up ${network} wallet on this account. Creating a new one overwrites that backup — make sure you have saved the old 24 words first.`,
+        confirmLabel: "Create & replace",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setError(""); setStep("creating");
     try {
       const p = newPhrase();

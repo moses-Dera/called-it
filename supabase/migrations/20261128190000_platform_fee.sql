@@ -145,3 +145,22 @@ begin
   end if;
   return public.set_winner_status(p_contest_id, p_rank, array['pending'], 'sending') is not null;
 end $$;
+
+create or replace function public.admin_overview() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform public.require_admin();
+  return jsonb_build_object(
+    'players', (select count(*) from public.profiles),
+    'wallets_created', (select count(distinct user_id) from public.wallet_backups),
+    'verified_backups', (select count(distinct user_id) from public.wallet_backups where backup_verified),
+    'seals', (select count(*) from public.seals),
+    'ranked_points', (select coalesce(sum(points), 0) from public.rewards where verified),
+    'requested_zec', (select coalesce(sum(amount), 0) from public.withdrawals where status = 'requested'),
+    'total_fees', (select coalesce(sum(fee_amount), 0) from public.withdrawals where status <> 'rejected'),
+    'withdrawals', (select coalesce(jsonb_agg(w order by w.created_at desc), '[]'::jsonb) from (
+        select w.id, w.address, w.amount, w.status, w.txid, w.created_at, coalesce(nullif(p.name, ''), 'Player') as name
+        from public.withdrawals w left join public.profiles p on p.id = w.user_id
+        order by w.created_at desc limit 50) w)
+  );
+end $$;
