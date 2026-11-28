@@ -8,10 +8,12 @@ export function WalletStatus() {
   const has = hasWallet(network);
   const ws = useWalletSync(network, has);
   if (!has) return null;
-  const dot = ws.status === "syncing" || ws.status === "opening" ? "var(--amber)" : ws.status === "error" ? "#e44" : "var(--lime)";
-  const label = ws.status === "opening" ? "Opening wallet…"
+  const dot = ws.status === "syncing" || ws.status === "opening" ? "var(--amber)"
+    : ws.status === "error" ? "var(--amber)"
+    : "var(--lime)";
+  const label = ws.status === "opening" ? "Connecting…"
     : ws.status === "syncing" ? "Syncing…"
-    : ws.status === "error" ? "Wallet offline"
+    : ws.status === "error" ? "Reconnecting…"
     : ws.balance ? `${zecOf(ws.balance.spendable)} ${network === "testnet" ? "TAZ" : "ZEC"}`
     : "Wallet ready";
   return (

@@ -49,7 +49,7 @@ function DeskPanelInner() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><span style={{ fontSize: 13, fontWeight: 700 }}>Prize balance</span><span className="display" style={{ fontSize: 24 }}>{t.available.toFixed(4)} ZEC</span></div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/vault" className="btn" style={{ flex: 1, minHeight: 44, background: "#111", color: "var(--amber)" }}>Open Vault</Link>
-          <Link href="/profile" className="btn btn-paper" style={{ flex: 1, minHeight: 44 }}>{s.profile.address ? "Wallet " + short(s.profile.address) : "Add wallet"}</Link>
+          <Link href="/profile" className="btn btn-paper" style={{ flex: 1, minHeight: 44 }}>{s.profile.address ? "Wallet " + short(s.profile.address) : "Profile"}</Link>
         </div>
       </section>
 

@@ -87,9 +87,11 @@ export default function Profile() {
           </>}
           <label htmlFor="name" style={{ fontSize: 12, fontWeight: 800 }}>Display name</label>
           <input id="name" value={nameV} onChange={(e) => setName(e.target.value)} placeholder="What friends see" maxLength={24} autoComplete="nickname" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 16, fontWeight: 600 }} />
-          <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Prize wallet (shielded Zcash address)</label>
-          <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
-          <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>{hasWallet(network) ? "Managed by your Called It wallet. You can paste a different address to override." : "Contest prizes are paid straight here. Only the sponsor paying you sees it."}{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
+          {!hasInApp && <>
+            <label htmlFor="addr" style={{ fontSize: 12, fontWeight: 800, marginTop: 4 }}>Prize wallet (shielded Zcash address)</label>
+            <input id="addr" value={addrV} onChange={(e) => setAddr(e.target.value)} placeholder="Paste your Zcash address" autoComplete="off" spellCheck={false} className="mono" style={{ height: 48, borderRadius: 14, border: "2px solid #111", background: "#fff", color: "#111", padding: "0 12px", fontSize: 13 }} />
+            <div style={{ fontSize: 12, color: "#4a4436", lineHeight: 1.5 }}>Contest prizes are paid straight here. Only the sponsor paying you sees it.{s.profile.address ? ` Current: ${short(s.profile.address)}` : ""}</div>
+          </>}
           <button className="btn" style={{ background: "#111", color: "var(--lime)", border: 0 }} onClick={save}>Save profile</button>
           {msg && <div role="status" style={{ fontSize: 13, fontWeight: 700 }}>{msg}</div>}
         </section>

@@ -93,7 +93,7 @@ export default function Vault() {
         </section>
       )}
 
-      {t.available <= 0 ? (
+      {!hasInApp && (t.available <= 0 ? (
       <section className="vault-bal" style={{ margin: "0 20px", borderRadius: 26, background: "var(--amber)", color: "#111", border: "3px solid #111", boxShadow: "5px 5px 0 var(--text)", padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
         <span className="eyebrow">Your wallet</span>
         <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>Contest prizes are paid straight to this shielded address by whoever runs the contest.</span>
@@ -125,7 +125,7 @@ export default function Vault() {
         <button className="btn" style={{ background: "#111", color: "var(--amber)", border: 0, fontSize: 16 }} onClick={withdraw}>{saved ? "Withdraw privately" : "Save wallet and withdraw"}</button>
         {msg && <div role="status" style={{ fontSize: 12, fontWeight: 700 }}>{msg}</div>}
       </section>
-      )}
+      ))}
 
       <SponsorPrizes />
 

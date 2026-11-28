@@ -9,6 +9,7 @@ import { showNotice } from "@/components/dialog";
 import { art } from "@/lib/data";
 import { joinContest, leaveContest, useCloud, useContestBoard, useAllContests, useContestEntryCount, useFixtures, useMyContestIds, useNetwork, useSponsorRecords, refreshContests } from "@/lib/cloud";
 import { isShielded, useStore } from "@/lib/store";
+import { hasWallet } from "@/lib/wallet-sync";
 import { explorerTx } from "@/lib/explorer";
 import { SponsorRecordLine, WinnerPayState } from "@/components/sponsor-record";
 import { ContestPlay } from "@/components/contest-play";
@@ -111,7 +112,7 @@ export function ContestView({ id }: { id: string }) {
                 {joining ? "…" : joined ? "Leave contest" : "Join contest"}
               </button>
             )}
-            {joined && c.prize_zec > 0 && !isShielded(myAddress, network) && (
+            {joined && c.prize_zec > 0 && !isShielded(myAddress, network) && !hasWallet(network) && (
               <Link href="/profile" style={{ fontSize: 13, fontWeight: 800, textDecoration: "underline" }}>Add your Zcash wallet address in Profile so you can be paid if you win →</Link>
             )}
             {c.status === "open" && !signedIn && (

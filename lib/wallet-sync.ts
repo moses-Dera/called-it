@@ -63,6 +63,7 @@ async function doSync(network: Network) {
     } catch {}
   } catch (e) {
     set({ status: "error", error: (e as Error).message ?? String(e) });
+    setTimeout(() => doSync(network), 10_000);
   }
   syncing = false;
 }
